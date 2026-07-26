@@ -1,0 +1,26 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+android/local.properties
+android/key.properties
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
+# Generated from KiBoard-protocol/deck-tokens.json — never edit by hand, never commit
+lib/ui/tokens.g.dart
+
+# Signing keys must never be committed
+*.keystore
+*.jks
+*.p12
+
+# Editors / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+.DS_Store
+Thumbs.db
