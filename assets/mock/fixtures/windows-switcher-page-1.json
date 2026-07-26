@@ -1,0 +1,70 @@
+{
+  "v": 2,
+  "type": "windows",
+  "grid": {
+    "rows": 3,
+    "cols": 5
+  },
+  "page": 1,
+  "pages": 2,
+  "keys": [
+    {
+      "pos": 0,
+      "id": 100015,
+      "label": "Paint",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "Untitled"
+    },
+    {
+      "pos": 1,
+      "id": 100016,
+      "label": "Teams",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "Meeting"
+    },
+    {
+      "pos": 2,
+      "id": 100017,
+      "label": "Zoom",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "Call with Ricardo"
+    },
+    {
+      "pos": 3,
+      "id": 100018,
+      "label": "Terminal",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "PowerShell",
+      "state": {
+        "minimized": true
+      }
+    },
+    {
+      "pos": 4,
+      "id": 100019,
+      "label": "Settings",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    },
+    {
+      "pos": 5,
+      "id": 100020,
+      "label": "PowerPoint",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "Pitch.pptx"
+    },
+    {
+      "pos": 6,
+      "id": 100021,
+      "label": "Outlook",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "Inbox"
+    },
+    {
+      "pos": 7,
+      "id": 100022,
+      "label": "Figma",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "KiBoard mock-up"
+    }
+  ]
+}

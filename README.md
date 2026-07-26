@@ -23,8 +23,11 @@ does not fit lives on another page.
 
 ## Status
 
-**Not started.** Next step is phase FP: the mock-up running on fixtures from `KiBoard-protocol`,
-with no host communication. See the implementation plan in `KiBoard-protocol`.
+**Phase FP mock-up built.** The whole visual layer — bezel, keys, pagination, folders, short/long/
+double press, discovery and pairing screens, the window switcher — runs on fixtures copied from
+`KiBoard-protocol` (see `lib/mock/README.md`) with no host communication, behind a `MockLayoutSource`
+that F3 swaps for the real WebSocket client. `flutter analyze` and `flutter test` (including an
+end-to-end demo-flow test) are clean. Next step is **F0**: pin `KiBoard-protocol` as a submodule.
 
 ## Stack
 

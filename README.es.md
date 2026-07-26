@@ -23,9 +23,12 @@ cabe vive en otra página.
 
 ## Estado
 
-**Sin empezar.** El siguiente paso es la fase FP: la maqueta corriendo sobre los fixtures de
-`KiBoard-protocol`, sin comunicación con el host. El plan de implementación está en
-`KiBoard-protocol`.
+**Maqueta de la fase FP construida.** Toda la capa visual —marco, teclas, paginación, carpetas,
+pulsación corta/larga/doble, pantallas de descubrimiento y emparejamiento, selector de ventanas—
+corre sobre fixtures copiados de `KiBoard-protocol` (ver `lib/mock/README.md`) sin comunicación con
+el host, detrás de un `MockLayoutSource` que F3 reemplaza por el cliente WebSocket real.
+`flutter analyze` y `flutter test` (incluyendo un test end-to-end del flujo de demo) están limpios.
+El siguiente paso es **F0**: fijar `KiBoard-protocol` como submódulo.
 
 ## Stack
 

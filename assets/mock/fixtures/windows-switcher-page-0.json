@@ -1,0 +1,122 @@
+{
+  "v": 2,
+  "type": "windows",
+  "grid": {
+    "rows": 3,
+    "cols": 5
+  },
+  "page": 0,
+  "pages": 2,
+  "keys": [
+    {
+      "pos": 0,
+      "id": 100000,
+      "label": "Photoshop",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "photo.psd",
+      "state": {
+        "current": true
+      }
+    },
+    {
+      "pos": 1,
+      "id": 100001,
+      "label": "Google Chrome",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "GitHub - maxia-cl/KiBoard-protocol"
+    },
+    {
+      "pos": 2,
+      "id": 100002,
+      "label": "Slack",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "#general"
+    },
+    {
+      "pos": 3,
+      "id": 100003,
+      "label": "Excel",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "Q3 budget.xlsx"
+    },
+    {
+      "pos": 4,
+      "id": 100004,
+      "label": "Notepad",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "notes.txt"
+    },
+    {
+      "pos": 5,
+      "id": 100005,
+      "label": "File Explorer",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "Downloads",
+      "state": {
+        "minimized": true
+      }
+    },
+    {
+      "pos": 6,
+      "id": 100006,
+      "label": "OBS Studio",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    },
+    {
+      "pos": 7,
+      "id": 100007,
+      "label": "Spotify",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "Now playing"
+    },
+    {
+      "pos": 8,
+      "id": 100008,
+      "label": "VS Code",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "generate-tokens.mjs"
+    },
+    {
+      "pos": 9,
+      "id": 100009,
+      "label": "Discord",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "#dev"
+    },
+    {
+      "pos": 10,
+      "id": 100010,
+      "label": "Firefox",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "Docs"
+    },
+    {
+      "pos": 11,
+      "id": 100011,
+      "label": "Steam",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "state": {
+        "minimized": true
+      }
+    },
+    {
+      "pos": 12,
+      "id": 100012,
+      "label": "Word",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "sub": "Report.docx"
+    },
+    {
+      "pos": 13,
+      "id": 100013,
+      "label": "Calculator",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    },
+    {
+      "pos": 14,
+      "id": 100014,
+      "label": "Task Manager",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    }
+  ]
+}
