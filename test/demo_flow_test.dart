@@ -70,6 +70,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300)); // let it finish
 
     expect(find.text('"M3X\'s PC" wants to connect'), findsOneWidget);
+
+    // The connect attempt is BOUNDED now: advancing past the handshake timeout lets it fail
+    // cleanly and drains the timer, instead of leaving the screen (and the test) hanging.
+    await tester.pump(const Duration(seconds: 9));
   });
 
   testWidgets('DiscoverScreen shows a rescan option when nothing is found', (tester) async {

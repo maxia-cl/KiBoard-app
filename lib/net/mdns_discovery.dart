@@ -18,7 +18,11 @@ class MdnsDiscovery implements Discovery {
     final found = <String, DiscoveredHost>{};
     nsd.Discovery? discovery;
     try {
-      discovery = await nsd.startDiscovery('_kiboard._tcp');
+      // `startDiscovery` can HANG rather than fail when the platform's NSD service is left in a
+      // bad state — observed right after an app restart orphaned a registration ("NsdService: id
+      // N for 5 has no client mapping"). Unbounded, that leaves the screen spinning forever with
+      // no way back; bounded, the caller simply gets an empty list and offers "Scan again".
+      discovery = await nsd.startDiscovery('_kiboard._tcp').timeout(window);
       discovery.addServiceListener((service, status) {
         if (status != nsd.ServiceStatus.found) return;
         final host = _parse(service);
@@ -26,10 +30,15 @@ class MdnsDiscovery implements Discovery {
       });
       await Future.delayed(window);
     } catch (_) {
-      // No mDNS on this network, or the platform denied the permission: return what we have
-      // (possibly nothing) — the caller falls back to QR/manual IP.
+      // No mDNS on this network, the platform denied the permission, or NSD hung: return what we
+      // have (possibly nothing) — the caller falls back to QR/manual IP.
     } finally {
-      if (discovery != null) await nsd.stopDiscovery(discovery);
+      if (discovery != null) {
+        // Stopping can hang for the same reason. Never let cleanup block the result.
+        try {
+          await nsd.stopDiscovery(discovery).timeout(window);
+        } catch (_) {}
+      }
     }
     return found.values.toList();
   }

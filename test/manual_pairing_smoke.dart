@@ -35,6 +35,15 @@ Future<void> main() async {
     exit(1);
   }
 
+  // REGRESSION GUARD. On a phone, a human takes seconds to read the code off the PC and type it.
+  // That gap used to kill the socket: every `firstWhere` cancels its subscription on match, and
+  // `asBroadcastStream` cancelled the underlying socket subscription once the last listener left,
+  // so `pair_confirm` went into a dead connection and the reply never came. The script never
+  // caught it because it reads the code from a log file in microseconds. This pause makes the
+  // script behave like a human — remove it and the bug goes back to being invisible here.
+  print('Waiting 12s before confirming (reproduces the human typing gap)...');
+  await Future<void>.delayed(const Duration(seconds: 12));
+
   final result = await client.confirmCode(code);
   print('PAIRED ok. deviceId=${result.deviceId} host=${result.hostName}');
   await client.dispose();

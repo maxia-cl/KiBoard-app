@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../net/discovered_host.dart';
 import '../../net/layout_source.dart';
 import '../../net/pairing_client.dart';
+import '../../net/trace.dart';
 import '../../net/ws_layout_source.dart';
 import '../deck/deck_screen.dart';
 import '../tokens.g.dart';
@@ -19,17 +20,18 @@ const _errorMessages = {
 /// authenticated session ([WsLayoutSource], §4) — and hands it to the deck screen.
 class PairingCodeScreen extends StatefulWidget {
   final DiscoveredHost host;
-  final PairingClient? _realClient;
-  final Pairing? _injectedClient;
+
+  /// Test-only injected client. Null in real use, where the State owns a real [PairingClient] and
+  /// can REPLACE it: a socket that dies mid-pairing is unrecoverable, so starting over means a new
+  /// client, which is why ownership cannot live on this immutable widget.
+  final Pairing? injectedClient;
 
   /// Injectable so widget tests can reach the deck screen without a live host. Null = the real
   /// [WsLayoutSource] session.
   final Future<LayoutSource> Function(PairingResult)? openSession;
 
-  /// Real usage: opens a fresh [PairingClient] connected to [host].
-  PairingCodeScreen({super.key, required this.host})
-    : _realClient = PairingClient(),
-      _injectedClient = null,
+  const PairingCodeScreen({super.key, required this.host})
+    : injectedClient = null,
       openSession = null;
 
   /// Test-only: skips the real connect() step and drives an already-configured fake.
@@ -38,10 +40,7 @@ class PairingCodeScreen extends StatefulWidget {
     required this.host,
     required Pairing client,
     this.openSession,
-  }) : _realClient = null,
-       _injectedClient = client;
-
-  Pairing get _client => _injectedClient ?? _realClient!;
+  }) : injectedClient = client;
 
   @override
   State<PairingCodeScreen> createState() => _PairingCodeScreenState();
@@ -51,7 +50,9 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
   final _controller = TextEditingController();
   bool _checking = false;
   bool _ready = false;
+  bool _paired = false;
   String? _error;
+  late Pairing _client = widget.injectedClient ?? PairingClient();
 
   @override
   void initState() {
@@ -61,17 +62,43 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
 
   Future<void> _startPairing() async {
     try {
-      final client = widget._client;
+      final client = _client;
       if (client is PairingClient) {
+        trace('pairing connect -> ${widget.host.ip}:${widget.host.port}');
         await client.connect(widget.host.ip, widget.host.port);
+        trace('pairing socket open');
       }
-      await widget._client.requestCode(device: 'KiBoard phone', platform: 'android');
+      await _client.requestCode(device: 'KiBoard phone', platform: 'android');
+      trace('pair_challenge received, waiting for the user to type the code');
       if (!mounted) return;
       setState(() => _ready = true);
+      _watchForDeadSocket();
     } catch (e) {
+      trace('pairing setup FAILED: $e');
       if (!mounted) return;
       setState(() => _error = e is PairingException ? (_errorMessages[e.code] ?? e.code) : 'Could not reach that PC.');
     }
+  }
+
+  /// The socket can die while the user is still reading the code off the PC. Rather than let
+  /// Confirm fail against a dead connection, start over: a fresh socket means a fresh code, so the
+  /// user is told to look at the PC again instead of retyping digits that can no longer work.
+  void _watchForDeadSocket() {
+    final client = _client;
+    if (client is! PairingClient) return; // injected fakes have no socket to lose
+    client.died.then((_) {
+      if (!mounted || _paired) return;
+      trace('pairing socket died while waiting for the code — requesting a new one');
+      setState(() {
+        _ready = false;
+        _checking = false;
+        _controller.clear();
+        _error = 'The connection dropped. Getting a new code — check the PC screen.';
+      });
+      // A dead socket is unrecoverable, and the code it issued died with it: start clean.
+      _client = PairingClient();
+      _startPairing();
+    });
   }
 
   Future<void> _confirm() async {
@@ -80,8 +107,12 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
       _error = null;
     });
     try {
-      final result = await widget._client.confirmCode(_controller.text);
+      trace('pair_confirm sent');
+      final result = await _client.confirmCode(_controller.text);
+      _paired = true; // stops the dead-socket watcher from restarting pairing under our feet
+      trace('pair_ack ok, deviceId=${result.deviceId}');
       final source = await (widget.openSession ?? _openRealSession)(result);
+      trace('session ready, opening the deck');
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -95,6 +126,7 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
         _error = _errorMessages[e.code] ?? e.code;
       });
     } catch (e) {
+      trace('session FAILED: $e');
       if (!mounted) return;
       setState(() {
         _checking = false;
@@ -106,6 +138,10 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
   /// The authenticated session. Pairing and the session are deliberately separate connections:
   /// pairing is unauthenticated by definition, the session carries the token.
   Future<LayoutSource> _openRealSession(PairingResult result) async {
+    // The pairing socket has done its job; holding it open would leave the host with two
+    // connections per phone for the rest of the session.
+    await _client.dispose();
+    trace('pairing socket closed; opening session -> ${widget.host.ip}:${widget.host.port}');
     final source = WsLayoutSource(
       ip: widget.host.ip,
       port: widget.host.port,
@@ -113,6 +149,7 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
       deviceId: result.deviceId,
     );
     await source.connect();
+    trace('hello_ack ok; requesting manual mode');
     // Manual mode on entry: auto mode still serves v1's Profile/Button layout, which this screen
     // cannot render. F3 is what moves auto mode onto the Deck/Page/Key shape.
     await source.setMode('manual');
@@ -122,7 +159,7 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
   @override
   void dispose() {
     _controller.dispose();
-    widget._client.dispose();
+    _client.dispose();
     super.dispose();
   }
 
