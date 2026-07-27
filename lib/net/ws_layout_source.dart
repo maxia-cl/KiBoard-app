@@ -34,17 +34,20 @@ class WsLayoutSource implements LayoutSource {
     required this.port,
     required this.token,
     required this.deviceId,
-    this.grid = const Grid(rows: 3, cols: 5),
+    Grid grid = const Grid(rows: 3, cols: 5),
     this.locale = 'es',
-  });
+    // ignore: prefer_initializing_formals -- `grid` is public and mutable behind a getter
+  })  : _grid = grid;
 
   final String ip;
   final int port;
   final String token;
   final String deviceId;
 
-  /// Declared in `hello`; the host paginates every deck to it, so the phone never repaginates.
-  final Grid grid;
+  /// Declared in `hello` and re-declared with `set_grid` on rotation; the host paginates every
+  /// deck to it, so the phone never repaginates.
+  Grid get grid => _grid;
+  Grid _grid;
   final String locale;
 
   WebSocketChannel? _channel;
@@ -149,7 +152,7 @@ class WsLayoutSource implements LayoutSource {
       'token': token,
       'deviceId': deviceId,
       'locale': locale,
-      'grid': {'rows': grid.rows, 'cols': grid.cols},
+      'grid': {'rows': _grid.rows, 'cols': _grid.cols},
     });
     final Map<String, dynamic> ack;
     try {
@@ -248,6 +251,21 @@ class WsLayoutSource implements LayoutSource {
       'type': 'set_mode',
       'mode': mode,
       'deckId': ?deckId,
+    });
+    await replied.timeout(handshakeTimeout);
+  }
+
+  /// Protocol §4.4 `set_grid` — the phone was rotated, so the grid it derived from the screen
+  /// changed. No-ops when the grid is unchanged: this is called from a layout builder, which runs
+  /// on every frame.
+  Future<void> setGrid(Grid next) async {
+    if (next.rows == _grid.rows && next.cols == _grid.cols) return;
+    _grid = next;
+    final replied = _replyTo();
+    _send({
+      'v': 2,
+      'type': 'set_grid',
+      'grid': {'rows': next.rows, 'cols': next.cols},
     });
     await replied.timeout(handshakeTimeout);
   }

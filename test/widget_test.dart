@@ -1,9 +1,11 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kiboard_app/main.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/saved_session.dart';
+import 'package:kiboard_app/ui/deck/adaptive_grid.dart';
 
 void main() {
   // A stored session is what lets the app skip pairing on every launch, so its round trip is worth
@@ -42,6 +44,26 @@ void main() {
       expect(await SavedSession.load(), isNotNull);
       await SavedSession.clear();
       expect(await SavedSession.load(), isNull);
+    });
+  });
+
+  // §3.1: "the phone computes rows x cols from screen size AND orientation". A fixed 3x5 was the
+  // mock-up's shape, and holding the phone sideways left most of the screen empty.
+  group('AdaptiveGrid', () {
+    test('a sideways phone gets more columns than a upright one', () {
+      // Logical pixels for a 1080x2400 phone at ~2.75x, minus the top bar and bezel.
+      final portrait = AdaptiveGrid.forSpace(320, 700);
+      final landscape = AdaptiveGrid.forSpace(780, 240);
+      expect(landscape.cols, greaterThan(portrait.cols));
+      expect(landscape.rows, lessThanOrEqualTo(portrait.rows));
+    });
+
+    test('stays inside the deck-tokens presets, from tiny to huge', () {
+      for (final size in [const Size(1, 1), const Size(400, 800), const Size(4000, 4000)]) {
+        final grid = AdaptiveGrid.forSpace(size.width, size.height);
+        expect(grid.cols, inInclusiveRange(3, 8)); // never past xl's width
+        expect(grid.rows, inInclusiveRange(2, 6));
+      }
     });
   });
 

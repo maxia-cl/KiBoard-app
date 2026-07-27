@@ -8,6 +8,7 @@ import '../../net/ws_layout_source.dart';
 import '../pair/discover_screen.dart';
 import '../tokens.g.dart';
 import '../windows/window_switcher_screen.dart';
+import 'adaptive_grid.dart';
 import 'device_bezel.dart';
 import 'key_grid.dart';
 
@@ -66,13 +67,20 @@ class _DeckScreenState extends State<DeckScreen> {
                   child: Center(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        // Both axes, minus everything the bezel puts around the grid — sizing off
-                        // width alone overflowed the moment the phone was turned sideways.
-                        final keySize = KeyGrid.sizeToFit(
-                          layout.grid,
-                          constraints.maxWidth - 32 - DeviceBezel.chromeWidth(),
-                          constraints.maxHeight - DeviceBezel.chromeHeightFor(layout.pages),
-                        );
+                        // Space the grid itself gets, after the bezel takes its share.
+                        final w = constraints.maxWidth - 32 - DeviceBezel.chromeWidth();
+                        final h = constraints.maxHeight - DeviceBezel.chromeHeightFor(layout.pages);
+
+                        // §3.1: the phone derives rows x cols from the space it has and tells the
+                        // host. Rotating changes it, so this is checked on every layout pass —
+                        // `setGrid` no-ops when nothing changed.
+                        final wanted = AdaptiveGrid.forSpace(w, h);
+                        widget.session?.setGrid(wanted);
+
+                        // Keep drawing the grid the host last SENT: the new one only exists once
+                        // its `layout` arrives, and painting 8 columns of a 5-column layout would
+                        // flash a broken frame.
+                        final keySize = KeyGrid.sizeToFit(layout.grid, w, h);
                         return DeviceBezel(
                           gridWidth: KeyGrid.widthFor(layout.grid, keySize),
                           gridHeight: KeyGrid.heightFor(layout.grid, keySize),
