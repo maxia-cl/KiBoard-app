@@ -13,7 +13,16 @@ class HelloException implements Exception {
   const HelloException(this.code);
   @override
   String toString() => code;
+
+  /// The host will never accept this token again, so retrying is pointless and the saved session
+  /// has to go. Anything else (a timeout, a dropped Wi-Fi) is worth another attempt.
+  bool get isFatal => code == 'revoked' || code == 'invalid_token' || code == 'not_paired';
 }
+
+/// What the deck screen shows about the link. A phone on Wi-Fi loses its connection constantly —
+/// screen off, a walk to another room, a router hiccup — so "connected" is a state to display and
+/// recover from, not an assumption.
+enum SessionStatus { connecting, online, offline, dead }
 
 /// The real [LayoutSource]: one WebSocket to a paired host, speaking protocol v2 (§4).
 ///
@@ -67,9 +76,43 @@ class WsLayoutSource implements LayoutSource {
   /// connect to an unreachable address neither completes nor throws for minutes.
   static const handshakeTimeout = Duration(seconds: 8);
 
+  final _status = StreamController<SessionStatus>.broadcast();
+  SessionStatus _state = SessionStatus.connecting;
+
+  /// The link's state, replayed to late subscribers so the deck screen never has to guess.
+  Stream<SessionStatus> get status async* {
+    yield _state;
+    yield* _status.stream;
+  }
+
+  SessionStatus get currentStatus => _state;
+
+  void _setStatus(SessionStatus s) {
+    if (_state == s) return;
+    _state = s;
+    if (!_status.isClosed) _status.add(s);
+  }
+
+  /// Mode to restore after a reconnect. A reconnect starts a brand-new session on the host, which
+  /// defaults to auto — without this, every dropped connection would silently kick the user out of
+  /// the deck they were using.
+  String? _manualDeckId;
+  bool _wantManual = false;
+
+  Timer? _retry;
+  int _attempt = 0;
+  bool _closed = false;
+
   /// Opens the socket and authenticates. Returns the host's display name.
   /// Throws [HelloException] with a short code on any failure, never hangs.
   Future<String> connect() async {
+    final name = await _openSocket();
+    _setStatus(SessionStatus.online);
+    return name;
+  }
+
+  Future<String> _openSocket() async {
+    _setStatus(SessionStatus.connecting);
     final channel = WebSocketChannel.connect(wsUri(ip, port));
     try {
       await channel.ready.timeout(handshakeTimeout);
@@ -91,10 +134,10 @@ class WsLayoutSource implements LayoutSource {
         }
         _incoming.add(msg);
       },
-      onError: _incoming.addError,
-      onDone: () {
-        if (!_incoming.isClosed) _incoming.close();
-      },
+      // NOTE: neither of these closes `_incoming`. It outlives individual sockets — the deck
+      // screen subscribes to it once and must keep its subscription across every reconnect.
+      onError: (Object _) => _onDisconnected(),
+      onDone: _onDisconnected,
     );
 
     // Subscribe BEFORE sending: the reply to a LAN round trip can land in the same turn, and a
@@ -118,6 +161,56 @@ class WsLayoutSource implements LayoutSource {
       throw HelloException(ack['error'] as String? ?? 'not_paired');
     }
     return ack['name'] as String? ?? '';
+  }
+
+  /// Starts the retry loop without a successful first connection — for a launch where the host is
+  /// simply asleep. The deck opens offline and comes to life when the PC does.
+  void reconnectLater() {
+    _setStatus(SessionStatus.offline);
+    _scheduleReconnect();
+  }
+
+  /// The socket went away. Everything below assumes this can happen at ANY moment — a phone on
+  /// Wi-Fi is disconnected far more often than it is connected badly.
+  void _onDisconnected() {
+    if (_closed) return;
+    _socket?.cancel();
+    _socket = null;
+    _channel = null;
+    _setStatus(SessionStatus.offline);
+    _scheduleReconnect();
+  }
+
+  /// Exponential backoff capped at 15 s: a host that is simply off should not be hammered, but a
+  /// Wi-Fi blip should recover in about a second.
+  void _scheduleReconnect() {
+    if (_closed || _retry != null) return;
+    final delay = Duration(milliseconds: (500 * (1 << _attempt.clamp(0, 5))).clamp(500, 15000));
+    _attempt++;
+    _retry = Timer(delay, () async {
+      _retry = null;
+      if (_closed) return;
+      try {
+        await _openSocket();
+        _attempt = 0;
+        _setStatus(SessionStatus.online);
+        // A reconnect is a NEW session on the host, which starts in auto mode. Put the user back
+        // where they were rather than silently switching decks under them.
+        if (_wantManual) await setMode('manual', deckId: _manualDeckId);
+      } on HelloException catch (e) {
+        if (e.isFatal) {
+          // The token is dead (revoked from the host UI). Retrying forever would be a loop the
+          // app can never win; the screen has to send the user back to pairing.
+          _setStatus(SessionStatus.dead);
+          return;
+        }
+        _setStatus(SessionStatus.offline);
+        _scheduleReconnect();
+      } catch (_) {
+        _setStatus(SessionStatus.offline);
+        _scheduleReconnect();
+      }
+    });
   }
 
   @override
@@ -147,6 +240,8 @@ class WsLayoutSource implements LayoutSource {
 
   @override
   Future<void> setMode(String mode, {String? deckId}) async {
+    _wantManual = mode == 'manual';
+    _manualDeckId = deckId ?? _manualDeckId;
     final replied = _replyTo();
     _send({
       'v': 2,
@@ -189,14 +284,20 @@ class WsLayoutSource implements LayoutSource {
     _send({'v': 2, 'type': 'input', ...input});
   }
 
+  /// Drops the message when there is no socket. A key press while the link is down must not throw
+  /// into the widget tree — the caller's timeout reports it, and the reconnect is already running.
   void _send(Map<String, dynamic> message) {
-    _channel!.sink.add(jsonEncode(message));
+    _channel?.sink.add(jsonEncode(message));
   }
 
   Future<void> dispose() async {
+    _closed = true; // stops the reconnect loop: an intentional close is not a dropped connection
+    _retry?.cancel();
+    _retry = null;
     await _socket?.cancel();
     _socket = null;
     if (!_incoming.isClosed) await _incoming.close();
+    if (!_status.isClosed) await _status.close();
     await _channel?.sink.close();
     _channel = null;
   }

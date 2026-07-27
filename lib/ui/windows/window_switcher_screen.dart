@@ -76,10 +76,13 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           final first = _pages[0]!;
-                          final maxWidth = constraints.maxWidth - 32;
-                          final gapRatio = DeckTokens.keyGapRatioOfSide;
-                          var keySize = maxWidth / (first.grid.cols + (first.grid.cols - 1) * gapRatio);
-                          keySize = keySize.clamp(40.0, 96.0);
+                          // Same sizing as the deck (§4.3 says same grid, same key): fit both
+                          // axes, or landscape overflows.
+                          final keySize = KeyGrid.sizeToFit(
+                            first.grid,
+                            constraints.maxWidth - 32 - DeviceBezel.chromeWidth(),
+                            constraints.maxHeight - DeviceBezel.chromeHeightFor(first.pages),
+                          );
                           return DeviceBezel(
                             gridWidth: KeyGrid.widthFor(first.grid, keySize),
                             gridHeight: KeyGrid.heightFor(first.grid, keySize),

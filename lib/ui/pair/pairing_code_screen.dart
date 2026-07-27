@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../net/discovered_host.dart';
 import '../../net/layout_source.dart';
 import '../../net/pairing_client.dart';
+import '../../net/saved_session.dart';
 import '../../net/trace.dart';
 import '../../net/ws_layout_source.dart';
 import '../deck/deck_screen.dart';
@@ -53,6 +54,9 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
   bool _paired = false;
   String? _error;
   late Pairing _client = widget.injectedClient ?? PairingClient();
+
+  /// Kept so the deck screen can show the link state. Null when a test injects its own source.
+  WsLayoutSource? _session;
 
   @override
   void initState() {
@@ -116,7 +120,11 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => DeckScreen(layoutSource: source, hostName: result.hostName),
+          builder: (_) => DeckScreen(
+            layoutSource: source,
+            hostName: result.hostName,
+            session: _session,
+          ),
         ),
       );
     } on PairingException catch (e) {
@@ -148,11 +156,20 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
       token: result.token,
       deviceId: result.deviceId,
     );
-    await source.connect();
-    trace('hello_ack ok; requesting manual mode');
-    // Manual mode on entry: auto mode still serves v1's Profile/Button layout, which this screen
-    // cannot render. F3 is what moves auto mode onto the Deck/Page/Key shape.
-    await source.setMode('manual');
+    final hostName = await source.connect();
+    trace('hello_ack ok');
+    // Stays in AUTO mode, the host's default and the product's whole point: the keys follow the
+    // foreground app with nothing to configure. F2 moved auto onto the Deck/Page/Key shape, so
+    // there is no longer any reason to force manual here.
+    _session = source;
+    await SavedSession(
+      ip: widget.host.ip,
+      port: widget.host.port,
+      token: result.token,
+      deviceId: result.deviceId,
+      hostName: hostName.isEmpty ? result.hostName : hostName,
+    ).save();
+    trace('session saved — next launch skips pairing');
     return source;
   }
 

@@ -20,6 +20,23 @@ class DeviceBezel extends StatelessWidget {
     this.currentPage = 0,
   });
 
+  static const _logoLineHeight = 16.0; // 11px font, default line height, rounded up
+
+  /// Vertical space the bezel needs BEYOND the grid it wraps: its padding, the page dots when
+  /// there is more than one page, and the engraved logo.
+  ///
+  /// Callers size the grid to the space that is left, so this has to live here — a caller
+  /// guessing it is how the deck came to overflow by exactly the height of the logo in landscape.
+  static double chromeHeightFor(int pageCount) =>
+      DeckTokens.bezelPaddingTopPx +
+      DeckTokens.bezelPaddingBottomPx +
+      (pageCount > 1 ? 18 : 0) + // 10 gap + 8 dot
+      8 +
+      _logoLineHeight;
+
+  /// Horizontal space the bezel needs beyond the grid.
+  static double chromeWidth() => 2 * DeckTokens.bezelPaddingSidePx;
+
   @override
   Widget build(BuildContext context) {
     return Container(

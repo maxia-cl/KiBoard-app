@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../model/deck.dart';
 import '../../net/layout_source.dart';
+import '../../net/saved_session.dart';
+import '../../net/ws_layout_source.dart';
+import '../pair/discover_screen.dart';
 import '../tokens.g.dart';
 import '../windows/window_switcher_screen.dart';
 import 'device_bezel.dart';
@@ -11,7 +15,16 @@ class DeckScreen extends StatefulWidget {
   final LayoutSource layoutSource;
   final String hostName;
 
-  const DeckScreen({super.key, required this.layoutSource, required this.hostName});
+  /// The live session, when there is one. Null for the fixture-backed source used in tests: it has
+  /// no socket, so there is no connection state to report.
+  final WsLayoutSource? session;
+
+  const DeckScreen({
+    super.key,
+    required this.layoutSource,
+    required this.hostName,
+    this.session,
+  });
 
   @override
   State<DeckScreen> createState() => _DeckScreenState();
@@ -22,6 +35,9 @@ class _DeckScreenState extends State<DeckScreen> {
 
   void _handlePress(Layout layout, int pos, String press) {
     final key = layout.keys[pos];
+    // Confirms the press landed on the device before the host has answered. A key pad that does
+    // not acknowledge a touch feels broken even when it works.
+    HapticFeedback.selectionClick();
     widget.layoutSource.pressKey(pos: pos, press: press);
     if (key.action == 'windows') {
       Navigator.of(context).push(
@@ -45,15 +61,18 @@ class _DeckScreenState extends State<DeckScreen> {
             return Column(
               children: [
                 _TopBar(layout: layout, layoutSource: widget.layoutSource),
+                if (widget.session != null) _LinkBanner(session: widget.session!),
                 Expanded(
                   child: Center(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final maxWidth = constraints.maxWidth - 32;
-                        final cols = layout.grid.cols;
-                        final gapRatio = DeckTokens.keyGapRatioOfSide;
-                        var keySize = maxWidth / (cols + (cols - 1) * gapRatio);
-                        keySize = keySize.clamp(40.0, 96.0);
+                        // Both axes, minus everything the bezel puts around the grid — sizing off
+                        // width alone overflowed the moment the phone was turned sideways.
+                        final keySize = KeyGrid.sizeToFit(
+                          layout.grid,
+                          constraints.maxWidth - 32 - DeviceBezel.chromeWidth(),
+                          constraints.maxHeight - DeviceBezel.chromeHeightFor(layout.pages),
+                        );
                         return DeviceBezel(
                           gridWidth: KeyGrid.widthFor(layout.grid, keySize),
                           gridHeight: KeyGrid.heightFor(layout.grid, keySize),
@@ -74,6 +93,70 @@ class _DeckScreenState extends State<DeckScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+/// Shows the link only when there is something to say. Silent while online: a permanent "connected"
+/// badge is noise on a key pad whose whole job is to be glanceable.
+class _LinkBanner extends StatelessWidget {
+  final WsLayoutSource session;
+  const _LinkBanner({required this.session});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SessionStatus>(
+      stream: session.status,
+      initialData: session.currentStatus,
+      builder: (context, snapshot) {
+        final status = snapshot.data ?? SessionStatus.connecting;
+        if (status == SessionStatus.online) return const SizedBox.shrink();
+
+        // A revoked token cannot be retried out of: the only way forward is pairing again.
+        if (status == SessionStatus.dead) {
+          return _Banner(
+            colour: const Color(DeckTokens.accent),
+            text: 'This PC revoked access.',
+            action: TextButton(
+              onPressed: () async {
+                await SavedSession.clear();
+                if (!context.mounted) return;
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => DiscoverScreen()),
+                );
+              },
+              child: const Text('Pair again'),
+            ),
+          );
+        }
+        return _Banner(
+          colour: const Color(0xFF3A3A3C),
+          text: status == SessionStatus.connecting ? 'Connecting…' : 'Offline — retrying…',
+        );
+      },
+    );
+  }
+}
+
+class _Banner extends StatelessWidget {
+  final Color colour;
+  final String text;
+  final Widget? action;
+  const _Banner({required this.colour, required this.text, this.action});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: colour,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(text, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          if (action != null) ...[const SizedBox(width: 8), action!],
+        ],
       ),
     );
   }

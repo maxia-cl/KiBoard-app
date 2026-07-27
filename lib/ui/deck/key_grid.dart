@@ -20,6 +20,20 @@ class KeyGrid extends StatelessWidget {
   static double heightFor(Grid grid, double keySize) =>
       grid.rows * keySize + (grid.rows - 1) * gapFor(keySize);
 
+  /// The largest key that fits BOTH dimensions of the space available.
+  ///
+  /// Sizing off the width alone overflows the moment the screen is wider than it is tall — which
+  /// is not an edge case: a key pad is a landscape device, and a phone turned sideways is the
+  /// natural way to hold it. Bezel padding is subtracted by the caller.
+  static double sizeToFit(Grid grid, double maxWidth, double maxHeight) {
+    const gapRatio = DeckTokens.keyGapRatioOfSide;
+    final byWidth = maxWidth / (grid.cols + (grid.cols - 1) * gapRatio);
+    final byHeight = maxHeight / (grid.rows + (grid.rows - 1) * gapRatio);
+    // Floor of 24 rather than 40: on a short landscape screen a small key still beats a broken
+    // layout, and clamping above what fits is what produced the overflow in the first place.
+    return (byWidth < byHeight ? byWidth : byHeight).clamp(24.0, 96.0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final gap = gapFor(keySize);

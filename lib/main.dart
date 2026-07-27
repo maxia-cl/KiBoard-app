@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'ui/pair/discover_screen.dart';
+import 'ui/boot_screen.dart';
 import 'ui/tokens.g.dart';
 
 void main() {
@@ -22,15 +22,15 @@ class KiBoardApp extends StatelessWidget {
       builder: (context, child) => Column(
         children: [const _MockWatermark(), Expanded(child: child ?? const SizedBox.shrink())],
       ),
-      home: DiscoverScreen(),
+      home: const BootScreen(),
     );
   }
 }
 
-/// R11-style watermark, updated for F2: discovery, pairing AND the deck are real now — the app
-/// talks to a live host over protocol v2. What is still missing is F3's polish (reconnection
-/// states, key confirmation, haptics, i18n) and F4's app catalogue, so `launch:`/`focus:` keys
-/// answer `unknown_action` for the moment.
+/// R11-style watermark. F3 in progress: the session now persists across launches and reconnects
+/// on its own, and auto mode follows the foreground app for real. Still missing before this can
+/// ship: i18n (the catalogue is Spanish-only on the wire), the trackpad and dictation ported from
+/// v1, and F4's app catalogue — until that lands, `launch:`/`focus:` keys answer `unknown_action`.
 class _MockWatermark extends StatelessWidget {
   const _MockWatermark();
 
@@ -41,7 +41,7 @@ class _MockWatermark extends StatelessWidget {
       color: const Color(DeckTokens.accent),
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: const Text(
-        'F2 · LIVE HOST · NO RECONNECTION YET, NO APP CATALOGUE',
+        'F3 · LIVE HOST · NO i18n, NO TRACKPAD, NO APP CATALOGUE',
         textAlign: TextAlign.center,
         style: TextStyle(color: Colors.white, fontSize: 10, letterSpacing: 1, fontWeight: FontWeight.w600),
       ),
