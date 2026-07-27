@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:kiboard_app/mock/mock_layout_source.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/discovery.dart';
 import 'package:kiboard_app/net/pairing_client.dart';
@@ -84,7 +85,16 @@ void main() {
   testWidgets('PairingCodeScreen: entering the right code pairs and opens the deck', (tester) async {
     final fake = FakePairing();
     await tester.pumpWidget(
-      MaterialApp(home: PairingCodeScreen.withClient(host: _host, client: fake)),
+      MaterialApp(
+        home: PairingCodeScreen.withClient(
+          host: _host,
+          client: fake,
+          // The real screen opens a WsLayoutSource here; a widget test has no host, so the
+          // fixture-backed source stands in. What this covers is the navigation — the socket
+          // itself is covered by test/manual_pairing_smoke.dart against a running host.
+          openSession: (_) async => MockLayoutSource(),
+        ),
+      ),
     );
     await tester.pumpAndSettle();
 

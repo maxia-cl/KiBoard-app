@@ -27,9 +27,10 @@ class KiBoardApp extends StatelessWidget {
   }
 }
 
-/// R11-style watermark, updated for F1: discovery (MdnsDiscovery) and pairing (PairingClient)
-/// are real as of this phase — only the deck screen after pairing still runs on
-/// MockLayoutSource, until F2/F3 land the real layout wire format.
+/// R11-style watermark, updated for F2: discovery, pairing AND the deck are real now — the app
+/// talks to a live host over protocol v2. What is still missing is F3's polish (reconnection
+/// states, key confirmation, haptics, i18n) and F4's app catalogue, so `launch:`/`focus:` keys
+/// answer `unknown_action` for the moment.
 class _MockWatermark extends StatelessWidget {
   const _MockWatermark();
 
@@ -40,7 +41,7 @@ class _MockWatermark extends StatelessWidget {
       color: const Color(DeckTokens.accent),
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: const Text(
-        'F1 · DISCOVERY & PAIRING ARE REAL · THE DECK SCREEN IS STILL MOCKED',
+        'F2 · LIVE HOST · NO RECONNECTION YET, NO APP CATALOGUE',
         textAlign: TextAlign.center,
         style: TextStyle(color: Colors.white, fontSize: 10, letterSpacing: 1, fontWeight: FontWeight.w600),
       ),

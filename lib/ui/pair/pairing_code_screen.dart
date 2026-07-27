@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../mock/mock_layout_source.dart';
 import '../../net/discovered_host.dart';
+import '../../net/layout_source.dart';
 import '../../net/pairing_client.dart';
+import '../../net/ws_layout_source.dart';
 import '../deck/deck_screen.dart';
 import '../tokens.g.dart';
 
@@ -14,21 +15,31 @@ const _errorMessages = {
 };
 
 /// protocol/README.md §2: a real pair_request/pair_challenge/pair_confirm/pair_ack round trip
-/// over a fresh WebSocket to the discovered host. The deck screen after a successful pairing
-/// still runs on MockLayoutSource — the real layout wire format lands in F2/F3, this phase only
-/// makes discovery and pairing themselves real.
+/// over a fresh WebSocket to the discovered host. On success it opens a SECOND connection — the
+/// authenticated session ([WsLayoutSource], §4) — and hands it to the deck screen.
 class PairingCodeScreen extends StatefulWidget {
   final DiscoveredHost host;
   final PairingClient? _realClient;
   final Pairing? _injectedClient;
 
+  /// Injectable so widget tests can reach the deck screen without a live host. Null = the real
+  /// [WsLayoutSource] session.
+  final Future<LayoutSource> Function(PairingResult)? openSession;
+
   /// Real usage: opens a fresh [PairingClient] connected to [host].
-  PairingCodeScreen({super.key, required this.host}) : _realClient = PairingClient(), _injectedClient = null;
+  PairingCodeScreen({super.key, required this.host})
+    : _realClient = PairingClient(),
+      _injectedClient = null,
+      openSession = null;
 
   /// Test-only: skips the real connect() step and drives an already-configured fake.
-  const PairingCodeScreen.withClient({super.key, required this.host, required Pairing client})
-    : _realClient = null,
-      _injectedClient = client;
+  const PairingCodeScreen.withClient({
+    super.key,
+    required this.host,
+    required Pairing client,
+    this.openSession,
+  }) : _realClient = null,
+       _injectedClient = client;
 
   Pairing get _client => _injectedClient ?? _realClient!;
 
@@ -70,10 +81,11 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
     });
     try {
       final result = await widget._client.confirmCode(_controller.text);
+      final source = await (widget.openSession ?? _openRealSession)(result);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => DeckScreen(layoutSource: MockLayoutSource(), hostName: result.hostName),
+          builder: (_) => DeckScreen(layoutSource: source, hostName: result.hostName),
         ),
       );
     } on PairingException catch (e) {
@@ -82,7 +94,29 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
         _checking = false;
         _error = _errorMessages[e.code] ?? e.code;
       });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _checking = false;
+        _error = 'Paired, but the session could not start: $e';
+      });
     }
+  }
+
+  /// The authenticated session. Pairing and the session are deliberately separate connections:
+  /// pairing is unauthenticated by definition, the session carries the token.
+  Future<LayoutSource> _openRealSession(PairingResult result) async {
+    final source = WsLayoutSource(
+      ip: widget.host.ip,
+      port: widget.host.port,
+      token: result.token,
+      deviceId: result.deviceId,
+    );
+    await source.connect();
+    // Manual mode on entry: auto mode still serves v1's Profile/Button layout, which this screen
+    // cannot render. F3 is what moves auto mode onto the Deck/Page/Key shape.
+    await source.setMode('manual');
+    return source;
   }
 
   @override
