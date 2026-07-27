@@ -1,21 +1,28 @@
 import 'package:flutter/material.dart';
 
-import '../../mock/mock_discovery.dart';
+import '../../net/discovered_host.dart';
+import '../../net/discovery.dart';
+import '../../net/mdns_discovery.dart';
 import '../tokens.g.dart';
 import 'pairing_code_screen.dart';
 
 /// protocol/README.md §1: the phone browses `_kiboard._tcp` and lists hosts without scanning
-/// anything. QR / manual IP stay as the mandatory fallback (R1) even though FP fakes discovery.
+/// anything. QR / manual IP stay as the mandatory fallback (R1) — this screen only implements the
+/// mDNS path; the fallback stays a stub until it's actually needed.
 class DiscoverScreen extends StatefulWidget {
-  final MockDiscovery discovery;
-  const DiscoverScreen({super.key, required this.discovery});
+  final Discovery discovery;
+  DiscoverScreen({super.key, Discovery? discovery}) : discovery = discovery ?? MdnsDiscovery();
 
   @override
   State<DiscoverScreen> createState() => _DiscoverScreenState();
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
-  late final Future<List<DiscoveredHost>> _hosts = widget.discovery.discover();
+  late Future<List<DiscoveredHost>> _hosts = widget.discovery.discover();
+
+  void _rescan() {
+    setState(() => _hosts = widget.discovery.discover());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,10 +45,25 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 child: FutureBuilder<List<DiscoveredHost>>(
                   future: _hosts,
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
+                    if (snapshot.connectionState != ConnectionState.done) {
                       return const Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent)));
                     }
-                    final hosts = snapshot.data!;
+                    final hosts = snapshot.data ?? const [];
+                    if (hosts.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'No PCs found on this network yet.',
+                              style: TextStyle(color: Color(DeckTokens.textSecondary)),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton(onPressed: _rescan, child: const Text('Scan again')),
+                          ],
+                        ),
+                      );
+                    }
                     return ListView.separated(
                       itemCount: hosts.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -53,7 +75,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
                             onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => PairingCodeScreen(host: host, discovery: widget.discovery)),
+                              MaterialPageRoute(builder: (_) => PairingCodeScreen(host: host)),
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
@@ -62,9 +84,22 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                   const Icon(Icons.desktop_windows, color: Color(DeckTokens.accent)),
                                   const SizedBox(width: 12),
                                   Expanded(
-                                    child: Text(
-                                      host.name,
-                                      style: const TextStyle(color: Color(DeckTokens.textPrimary), fontWeight: FontWeight.w600),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          host.name,
+                                          style: const TextStyle(
+                                            color: Color(DeckTokens.textPrimary),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        if (!host.pairingOpen)
+                                          const Text(
+                                            'Not accepting new pairings right now',
+                                            style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 12),
+                                          ),
+                                      ],
                                     ),
                                   ),
                                   const Icon(Icons.chevron_right, color: Color(DeckTokens.textSecondary)),

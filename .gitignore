@@ -24,3 +24,6 @@ lib/ui/tokens.g.dart
 *.iml
 .DS_Store
 Thumbs.db
+
+# Local dev launcher: machine-specific paths, do not commit
+dev.cmd

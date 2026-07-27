@@ -35,6 +35,12 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # F1: real mDNS discovery (protocol/README.md §1) and the real pairing/hello WebSocket client
+  # (§2, §4). The nsd choice is harvested from the nervous-swirles-1ed28b worktree, already
+  # validated there against the Rust mdns-sd advertiser.
+  nsd: ^4.0.2
+  web_socket_channel: ^3.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

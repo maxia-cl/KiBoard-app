@@ -8,7 +8,8 @@ void main() {
     expect(find.text('KiBoard'), findsOneWidget);
     expect(find.textContaining('Looking for PCs'), findsOneWidget);
 
-    // MockDiscovery.discover() resolves after ~900ms; let that timer finish before the test ends.
-    await tester.pumpAndSettle(const Duration(seconds: 1));
+    // Real mDNS discovery has no platform channel in a test sandbox and never resolves here —
+    // don't pumpAndSettle (the spinner it leaves showing animates forever and times that out).
+    await tester.pump();
   });
 }

@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- mDNS discovery (protocol/README.md §1): without this, multicast packets are dropped and
+         _kiboard._tcp never shows up, even on the same WiFi network. -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <application
         android:label="kiboard_app"
         android:name="${applicationName}"

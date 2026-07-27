@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'mock/mock_discovery.dart';
 import 'ui/pair/discover_screen.dart';
 import 'ui/tokens.g.dart';
 
@@ -23,14 +22,14 @@ class KiBoardApp extends StatelessWidget {
       builder: (context, child) => Column(
         children: [const _MockWatermark(), Expanded(child: child ?? const SizedBox.shrink())],
       ),
-      home: DiscoverScreen(discovery: MockDiscovery()),
+      home: DiscoverScreen(),
     );
   }
 }
 
-/// R11: a visible watermark while `MockLayoutSource`/`MockDiscovery` are active, so a convincing
-/// mock-up never gets mistaken for a working build. Falls away by itself once F1/F3 wire up the
-/// real sources — there is no separate flag to remember to flip.
+/// R11-style watermark, updated for F1: discovery (MdnsDiscovery) and pairing (PairingClient)
+/// are real as of this phase — only the deck screen after pairing still runs on
+/// MockLayoutSource, until F2/F3 land the real layout wire format.
 class _MockWatermark extends StatelessWidget {
   const _MockWatermark();
 
@@ -41,7 +40,7 @@ class _MockWatermark extends StatelessWidget {
       color: const Color(DeckTokens.accent),
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: const Text(
-        'MOCK-UP · PHASE FP · NO REAL HOST, NOTHING EXECUTES',
+        'F1 · DISCOVERY & PAIRING ARE REAL · THE DECK SCREEN IS STILL MOCKED',
         textAlign: TextAlign.center,
         style: TextStyle(color: Colors.white, fontSize: 10, letterSpacing: 1, fontWeight: FontWeight.w600),
       ),

@@ -23,15 +23,18 @@ does not fit lives on another page.
 
 ## Status
 
-**F0 done.** `KiBoard-protocol` is pinned as a git submodule at `KiBoard-protocol/` (tag
-`v0.1.0-fp`); `lib/ui/tokens.g.dart` is regenerated from it with `tool/generate-tokens.ps1` /
+**F1 done** (F0 before it). `KiBoard-protocol` is pinned as a git submodule at `KiBoard-protocol/`
+(tag `v0.1.0-fp`); `lib/ui/tokens.g.dart` is regenerated from it with `tool/generate-tokens.ps1` /
 `.sh` (Flutter has no npm-style prebuild hook, so this is a manual step after moving the pin).
 
-The **phase FP mock-up** — the whole visual layer: bezel, keys, pagination, folders, short/long/
-double press, discovery and pairing screens, the window switcher — runs on fixtures read straight
-from the submodule, with no host communication, behind a `MockLayoutSource` that F3 swaps for the
-real WebSocket client. `flutter analyze` and `flutter test` (including an end-to-end demo-flow
-test) are clean.
+Discovery and pairing are now **real**: `MdnsDiscovery` (the `nsd` package) browses `_kiboard._tcp`
+on the LAN, and `PairingClient` does an actual `pair_request`/`pair_challenge`/`pair_confirm` round
+trip over a live WebSocket to get its own per-device token — verified against the compiled host in
+`KiBoard-windows-host`, both at the wire-protocol level and by running the shipping Dart client
+against it directly (`test/manual_pairing_smoke.dart`). The deck screen shown **after** pairing
+still runs on `MockLayoutSource` fixtures, with no host communication — that's F2/F3's job.
+`flutter analyze` and `flutter test` are clean (the widget tests inject fakes for `Discovery` and
+`Pairing`, since neither mDNS nor a real socket exist in a test sandbox).
 
 ## Stack
 
