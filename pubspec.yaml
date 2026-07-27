@@ -57,11 +57,11 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Phase FP mock data, copied from KiBoard-protocol/{deck-tokens.json,fixtures/} — see
-  # lib/mock/README.md. F0 replaces this with the real submodule pin.
+  # Phase FP fixtures, read straight from the pinned KiBoard-protocol submodule (see
+  # docs/implementation-plan.md §1.1). F3 replaces MockLayoutSource with the real WS client.
   assets:
-    - assets/mock/deck-tokens.json
-    - assets/mock/fixtures/
+    - KiBoard-protocol/protocol/deck-tokens.json
+    - KiBoard-protocol/protocol/fixtures/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

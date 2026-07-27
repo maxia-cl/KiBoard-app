@@ -23,18 +23,19 @@ class MockLayoutSource implements LayoutSource {
 
   Future<void> _ensureLoaded() async {
     if (_loaded) return;
-    final autoJson = jsonDecode(await rootBundle.loadString('assets/mock/fixtures/layout-auto-photoshop.json'));
+    const fixtures = 'KiBoard-protocol/protocol/fixtures';
+    final autoJson = jsonDecode(await rootBundle.loadString('$fixtures/layout-auto-photoshop.json'));
     final launcherJson = jsonDecode(
-      await rootBundle.loadString('assets/mock/fixtures/layout-manual-launcher.json'),
+      await rootBundle.loadString('$fixtures/layout-manual-launcher.json'),
     );
-    final folderJson = jsonDecode(await rootBundle.loadString('assets/mock/fixtures/layout-folder.json'));
+    final folderJson = jsonDecode(await rootBundle.loadString('$fixtures/layout-folder.json'));
     _autoLayout = Layout.fromJson(autoJson as Map<String, dynamic>);
     _launcherLayout = Layout.fromJson(launcherJson as Map<String, dynamic>);
     _obsFolderLayout = Layout.fromJson(folderJson as Map<String, dynamic>);
 
     for (final n in [0, 1]) {
       final json = jsonDecode(
-        await rootBundle.loadString('assets/mock/fixtures/windows-switcher-page-$n.json'),
+        await rootBundle.loadString('$fixtures/windows-switcher-page-$n.json'),
       );
       _windowsPages[n] = WindowsPage.fromJson(json as Map<String, dynamic>);
     }

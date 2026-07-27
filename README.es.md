@@ -23,12 +23,16 @@ cabe vive en otra página.
 
 ## Estado
 
-**Maqueta de la fase FP construida.** Toda la capa visual —marco, teclas, paginación, carpetas,
-pulsación corta/larga/doble, pantallas de descubrimiento y emparejamiento, selector de ventanas—
-corre sobre fixtures copiados de `KiBoard-protocol` (ver `lib/mock/README.md`) sin comunicación con
-el host, detrás de un `MockLayoutSource` que F3 reemplaza por el cliente WebSocket real.
-`flutter analyze` y `flutter test` (incluyendo un test end-to-end del flujo de demo) están limpios.
-El siguiente paso es **F0**: fijar `KiBoard-protocol` como submódulo.
+**F0 lista.** `KiBoard-protocol` está fijado como submódulo de git en `KiBoard-protocol/` (tag
+`v0.1.0-fp`); `lib/ui/tokens.g.dart` se regenera desde ahí con `tool/generate-tokens.ps1` / `.sh`
+(Flutter no tiene un hook de prebuild como el de npm, así que es un paso manual después de mover
+el pin).
+
+La **maqueta de la fase FP** —toda la capa visual: marco, teclas, paginación, carpetas, pulsación
+corta/larga/doble, pantallas de descubrimiento y emparejamiento, selector de ventanas— corre sobre
+fixtures leídos directo del submódulo, sin comunicación con el host, detrás de un
+`MockLayoutSource` que F3 reemplaza por el cliente WebSocket real. `flutter analyze` y
+`flutter test` (incluyendo un test end-to-end del flujo de demo) están limpios.
 
 ## Stack
 
