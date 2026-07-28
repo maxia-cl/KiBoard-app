@@ -41,6 +41,7 @@ dependencies:
   nsd: ^4.0.2
   web_socket_channel: ^3.0.0
   shared_preferences: ^2.5.5
+  wakelock_plus: ^1.7.0
 
 dev_dependencies:
   flutter_test:

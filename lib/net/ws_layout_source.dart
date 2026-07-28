@@ -35,9 +35,10 @@ class WsLayoutSource implements LayoutSource {
     required this.token,
     required this.deviceId,
     Grid grid = const Grid(rows: 3, cols: 5),
-    this.locale = 'es',
+    String? locale,
     // ignore: prefer_initializing_formals -- `grid` is public and mutable behind a getter
-  })  : _grid = grid;
+  })  : _grid = grid,
+        locale = locale ?? deviceLocale();
 
   final String ip;
   final int port;
@@ -238,7 +239,9 @@ class WsLayoutSource implements LayoutSource {
       (m) => (m['type'] == 'key_result' && m['id'] == id) || m['type'] == 'layout',
     );
     _send({'v': 2, 'type': 'key', 'id': id, 'page': _page, 'pos': pos, 'press': press});
-    return answered;
+    // Bounded like every other request: the caller lights the key green on this future, so an
+    // unanswered press would otherwise leave it waiting for a confirmation that never comes.
+    return answered.timeout(handshakeTimeout);
   }
 
   @override

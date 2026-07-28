@@ -14,7 +14,17 @@ class KeyGrid extends StatelessWidget {
   final double keySize;
   final void Function(int pos, String press)? onKeyPress;
 
-  const KeyGrid({super.key, required this.grid, required this.keys, required this.keySize, this.onKeyPress});
+  /// Positions the host has just confirmed with `key_result` ok — painted lit (§3.1).
+  final Set<int> confirmed;
+
+  const KeyGrid({
+    super.key,
+    required this.grid,
+    required this.keys,
+    required this.keySize,
+    this.onKeyPress,
+    this.confirmed = const {},
+  });
 
   static double gapFor(double keySize) => keySize * DeckTokens.keyGapRatioOfSide;
   static double widthFor(Grid grid, double keySize) =>
@@ -91,7 +101,12 @@ class KeyGrid extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         children: [
           for (final key in keys)
-            KeyWidget(keyData: key, size: keySize, onPress: (p) => onKeyPress?.call(key.pos, p)),
+            KeyWidget(
+              keyData: key,
+              size: keySize,
+              confirmed: confirmed.contains(key.pos),
+              onPress: (p) => onKeyPress?.call(key.pos, p),
+            ),
         ],
       ),
     );

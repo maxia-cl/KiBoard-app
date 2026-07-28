@@ -22,7 +22,18 @@ class KeyWidget extends StatefulWidget {
   final double size;
   final void Function(String press)? onPress;
 
-  const KeyWidget({super.key, required this.keyData, required this.size, this.onPress});
+  /// Lit green because the host answered `key_result` ok (§3.1). This is the ONLY signal that the
+  /// PC actually did the thing — the press animation only proves the phone felt the touch, and
+  /// Elgato's number-one complaint is not knowing whether the deck is still talking to anything.
+  final bool confirmed;
+
+  const KeyWidget({
+    super.key,
+    required this.keyData,
+    required this.size,
+    this.onPress,
+    this.confirmed = false,
+  });
 
   @override
   State<KeyWidget> createState() => _KeyWidgetState();
@@ -110,7 +121,11 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
               width: widget.size,
               height: widget.size,
               decoration: BoxDecoration(
-                color: _pressed
+                color: widget.confirmed
+                    // Blended rather than solid green: the key stays recognisable while it
+                    // acknowledges, which matters when the confirmation is this brief.
+                    ? Color.lerp(baseColor, const Color(DeckTokens.stateOn), 0.55)
+                    : _pressed
                     ? Color.lerp(baseColor, Colors.black, DeckTokens.pressDarkenPercent / 100)
                     : baseColor,
                 borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),

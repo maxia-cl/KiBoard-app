@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../model/deck.dart';
 import '../../net/layout_source.dart';
@@ -37,6 +39,21 @@ class DeckScreen extends StatefulWidget {
 class _DeckScreenState extends State<DeckScreen> {
   late final Stream<Layout> _layouts = widget.layoutSource.layouts();
 
+  @override
+  void initState() {
+    super.initState();
+    // A key pad you have to wake up first is not a key pad. Android's screen timeout is ~30s, and
+    // the deck's whole point is being glanceable and pressable without ceremony while you work on
+    // the PC. Released in dispose, so it only applies while the deck is actually on screen.
+    WakelockPlus.enable();
+  }
+
+  @override
+  void dispose() {
+    WakelockPlus.disable();
+    super.dispose();
+  }
+
   double? _lastTracedSize;
 
   /// Reports the sizing decision when it changes. The point of `sizeForDevice` is that the key
@@ -52,17 +69,63 @@ class _DeckScreenState extends State<DeckScreen> {
     );
   }
 
-  void _handlePress(Layout layout, int pos, String press) {
+  /// Positions lit green right now, because the host confirmed them.
+  final Set<int> _confirmed = {};
+
+  Future<void> _handlePress(Layout layout, int pos, String press) async {
     final key = layout.keys[pos];
     // Confirms the press landed on the device before the host has answered. A key pad that does
     // not acknowledge a touch feels broken even when it works.
     HapticFeedback.selectionClick();
-    widget.layoutSource.pressKey(pos: pos, press: press);
+
     if (key.action == 'windows') {
+      widget.layoutSource.pressKey(pos: pos, press: press);
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => WindowSwitcherScreen(layoutSource: widget.layoutSource)),
       );
+      return;
     }
+
+    final session = widget.session;
+    if (session == null) {
+      widget.layoutSource.pressKey(pos: pos, press: press);
+      return;
+    }
+
+    // §3.1: the key lights green ONLY when `key_result` arrives. Everything before that is the
+    // phone talking to itself — this is the one signal that says the PC did it.
+    try {
+      final result = await session.pressResult(pos: pos, press: press);
+      if (!mounted) return;
+      if (result['type'] == 'key_result' && result['ok'] != true) {
+        trace('key pos=$pos REFUSED: ${result['error']}');
+        _showKeyError(result['error'] as String? ?? 'internal');
+        return;
+      }
+      trace('key pos=$pos confirmed — lighting up');
+      setState(() => _confirmed.add(pos));
+      await Future<void>.delayed(const Duration(milliseconds: 220));
+      if (!mounted) return;
+      setState(() => _confirmed.remove(pos));
+    } on TimeoutException {
+      if (mounted) _showKeyError('no answer from the PC');
+    }
+  }
+
+  /// A key that failed has to say so. Silence reads as "it worked" — and the actions most likely
+  /// to fail today are the ones F4 has not implemented (`launch:`, `focus:`), which would
+  /// otherwise look like a dead key.
+  void _showKeyError(String code) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(code),
+          duration: const Duration(seconds: 2),
+          backgroundColor: const Color(DeckTokens.accent),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   @override
@@ -125,6 +188,7 @@ class _DeckScreenState extends State<DeckScreen> {
                               grid: layout.grid,
                               keys: layout.keys,
                               keySize: keySize,
+                              confirmed: _confirmed,
                               onKeyPress: (pos, press) => _handlePress(layout, pos, press),
                             ),
                           ),
