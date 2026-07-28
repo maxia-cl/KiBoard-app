@@ -74,6 +74,17 @@ class _DeckScreenState extends State<DeckScreen> {
   /// Positions lit green right now, because the host confirmed them.
   final Set<int> _confirmed = {};
 
+  /// Swipe between the pages of a deck (§4.4 `set_page`). The host owns the page — it answers with
+  /// the `layout` for it — so there is no local page state to keep in sync.
+  void _swipePage(Layout layout, double velocity) {
+    if (velocity == 0 || layout.pages < 2) return;
+    final next = (layout.page + (velocity < 0 ? 1 : -1)).clamp(0, layout.pages - 1);
+    if (next == layout.page) return;
+    HapticFeedback.selectionClick();
+    trace('swipe -> page $next of ${layout.pages}');
+    widget.session?.setPage(next);
+  }
+
   Future<void> _handlePress(Layout layout, int pos, String press) async {
     final key = layout.keys[pos];
     // Confirms the press landed on the device before the host has answered. A key pad that does
@@ -195,17 +206,24 @@ class _DeckScreenState extends State<DeckScreen> {
                         final keySize = math.min(byDevice, byBox);
                         _traceSize(byDevice, byBox, keySize, w, h);
                         return SizedBox.expand(
-                          child: DeviceBezel(
-                            gridWidth: KeyGrid.widthFor(layout.grid, keySize),
-                            gridHeight: KeyGrid.heightFor(layout.grid, keySize),
-                            pageCount: layout.pages,
-                            currentPage: layout.page,
-                            child: KeyGrid(
-                              grid: layout.grid,
-                              keys: layout.keys,
-                              keySize: keySize,
-                              confirmed: _confirmed,
-                              onKeyPress: (pos, press) => _handlePress(layout, pos, press),
+                          // §4.4 `set_page`. The dots were drawn from the start but nothing ever
+                          // moved between pages, so anything past the first screenful of a deck was
+                          // unreachable. A key's tap recognizer loses the arena as soon as the
+                          // pointer travels horizontally, so this does not swallow presses.
+                          child: GestureDetector(
+                            onHorizontalDragEnd: (d) => _swipePage(layout, d.primaryVelocity ?? 0),
+                            child: DeviceBezel(
+                              gridWidth: KeyGrid.widthFor(layout.grid, keySize),
+                              gridHeight: KeyGrid.heightFor(layout.grid, keySize),
+                              pageCount: layout.pages,
+                              currentPage: layout.page,
+                              child: KeyGrid(
+                                grid: layout.grid,
+                                keys: layout.keys,
+                                keySize: keySize,
+                                confirmed: _confirmed,
+                                onKeyPress: (pos, press) => _handlePress(layout, pos, press),
+                              ),
                             ),
                           ),
                         );
