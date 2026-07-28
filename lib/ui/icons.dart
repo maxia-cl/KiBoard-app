@@ -14,6 +14,7 @@ const Map<String, IconData> _icons = {
   'zoom': Icons.zoom_in,
   'screenshot': Icons.camera_alt,
   'windows': Icons.window,
+  'mouse': Icons.mouse,
   'mic': Icons.mic,
   'volume': Icons.volume_up,
   'mode': Icons.sync,

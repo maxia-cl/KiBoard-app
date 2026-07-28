@@ -185,7 +185,10 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F10),
       appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, foregroundColor: const Color(DeckTokens.textPrimary)),
-      body: Padding(
+      // Scrollable because the keyboard is what makes this screen tight, not the content: with a
+      // phone held sideways the numeric pad takes most of the height and pushed Confirm off the
+      // bottom — unreachable, which made pairing in landscape impossible.
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,6 +214,13 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
                 maxLength: 6,
                 onChanged: (_) => setState(() {}),
+                // The keyboard's own confirm key submits. Six digits then reaching past the
+                // keyboard for a button is a step that does not need to exist — and on a phone
+                // held sideways the keyboard covers that button anyway.
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  if (_ready && !_checking && _controller.text.length == 6) _confirm();
+                },
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 32, letterSpacing: 12),
                 decoration: InputDecoration(

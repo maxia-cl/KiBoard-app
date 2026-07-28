@@ -12,6 +12,8 @@ import '../../net/trace.dart';
 import '../../net/ws_layout_source.dart';
 import '../pair/discover_screen.dart';
 import '../tokens.g.dart';
+import '../input/dictation_screen.dart';
+import '../input/trackpad_screen.dart';
 import '../windows/window_switcher_screen.dart';
 import 'adaptive_grid.dart';
 import 'device_bezel.dart';
@@ -87,6 +89,20 @@ class _DeckScreenState extends State<DeckScreen> {
     }
 
     final session = widget.session;
+
+    // §4.2.1: these name a screen on THIS phone, not work for the PC. Opening it is the whole
+    // action — the press is never sent, and what reaches the host afterwards is `input`.
+    if (session != null && (key.action == 'trackpad' || key.action == 'dictate')) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => key.action == 'trackpad'
+              ? TrackpadScreen(session: session)
+              : DictationScreen(session: session),
+        ),
+      );
+      return;
+    }
+
     if (session == null) {
       widget.layoutSource.pressKey(pos: pos, press: press);
       return;
