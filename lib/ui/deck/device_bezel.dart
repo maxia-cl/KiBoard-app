@@ -20,8 +20,44 @@ class DeviceBezel extends StatelessWidget {
     this.currentPage = 0,
   });
 
+  static const _logoLineHeight = 16.0; // 11px font, default line height, rounded up
+
+  /// Below this height the shell goes compact. A phone held sideways has ~390 logical pixels top
+  /// to bottom, and the full-size padding plus the engraved logo were eating a third of it — on
+  /// the axis that decides how big the keys can be. The logo is device jewellery; the keys are the
+  /// product, so on a short screen the jewellery goes.
+  static const _compactBelow = 450.0;
+
+  static bool isCompact(double availableHeight) => availableHeight < _compactBelow;
+
+  static double _padTop(bool compact) => compact ? 10 : DeckTokens.bezelPaddingTopPx;
+  static double _padBottom(bool compact) => compact ? 14 : DeckTokens.bezelPaddingBottomPx;
+
+  /// Vertical space the bezel needs BEYOND the grid it wraps: its padding, the page dots when
+  /// there is more than one page, and the engraved logo.
+  ///
+  /// Callers size the grid to the space that is left, so this has to live here — a caller
+  /// guessing it is how the deck came to overflow by exactly the height of the logo in landscape.
+  static double chromeHeightFor(int pageCount, double availableHeight) {
+    final compact = isCompact(availableHeight);
+    return _padTop(compact) +
+        _padBottom(compact) +
+        (pageCount > 1 ? 18 : 0) + // 10 gap + 8 dot
+        (compact ? 0 : 8 + _logoLineHeight);
+  }
+
+  /// Horizontal space the bezel needs beyond the grid.
+  static double chromeWidth() => 2 * DeckTokens.bezelPaddingSidePx;
+
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final compact = isCompact(constraints.maxHeight);
+      return _shell(compact);
+    });
+  }
+
+  Widget _shell(bool compact) {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -31,14 +67,17 @@ class DeviceBezel extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(DeckTokens.bezelCornerRadiusPx),
       ),
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         DeckTokens.bezelPaddingSidePx,
-        DeckTokens.bezelPaddingTopPx,
+        _padTop(compact),
         DeckTokens.bezelPaddingSidePx,
-        DeckTokens.bezelPaddingBottomPx,
+        _padBottom(compact),
       ),
+      // Fills whatever it is given and centres the keys inside, rather than shrink-wrapping them.
+      // Shrink-wrapped, the pad floated as a small slab in the middle of the screen; the phone is
+      // meant to BE the device (§3.0), so the shell goes edge to edge and the keys sit in it.
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(width: gridWidth, height: gridHeight, child: child),
           if (pageCount > 1) ...[
@@ -61,11 +100,15 @@ class DeviceBezel extends StatelessWidget {
               ],
             ),
           ],
-          const SizedBox(height: 8),
-          const Text(
-            DeckTokens.bezelLogoText,
-            style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 11, letterSpacing: 2),
-          ),
+          // Dropped on a short screen: see [_compactBelow]. Every pixel it takes is a pixel off
+          // the keys, on the axis that limits them.
+          if (!compact) ...[
+            const SizedBox(height: 8),
+            const Text(
+              DeckTokens.bezelLogoText,
+              style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 11, letterSpacing: 2),
+            ),
+          ],
         ],
       ),
     );

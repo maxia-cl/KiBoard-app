@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 /// two mock-ups read the same way during the FP demo. F3/F5 replace both with a real icon set.
 const Map<String, IconData> _icons = {
   'app': Icons.apps,
+  // Used by the host's built-in profiles ("Game Bar", "Overlay", "Tableros") and by F4's Launcher
+  // and Mazos keys. Missing here, every one of them fell back to the blank square.
+  'apps': Icons.grid_view,
+  'deck': Icons.dashboard,
   'brush': Icons.brush,
   'crop': Icons.crop,
   'undo': Icons.undo,
@@ -14,6 +18,7 @@ const Map<String, IconData> _icons = {
   'zoom': Icons.zoom_in,
   'screenshot': Icons.camera_alt,
   'windows': Icons.window,
+  'mouse': Icons.mouse,
   'mic': Icons.mic,
   'volume': Icons.volume_up,
   'mode': Icons.sync,

@@ -72,14 +72,17 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent)))
-                  : Center(
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           final first = _pages[0]!;
-                          final maxWidth = constraints.maxWidth - 32;
-                          final gapRatio = DeckTokens.keyGapRatioOfSide;
-                          var keySize = maxWidth / (first.grid.cols + (first.grid.cols - 1) * gapRatio);
-                          keySize = keySize.clamp(40.0, 96.0);
+                          // Same shell and sizing as the deck — §4.3 says same grid, same key.
+                          final keySize = KeyGrid.sizeToFit(
+                            first.grid,
+                            constraints.maxWidth - DeviceBezel.chromeWidth(),
+                            constraints.maxHeight - DeviceBezel.chromeHeightFor(first.pages, constraints.maxHeight),
+                          );
                           return DeviceBezel(
                             gridWidth: KeyGrid.widthFor(first.grid, keySize),
                             gridHeight: KeyGrid.heightFor(first.grid, keySize),

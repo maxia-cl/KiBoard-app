@@ -1,4 +1,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- mDNS discovery (protocol/README.md §1): without this, multicast packets are dropped and
+         _kiboard._tcp never shows up, even on the same WiFi network. -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!-- Push-to-talk dictation. The audio never leaves the phone: Android transcribes locally and
+         only the finished text crosses the network, as protocol §4.2 `input` kind `text`. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Android 11+ package visibility: without this the speech engine is invisible to the app
+         and `SpeechToText.initialize()` fails with no explanation. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
     <application
         android:label="kiboard_app"
         android:name="${applicationName}"

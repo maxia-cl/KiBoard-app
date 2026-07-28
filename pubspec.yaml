@@ -35,6 +35,16 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # F1: real mDNS discovery (protocol/README.md §1) and the real pairing/hello WebSocket client
+  # (§2, §4). The nsd choice is harvested from the nervous-swirles-1ed28b worktree, already
+  # validated there against the Rust mdns-sd advertiser.
+  nsd: ^4.0.2
+  web_socket_channel: ^3.0.0
+  shared_preferences: ^2.5.5
+  wakelock_plus: ^1.7.0
+  speech_to_text: ^7.4.0
+  permission_handler: ^12.0.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -57,11 +67,11 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Phase FP mock data, copied from KiBoard-protocol/{deck-tokens.json,fixtures/} — see
-  # lib/mock/README.md. F0 replaces this with the real submodule pin.
+  # Phase FP fixtures, read straight from the pinned KiBoard-protocol submodule (see
+  # docs/implementation-plan.md §1.1). F3 replaces MockLayoutSource with the real WS client.
   assets:
-    - assets/mock/deck-tokens.json
-    - assets/mock/fixtures/
+    - KiBoard-protocol/protocol/deck-tokens.json
+    - KiBoard-protocol/protocol/fixtures/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
