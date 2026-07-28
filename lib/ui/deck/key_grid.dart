@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../model/deck.dart';
@@ -20,6 +22,43 @@ class KeyGrid extends StatelessWidget {
   static double heightFor(Grid grid, double keySize) =>
       grid.rows * keySize + (grid.rows - 1) * gapFor(keySize);
 
+  /// The key size for this DEVICE, deliberately independent of how it is being held.
+  ///
+  /// Rotating must not resize the keys: a key pad is hit from muscle memory, and a target that
+  /// changes size when the phone turns is a different target. Sizing from the space actually
+  /// available cannot deliver that — the system bars fall on the height in both orientations, so
+  /// the usable box is not a transpose of itself.
+  ///
+  /// So the size comes from `shortestSide`/`longestSide`, which do not change when the device
+  /// rotates, minus a reserve big enough to cover the shell on EITHER axis: system insets, the top
+  /// bar, the bezel padding and the page dots. Being generous here costs a few pixels of key; not
+  /// being generous enough costs an overflow, so [sizeToFit] still caps the result against the
+  /// space really on offer.
+  static double sizeForDevice(Size screen, Grid grid) {
+    const gapRatio = DeckTokens.keyGapRatioOfSide;
+    final small = math.min(grid.rows, grid.cols);
+    final big = math.max(grid.rows, grid.cols);
+    double fit(double space, int n) => space / (n + (n - 1) * gapRatio);
+    return math.max(
+      24.0,
+      math.min(
+        fit(screen.shortestSide - _shellReserve, small),
+        fit(screen.longestSide - _shellReserve, big),
+      ),
+    );
+  }
+
+  /// Worst-case space the shell takes along one axis, across both orientations: system insets, the
+  /// top bar, the bezel's padding and the page dots.
+  ///
+  /// MEASURED, not estimated. On the reference phone the shell costs 139 logical pixels of height
+  /// held sideways and 199 upright (upright keeps the engraved logo and the full padding), against
+  /// 90 and 56 of width. Too small a reserve and the safety cap in the caller bites — differently
+  /// per orientation, which is precisely the resize this is meant to prevent. 150 clears the
+  /// binding case with a few pixels to spare; if a future change grows the shell, the caller's
+  /// `CAPPED BY BOX` trace says so out loud.
+  static const _shellReserve = 150.0;
+
   /// The largest key that fits BOTH dimensions of the space available.
   ///
   /// Sizing off the width alone overflows the moment the screen is wider than it is tall — which
@@ -29,9 +68,13 @@ class KeyGrid extends StatelessWidget {
     const gapRatio = DeckTokens.keyGapRatioOfSide;
     final byWidth = maxWidth / (grid.cols + (grid.cols - 1) * gapRatio);
     final byHeight = maxHeight / (grid.rows + (grid.rows - 1) * gapRatio);
-    // Floor of 24 rather than 40: on a short landscape screen a small key still beats a broken
-    // layout, and clamping above what fits is what produced the overflow in the first place.
-    return (byWidth < byHeight ? byWidth : byHeight).clamp(24.0, 96.0);
+    // Floor of 24 rather than 40: on a short screen a small key still beats a broken layout, and
+    // clamping above what fits is what produced the overflow in the first place.
+    //
+    // No UPPER bound. `key.sizePx` (72) is the size the visual language is drawn at, not a cap:
+    // capping there left the pad as a small patch in the middle of a big screen. The device is
+    // supposed to be the screen.
+    return math.max(24.0, byWidth < byHeight ? byWidth : byHeight);
   }
 
   @override

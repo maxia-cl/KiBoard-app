@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../model/deck.dart';
 import '../../net/layout_source.dart';
 import '../../net/saved_session.dart';
+import '../../net/trace.dart';
 import '../../net/ws_layout_source.dart';
 import '../pair/discover_screen.dart';
 import '../tokens.g.dart';
@@ -33,6 +36,21 @@ class DeckScreen extends StatefulWidget {
 
 class _DeckScreenState extends State<DeckScreen> {
   late final Stream<Layout> _layouts = widget.layoutSource.layouts();
+
+  double? _lastTracedSize;
+
+  /// Reports the sizing decision when it changes. The point of `sizeForDevice` is that the key
+  /// does NOT resize on rotation, and eyeballing a screenshot cannot tell 118 from 120 — if the
+  /// box cap (`byBox`) is ever the one chosen, the guarantee is broken and this says so.
+  void _traceSize(double byDevice, double byBox, double chosen, double w, double h) {
+    if (_lastTracedSize == chosen) return;
+    _lastTracedSize = chosen;
+    final capped = byBox < byDevice ? ' CAPPED BY BOX' : '';
+    trace(
+      'keySize=${chosen.toStringAsFixed(1)} device=${byDevice.toStringAsFixed(1)} '
+      'box=${byBox.toStringAsFixed(1)} space=${w.toStringAsFixed(0)}x${h.toStringAsFixed(0)}$capped',
+    );
+  }
 
   void _handlePress(Layout layout, int pos, String press) {
     final key = layout.keys[pos];
@@ -72,12 +90,13 @@ class _DeckScreenState extends State<DeckScreen> {
                 _TopBar(layout: layout, layoutSource: widget.layoutSource),
                 if (widget.session != null) _LinkBanner(session: widget.session!),
                 Expanded(
-                  child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         // Space the grid itself gets, after the bezel takes its share.
-                        final w = constraints.maxWidth - 32 - DeviceBezel.chromeWidth();
-                        final h = constraints.maxHeight - DeviceBezel.chromeHeightFor(layout.pages);
+                        final w = constraints.maxWidth - DeviceBezel.chromeWidth();
+                        final h = constraints.maxHeight - DeviceBezel.chromeHeightFor(layout.pages, constraints.maxHeight);
 
                         // §3.1: the phone derives rows x cols from the space it has and tells the
                         // host. Rotating changes it, so this is checked on every layout pass —
@@ -86,19 +105,28 @@ class _DeckScreenState extends State<DeckScreen> {
                         widget.session?.setGrid(wanted);
 
                         // Keep drawing the grid the host last SENT: the new one only exists once
-                        // its `layout` arrives, and painting 8 columns of a 5-column layout would
+                        // its `layout` arrives, and painting 5 columns of a 2-column layout would
                         // flash a broken frame.
-                        final keySize = KeyGrid.sizeToFit(layout.grid, w, h);
-                        return DeviceBezel(
-                          gridWidth: KeyGrid.widthFor(layout.grid, keySize),
-                          gridHeight: KeyGrid.heightFor(layout.grid, keySize),
-                          pageCount: layout.pages,
-                          currentPage: layout.page,
-                          child: KeyGrid(
-                            grid: layout.grid,
-                            keys: layout.keys,
-                            keySize: keySize,
-                            onKeyPress: (pos, press) => _handlePress(layout, pos, press),
+                        //
+                        // The size comes from the DEVICE, not from this box, so rotating does not
+                        // resize the keys. `sizeToFit` only caps it, in case a screen turns out
+                        // tighter than the reserve assumed.
+                        final byDevice = KeyGrid.sizeForDevice(MediaQuery.sizeOf(context), layout.grid);
+                        final byBox = KeyGrid.sizeToFit(layout.grid, w, h);
+                        final keySize = math.min(byDevice, byBox);
+                        _traceSize(byDevice, byBox, keySize, w, h);
+                        return SizedBox.expand(
+                          child: DeviceBezel(
+                            gridWidth: KeyGrid.widthFor(layout.grid, keySize),
+                            gridHeight: KeyGrid.heightFor(layout.grid, keySize),
+                            pageCount: layout.pages,
+                            currentPage: layout.page,
+                            child: KeyGrid(
+                              grid: layout.grid,
+                              keys: layout.keys,
+                              keySize: keySize,
+                              onKeyPress: (pos, press) => _handlePress(layout, pos, press),
+                            ),
                           ),
                         );
                       },
@@ -229,28 +257,36 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = layout.mode == 'auto' ? (layout.source.appName ?? 'Auto') : (layout.source.name ?? 'Manual');
+    // Deliberately tight. Every pixel here is a pixel the keys do not get, and the keys are the
+    // product — a DropdownButton at its default size alone ate ~48px of a phone held sideways.
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(14, 2, 8, 2),
       child: Row(
         children: [
           Icon(
             layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
             color: const Color(DeckTokens.textSecondary),
-            size: 18,
+            size: 16,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(color: Color(DeckTokens.textPrimary), fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: Color(DeckTokens.textPrimary),
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           DropdownButton<String>(
             value: layout.mode,
+            isDense: true,
             dropdownColor: const Color(0xFF1E1E20),
             underline: const SizedBox.shrink(),
-            style: const TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 13),
+            iconSize: 18,
+            style: const TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 12),
             items: const [
               DropdownMenuItem(value: 'auto', child: Text('Auto')),
               DropdownMenuItem(value: 'manual', child: Text('Manual')),
@@ -259,8 +295,8 @@ class _TopBar extends StatelessWidget {
               if (mode != null) layoutSource.setMode(mode);
             },
           ),
-          const SizedBox(width: 8),
-          Icon(Icons.settings, color: const Color(DeckTokens.textSecondary), size: 20),
+          const SizedBox(width: 4),
+          const Icon(Icons.settings, color: Color(DeckTokens.textSecondary), size: 18),
         ],
       ),
     );

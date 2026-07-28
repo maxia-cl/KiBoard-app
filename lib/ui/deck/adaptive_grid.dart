@@ -9,10 +9,20 @@ import '../../model/deck.dart';
 /// screen instead made the key count jump between orientations, which is disorienting on a surface
 /// whose whole value is muscle memory.
 class AdaptiveGrid {
-  /// 6 keys along the long edge, 2 along the short one. Twelve keys is roughly Elgato's mk2 (15)
-  /// and comfortably tappable on a phone at either orientation.
-  static const _long = 6;
+  /// 5 keys along the long edge, 2 along the short one. What does not fit goes to the next page
+  /// (§3.1), it is not lost.
+  static const _long = 5;
   static const _short = 2;
+
+  /// Keys per page, whatever the orientation.
+  static const count = _long * _short;
+
+  /// Keys along the short edge of the device — the count that decides key size, since the short
+  /// edge is what binds.
+  static const short = _short;
+
+  /// Keys along the long edge.
+  static const long = _long;
 
   /// [width] and [height] are the space left for the grid itself — the caller has already taken
   /// out the top bar and everything the bezel puts around it.

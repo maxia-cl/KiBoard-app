@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kiboard_app/main.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/saved_session.dart';
+import 'package:kiboard_app/model/deck.dart';
 import 'package:kiboard_app/ui/deck/adaptive_grid.dart';
+import 'package:kiboard_app/ui/deck/key_grid.dart';
 
 void main() {
   // A stored session is what lets the app skip pairing on every launch, so its round trip is worth
@@ -60,6 +62,26 @@ void main() {
       expect(landscape.rows, portrait.cols);
       expect(landscape.cols * landscape.rows, portrait.cols * portrait.rows);
       expect(landscape.cols, greaterThan(landscape.rows)); // long edge gets the columns
+    });
+
+    // The requirement that drives `sizeForDevice`: a key pad is hit from muscle memory, so a
+    // target that resizes when the phone turns is a different target. Sizing from the space
+    // available cannot deliver this — the system bars land on the height in BOTH orientations, so
+    // the usable box is not a transpose of itself.
+    test('key size is identical in both orientations', () {
+      const screen = Size(393, 873); // logical size of the test phone, upright
+      const rotated = Size(873, 393);
+
+      final upright = KeyGrid.sizeForDevice(
+        screen,
+        const Grid(rows: AdaptiveGrid.long, cols: AdaptiveGrid.short),
+      );
+      final sideways = KeyGrid.sizeForDevice(
+        rotated,
+        const Grid(rows: AdaptiveGrid.short, cols: AdaptiveGrid.long),
+      );
+
+      expect(sideways, upright);
     });
 
     test('the key count never changes with screen size', () {
