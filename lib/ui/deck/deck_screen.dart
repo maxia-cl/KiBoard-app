@@ -55,8 +55,16 @@ class _DeckScreenState extends State<DeckScreen> {
         child: StreamBuilder<Layout>(
           stream: _layouts,
           builder: (context, snapshot) {
+            // The banner sits OUTSIDE this branch on purpose. Launching while the PC is asleep
+            // produces no layout at all, and a bare spinner then says nothing — which is exactly
+            // the failure mode this screen exists to avoid.
             if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent)));
+              return Column(
+                children: [
+                  if (widget.session != null) _LinkBanner(session: widget.session!),
+                  Expanded(child: _NoLayoutYet(session: widget.session, hostName: widget.hostName)),
+                ],
+              );
             }
             final layout = snapshot.data!;
             return Column(
@@ -102,6 +110,49 @@ class _DeckScreenState extends State<DeckScreen> {
           },
         ),
       ),
+    );
+  }
+}
+
+/// What fills the screen before the first layout arrives.
+///
+/// Waiting on a connection that is being retried is NOT the same as waiting a moment for the first
+/// frame, and a spinner cannot tell the two apart. Launching with the PC asleep is the common case
+/// — the phone is in a pocket far more often than the desktop is awake — so it gets a sentence
+/// rather than an animation that never ends.
+class _NoLayoutYet extends StatelessWidget {
+  final WsLayoutSource? session;
+  final String hostName;
+  const _NoLayoutYet({required this.session, required this.hostName});
+
+  @override
+  Widget build(BuildContext context) {
+    final host = hostName.isEmpty ? 'your PC' : '"$hostName"';
+    if (session == null) {
+      return const Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent)));
+    }
+    return StreamBuilder<SessionStatus>(
+      stream: session!.status,
+      initialData: session!.currentStatus,
+      builder: (context, snapshot) {
+        // Only spin while the link is actually up and the first layout is in flight — that is a
+        // moment. Retrying cycles connecting/offline every few seconds, and spinning through that
+        // would hide the explanation behind an animation for as long as the PC stays asleep.
+        if (snapshot.data == SessionStatus.online) {
+          return const Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent)));
+        }
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text(
+              "Waiting for $host.\nIt will appear here as soon as the PC is awake and on this "
+              "network.",
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(DeckTokens.textSecondary), height: 1.5),
+            ),
+          ),
+        );
+      },
     );
   }
 }

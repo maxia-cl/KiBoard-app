@@ -47,23 +47,28 @@ void main() {
     });
   });
 
-  // §3.1: "the phone computes rows x cols from screen size AND orientation". A fixed 3x5 was the
-  // mock-up's shape, and holding the phone sideways left most of the screen empty.
+  // §3.1: the phone derives its grid from the screen. The count is fixed and only the orientation
+  // changes — a deck the user arranged must hold the same keys whichever way the phone is held,
+  // or rotating silently repaginates a surface whose whole value is muscle memory.
   group('AdaptiveGrid', () {
-    test('a sideways phone gets more columns than a upright one', () {
+    test('rotating transposes the grid and keeps the key count', () {
       // Logical pixels for a 1080x2400 phone at ~2.75x, minus the top bar and bezel.
       final portrait = AdaptiveGrid.forSpace(320, 700);
       final landscape = AdaptiveGrid.forSpace(780, 240);
-      expect(landscape.cols, greaterThan(portrait.cols));
-      expect(landscape.rows, lessThanOrEqualTo(portrait.rows));
+
+      expect(landscape.cols, portrait.rows);
+      expect(landscape.rows, portrait.cols);
+      expect(landscape.cols * landscape.rows, portrait.cols * portrait.rows);
+      expect(landscape.cols, greaterThan(landscape.rows)); // long edge gets the columns
     });
 
-    test('stays inside the deck-tokens presets, from tiny to huge', () {
-      for (final size in [const Size(1, 1), const Size(400, 800), const Size(4000, 4000)]) {
-        final grid = AdaptiveGrid.forSpace(size.width, size.height);
-        expect(grid.cols, inInclusiveRange(3, 8)); // never past xl's width
-        expect(grid.rows, inInclusiveRange(2, 6));
-      }
+    test('the key count never changes with screen size', () {
+      const sizes = [Size(1, 1), Size(400, 800), Size(4000, 4000), Size(800, 400)];
+      final counts = sizes
+          .map((s) => AdaptiveGrid.forSpace(s.width, s.height))
+          .map((g) => g.cols * g.rows)
+          .toSet();
+      expect(counts, hasLength(1), reason: 'a tablet and a phone must show the same deck');
     });
   });
 
