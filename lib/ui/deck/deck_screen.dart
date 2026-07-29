@@ -466,7 +466,7 @@ class _TopBar extends StatelessWidget {
             // The page indicator lives here sideways, not in the bezel: on the width, which has
             // room to spare, instead of the height, which is what caps the key size.
             if (layout.pages > 1) ...[
-              for (var i = 0; i < layout.pages; i++) DeviceBezel.dot(i == layout.page),
+              for (var i = 0; i < layout.pages; i++) DeviceBezel.dot(i == layout.page, stacked: true),
               const SizedBox(height: 4),
             ],
             const SizedBox(height: 4),

@@ -55,8 +55,14 @@ class DeviceBezel extends StatelessWidget {
   }
 
   /// One page dot, so the bezel and the side strip cannot drift apart on how a dot looks.
-  static Widget dot(bool active) => Container(
-        margin: const EdgeInsets.all(3),
+  ///
+  /// The margin goes on the axis the dots are laid out along, never both: in the bezel they sit in
+  /// a Row whose height `chromeHeightFor` has already budgeted at 8, so a vertical margin here is
+  /// height nobody reserved — which is precisely how this overflowed the deck by 4.4 pixels.
+  static Widget dot(bool active, {bool stacked = false}) => Container(
+        margin: stacked
+            ? const EdgeInsets.symmetric(vertical: 3)
+            : const EdgeInsets.symmetric(horizontal: 3),
         width: 8,
         height: 8,
         decoration: BoxDecoration(
