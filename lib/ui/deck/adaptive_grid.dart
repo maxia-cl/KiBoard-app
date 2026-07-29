@@ -9,10 +9,15 @@ import '../../model/deck.dart';
 /// screen instead made the key count jump between orientations, which is disorienting on a surface
 /// whose whole value is muscle memory.
 class AdaptiveGrid {
-  /// 5 keys along the long edge, 2 along the short one. What does not fit goes to the next page
+  /// 5 keys along the long edge, 3 along the short one. What does not fit goes to the next page
   /// (§3.1), it is not lost.
+  ///
+  /// Was 2 along the short edge until the chrome moved off that axis in landscape: the top bar
+  /// used to eat the very dimension that decides how many rows fit, so a third row did not pay for
+  /// itself. With the bar on the side there is room, and 15 keys beat 10 — at the price of a key
+  /// about a fifth smaller, which is the trade the extra row costs.
   static const _long = 5;
-  static const _short = 2;
+  static const _short = 3;
 
   /// Keys per page, whatever the orientation.
   static const count = _long * _short;

@@ -61,13 +61,16 @@ class KeyGrid extends StatelessWidget {
   /// Worst-case space the shell takes along one axis, across both orientations: system insets, the
   /// top bar, the bezel's padding and the page dots.
   ///
-  /// MEASURED, not estimated. On the reference phone the shell costs 139 logical pixels of height
-  /// held sideways and 199 upright (upright keeps the engraved logo and the full padding), against
-  /// 90 and 56 of width. Too small a reserve and the safety cap in the caller bites — differently
-  /// per orientation, which is precisely the resize this is meant to prevent. 150 clears the
-  /// binding case with a few pixels to spare; if a future change grows the shell, the caller's
-  /// `CAPPED BY BOX` trace says so out loud.
-  static const _shellReserve = 150.0;
+  /// MEASURED, not estimated. Too small a reserve and the safety cap in the caller bites —
+  /// differently per orientation, which is precisely the resize this is meant to prevent. If a
+  /// future change grows the shell, the caller's `CAPPED BY BOX` trace says so out loud.
+  ///
+  /// Was 150 while the bar ran across the top in BOTH orientations, costing 139 logical pixels of
+  /// height sideways and 199 upright against 90 and 56 of width. Sideways the bar now runs down
+  /// the side, which moves ~35 of that off the height and onto the width — the trade that pays for
+  /// the third row of keys. Re-measure this on the device after touching the shell; the number
+  /// below is what the trace reported, not what the arithmetic predicted.
+  static const _shellReserve = 115.0;
 
   /// The largest key that fits BOTH dimensions of the space available.
   ///
