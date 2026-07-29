@@ -52,8 +52,8 @@ class KeyGrid extends StatelessWidget {
     return math.max(
       24.0,
       math.min(
-        fit(screen.shortestSide - _shellReserve, small),
-        fit(screen.longestSide - _shellReserve, big),
+        fit(screen.shortestSide - _reserveShort, small),
+        fit(screen.longestSide - _reserveLong, big),
       ),
     );
   }
@@ -65,13 +65,26 @@ class KeyGrid extends StatelessWidget {
   /// differently per orientation, which is precisely the resize this is meant to prevent. If a
   /// future change grows the shell, the caller's `CAPPED BY BOX` trace says so out loud.
   ///
-  /// Was 150 while the bar ran across the top in BOTH orientations, costing 139 logical pixels of
-  /// height sideways and 199 upright against 90 and 56 of width. Sideways it then went down the
-  /// side, and after that the page dots followed it, the bezel padding went to 6/6 and the outer
-  /// margin to nothing — so what is left on the height sideways is the padding and the system
-  /// insets, and little else. Re-measure on the device after touching the shell; the number below
-  /// is what the trace reported, not what the arithmetic predicted.
-  static const _shellReserve = 75.0;
+  /// TWO reserves, one per edge, because the shell is not symmetric and a single number quietly
+  /// picks the wrong constraint. Upright the long edge carries the top bar, the logo and the
+  /// dots; sideways the long edge is the width, which carries only the side strip and the bezel
+  /// sides. One reserve was fine while the SHORT edge happened to bind (3 rows sideways); at 2
+  /// rows the long edge binds instead, and a single number then either shrinks the key by ~20% or
+  /// lets the box cap bite in one orientation only — which is the rotation-resize this whole
+  /// mechanism exists to prevent.
+  ///
+  /// MEASURED from the `space=WxH` the trace prints, against a 393x873 logical screen:
+  ///   upright   space 337x674  -> shell costs  56 wide, 199 tall
+  ///   sideways  space 755x320  -> shell costs 118 wide,  73 tall
+  /// The short edge of the DEVICE is the height sideways (73) and the width upright (56): worst
+  /// case 73. The long edge is the width sideways (118) and the height upright (199): worst 199.
+  /// A few pixels of slack on each, because too small a reserve is what makes the cap bite.
+  ///
+  /// Measure with a deck that PAGINATES. 185 looked right against a single-page layout and then
+  /// capped as soon as a second page appeared: the dots are 18 of those pixels, and they only
+  /// exist when there is somewhere to go.
+  static const _reserveShort = 80.0;
+  static const _reserveLong = 200.0;
 
   /// The largest key that fits BOTH dimensions of the space available.
   ///
