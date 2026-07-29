@@ -185,12 +185,18 @@ class _DeckScreenState extends State<DeckScreen> {
                 if (widget.session != null) _LinkBanner(session: widget.session!),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                    // Sideways: no outer margin at all. The bezel is the device and the device is
+                    // the screen (§3.0); a gap around it is a gap the keys pay for.
+                    padding: sideways
+                        ? const EdgeInsets.only(right: 4)
+                        : const EdgeInsets.fromLTRB(8, 0, 8, 8),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         // Space the grid itself gets, after the bezel takes its share.
                         final w = constraints.maxWidth - DeviceBezel.chromeWidth();
-                        final h = constraints.maxHeight - DeviceBezel.chromeHeightFor(layout.pages, constraints.maxHeight);
+                        final h = constraints.maxHeight -
+                            DeviceBezel.chromeHeightFor(layout.pages, constraints.maxHeight,
+                                dotsInside: !sideways);
 
                         // §3.1: the phone derives rows x cols from the space it has and tells the
                         // host. Rotating changes it, so this is checked on every layout pass —
@@ -221,6 +227,7 @@ class _DeckScreenState extends State<DeckScreen> {
                               gridHeight: KeyGrid.heightFor(layout.grid, keySize),
                               pageCount: layout.pages,
                               currentPage: layout.page,
+                              dotsInside: !sideways,
                               child: KeyGrid(
                                 grid: layout.grid,
                                 keys: layout.keys,
@@ -456,7 +463,13 @@ class _TopBar extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            // The page indicator lives here sideways, not in the bezel: on the width, which has
+            // room to spare, instead of the height, which is what caps the key size.
+            if (layout.pages > 1) ...[
+              for (var i = 0; i < layout.pages; i++) DeviceBezel.dot(i == layout.page),
+              const SizedBox(height: 4),
+            ],
+            const SizedBox(height: 4),
             // Icon-only: a DropdownButton with its label does not fit a strip this narrow, and the
             // icon above already says which mode is on.
             SizedBox(

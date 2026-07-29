@@ -66,11 +66,12 @@ class KeyGrid extends StatelessWidget {
   /// future change grows the shell, the caller's `CAPPED BY BOX` trace says so out loud.
   ///
   /// Was 150 while the bar ran across the top in BOTH orientations, costing 139 logical pixels of
-  /// height sideways and 199 upright against 90 and 56 of width. Sideways the bar now runs down
-  /// the side, which moves ~35 of that off the height and onto the width — the trade that pays for
-  /// the third row of keys. Re-measure this on the device after touching the shell; the number
-  /// below is what the trace reported, not what the arithmetic predicted.
-  static const _shellReserve = 115.0;
+  /// height sideways and 199 upright against 90 and 56 of width. Sideways it then went down the
+  /// side, and after that the page dots followed it, the bezel padding went to 6/6 and the outer
+  /// margin to nothing — so what is left on the height sideways is the padding and the system
+  /// insets, and little else. Re-measure on the device after touching the shell; the number below
+  /// is what the trace reported, not what the arithmetic predicted.
+  static const _shellReserve = 75.0;
 
   /// The largest key that fits BOTH dimensions of the space available.
   ///
