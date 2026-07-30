@@ -175,18 +175,28 @@ class _DeckScreenState extends State<DeckScreen> {
               );
             }
             final layout = snapshot.data!;
-            return Column(
+            // Sideways the chrome runs down the left instead of across the top. Height is what
+            // limits the number of rows on a phone held that way — barely 390 logical pixels of it
+            // against 870 of width — so the bar belongs on the axis that has room to spare.
+            final sideways = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+            final deck = Column(
               children: [
-                _TopBar(layout: layout, layoutSource: widget.layoutSource),
+                if (!sideways) _TopBar(layout: layout, layoutSource: widget.layoutSource),
                 if (widget.session != null) _LinkBanner(session: widget.session!),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                    // Sideways: no outer margin at all. The bezel is the device and the device is
+                    // the screen (§3.0); a gap around it is a gap the keys pay for.
+                    padding: sideways
+                        ? const EdgeInsets.only(right: 4)
+                        : const EdgeInsets.fromLTRB(8, 0, 8, 8),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         // Space the grid itself gets, after the bezel takes its share.
                         final w = constraints.maxWidth - DeviceBezel.chromeWidth();
-                        final h = constraints.maxHeight - DeviceBezel.chromeHeightFor(layout.pages, constraints.maxHeight);
+                        final h = constraints.maxHeight -
+                            DeviceBezel.chromeHeightFor(layout.pages, constraints.maxHeight,
+                                dotsInside: !sideways);
 
                         // §3.1: the phone derives rows x cols from the space it has and tells the
                         // host. Rotating changes it, so this is checked on every layout pass —
@@ -194,15 +204,27 @@ class _DeckScreenState extends State<DeckScreen> {
                         final wanted = AdaptiveGrid.forSpace(w, h);
                         widget.session?.setGrid(wanted);
 
-                        // Keep drawing the grid the host last SENT: the new one only exists once
-                        // its `layout` arrives, and painting 5 columns of a 2-column layout would
-                        // flash a broken frame.
+                        // Reshape to the new orientation IMMEDIATELY, without waiting for the
+                        // host's answer. The grid is a fixed count that merely transposes, and
+                        // pagination is by count — so the very same ten keys are on screen either
+                        // way and only their arrangement changes. Waiting used to mean rendering
+                        // five columns into a portrait box: `sizeToFit` then shrank the key to
+                        // 57 pixels. With a host that lasted 150ms; with no host it never ended,
+                        // which is what "the icons go tiny when I rotate" was.
                         //
+                        // Capacity guards it: if the host ever sends a different number of keys
+                        // than this grid holds, keep what it sent rather than reflow into a shape
+                        // the keys do not fill.
+                        final grid = wanted.capacity == layout.grid.capacity &&
+                                layout.keys.length == wanted.capacity
+                            ? wanted
+                            : layout.grid;
+
                         // The size comes from the DEVICE, not from this box, so rotating does not
                         // resize the keys. `sizeToFit` only caps it, in case a screen turns out
                         // tighter than the reserve assumed.
-                        final byDevice = KeyGrid.sizeForDevice(MediaQuery.sizeOf(context), layout.grid);
-                        final byBox = KeyGrid.sizeToFit(layout.grid, w, h);
+                        final byDevice = KeyGrid.sizeForDevice(MediaQuery.sizeOf(context), grid);
+                        final byBox = KeyGrid.sizeToFit(grid, w, h);
                         final keySize = math.min(byDevice, byBox);
                         _traceSize(byDevice, byBox, keySize, w, h);
                         return SizedBox.expand(
@@ -213,12 +235,13 @@ class _DeckScreenState extends State<DeckScreen> {
                           child: GestureDetector(
                             onHorizontalDragEnd: (d) => _swipePage(layout, d.primaryVelocity ?? 0),
                             child: DeviceBezel(
-                              gridWidth: KeyGrid.widthFor(layout.grid, keySize),
-                              gridHeight: KeyGrid.heightFor(layout.grid, keySize),
+                              gridWidth: KeyGrid.widthFor(grid, keySize),
+                              gridHeight: KeyGrid.heightFor(grid, keySize),
                               pageCount: layout.pages,
                               currentPage: layout.page,
+                              dotsInside: !sideways,
                               child: KeyGrid(
-                                grid: layout.grid,
+                                grid: grid,
                                 keys: layout.keys,
                                 keySize: keySize,
                                 confirmed: _confirmed,
@@ -231,6 +254,13 @@ class _DeckScreenState extends State<DeckScreen> {
                     ),
                   ),
                 ),
+              ],
+            );
+            if (!sideways) return deck;
+            return Row(
+              children: [
+                _TopBar(layout: layout, layoutSource: widget.layoutSource, vertical: true),
+                Expanded(child: deck),
               ],
             );
           },
@@ -347,14 +377,26 @@ class _Banner extends StatelessWidget {
   }
 }
 
+/// The deck's chrome: which profile or deck is on show, the mode switch, and settings.
+///
+/// Runs along the TOP upright and down the SIDE sideways. Not decoration: height is the axis that
+/// decides how many rows of keys fit, and a phone held sideways has barely 390 logical pixels of
+/// it. Moving the bar onto the width — which has 870 to spare — is what buys the third row.
 class _TopBar extends StatelessWidget {
   final Layout layout;
   final LayoutSource layoutSource;
-  const _TopBar({required this.layout, required this.layoutSource});
+
+  /// Sideways: the bar becomes a column on the left. ponytail: left because the branding already
+  /// sat left and most people hold the right thumb over the keys — one constant to flip if that
+  /// turns out backwards for someone.
+  final bool vertical;
+
+  const _TopBar({required this.layout, required this.layoutSource, this.vertical = false});
 
   @override
   Widget build(BuildContext context) {
     final title = layout.mode == 'auto' ? (layout.source.appName ?? 'Auto') : (layout.source.name ?? 'Manual');
+    if (vertical) return _vertical(title);
     // Deliberately tight. Every pixel here is a pixel the keys do not get, and the keys are the
     // product — a DropdownButton at its default size alone ate ~48px of a phone held sideways.
     return Padding(
@@ -399,4 +441,77 @@ class _TopBar extends StatelessWidget {
       ),
     );
   }
+
+  /// The same three things stacked down a narrow strip. The title is rotated rather than dropped:
+  /// in auto mode it names the app the pad is following, which is the one thing on this screen
+  /// that answers "why are these keys the keys?".
+  Widget _vertical(String title) {
+    return SizedBox(
+      width: _verticalWidth,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(6, 8, 4, 8),
+        child: Column(
+          children: [
+            Icon(
+              layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
+              color: const Color(DeckTokens.textSecondary),
+              size: 16,
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: RotatedBox(
+                quarterTurns: 3,
+                child: Center(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(DeckTokens.textPrimary),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // The page indicator lives here sideways, not in the bezel: on the width, which has
+            // room to spare, instead of the height, which is what caps the key size.
+            if (layout.pages > 1) ...[
+              for (var i = 0; i < layout.pages; i++) DeviceBezel.dot(i == layout.page, stacked: true),
+              const SizedBox(height: 4),
+            ],
+            const SizedBox(height: 4),
+            // Icon-only: a DropdownButton with its label does not fit a strip this narrow, and the
+            // icon above already says which mode is on.
+            SizedBox(
+              height: 28,
+              child: DropdownButton<String>(
+                value: layout.mode,
+                isDense: true,
+                dropdownColor: const Color(0xFF1E1E20),
+                underline: const SizedBox.shrink(),
+                iconSize: 18,
+                icon: const Icon(Icons.swap_vert, color: Color(DeckTokens.textSecondary), size: 18),
+                selectedItemBuilder: (_) => const [SizedBox.shrink(), SizedBox.shrink()],
+                style: const TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 12),
+                items: const [
+                  DropdownMenuItem(value: 'auto', child: Text('Auto')),
+                  DropdownMenuItem(value: 'manual', child: Text('Manual')),
+                ],
+                onChanged: (mode) {
+                  if (mode != null) layoutSource.setMode(mode);
+                },
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Icon(Icons.settings, color: Color(DeckTokens.textSecondary), size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Width of the side strip.
+  static const _verticalWidth = 40.0;
 }
