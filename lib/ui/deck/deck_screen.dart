@@ -435,29 +435,26 @@ class _TopBar extends StatelessWidget {
               if (mode != null) layoutSource.setMode(mode);
             },
           ),
-          const SizedBox(width: 4),
-          const Icon(Icons.settings, color: Color(DeckTokens.textSecondary), size: 18),
+          // The settings cog that used to sit here was a bare `Icon` with no handler in either
+          // orientation — it has done nothing since F3. Removed rather than enlarged: there is no
+          // settings screen to open yet, and a control that cannot be pressed is worse than no
+          // control, especially on a screen where the complaint is that things cannot be pressed.
+          // One line to put back when F7 gives it somewhere to go.
         ],
       ),
     );
   }
 
-  /// The same three things stacked down a narrow strip. The title is rotated rather than dropped:
-  /// in auto mode it names the app the pad is following, which is the one thing on this screen
-  /// that answers "why are these keys the keys?".
+  /// The title and the mode switch stacked down the strip. The title is rotated rather than
+  /// dropped: in auto mode it names the app the pad is following, which is the one thing on this
+  /// screen that answers "why are these keys the keys?".
   Widget _vertical(String title) {
     return SizedBox(
       width: _verticalWidth,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(6, 8, 4, 8),
+        padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
         child: Column(
           children: [
-            Icon(
-              layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
-              color: const Color(DeckTokens.textSecondary),
-              size: 16,
-            ),
-            const SizedBox(height: 8),
             Expanded(
               child: RotatedBox(
                 quarterTurns: 3,
@@ -479,33 +476,42 @@ class _TopBar extends StatelessWidget {
             // room to spare, instead of the height, which is what caps the key size.
             if (layout.pages > 1) ...[
               for (var i = 0; i < layout.pages; i++) DeviceBezel.dot(i == layout.page, stacked: true),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
             ],
-            const SizedBox(height: 4),
-            // Icon-only: a DropdownButton with its label does not fit a strip this narrow, and the
-            // icon above already says which mode is on.
-            SizedBox(
-              height: 28,
-              child: DropdownButton<String>(
-                value: layout.mode,
-                isDense: true,
-                dropdownColor: const Color(0xFF1E1E20),
-                underline: const SizedBox.shrink(),
-                iconSize: 18,
-                icon: const Icon(Icons.swap_vert, color: Color(DeckTokens.textSecondary), size: 18),
-                selectedItemBuilder: (_) => const [SizedBox.shrink(), SizedBox.shrink()],
-                style: const TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 12),
-                items: const [
-                  DropdownMenuItem(value: 'auto', child: Text('Auto')),
-                  DropdownMenuItem(value: 'manual', child: Text('Manual')),
-                ],
-                onChanged: (mode) {
-                  if (mode != null) layoutSource.setMode(mode);
-                },
+            // A toggle, not a dropdown. There are exactly two modes, so a menu was a second tap
+            // for nothing — and the icon-only DropdownButton it replaces had a hit area of about
+            // 18x28 in a 40-wide strip, which is what "casi no se pueden presionar" was. This is
+            // 56x56: above Material's 48 minimum, and it says which mode is on instead of hiding
+            // it behind the menu.
+            Material(
+              color: const Color(DeckTokens.keyDefaultBackground),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
+                child: SizedBox(
+                  width: _tapTarget,
+                  height: _tapTarget,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
+                        color: const Color(DeckTokens.textPrimary),
+                        size: 20,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        layout.mode == 'auto' ? 'Auto' : 'Manual',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 6),
-            const Icon(Icons.settings, color: Color(DeckTokens.textSecondary), size: 18),
           ],
         ),
       ),
@@ -513,5 +519,14 @@ class _TopBar extends StatelessWidget {
   }
 
   /// Width of the side strip.
-  static const _verticalWidth = 40.0;
+  ///
+  /// 72, not 40. Sideways this comes off the WIDTH, which is the axis with room to spare — the key
+  /// size is set by `sizeForDevice` from the screen, and `sizeToFit` only caps it, with about 80
+  /// logical pixels of slack before it would. Spending 32 of those on a control people can
+  /// actually hit is the trade this strip exists to make. `CAPPED BY BOX` in the trace says so out
+  /// loud if that slack is ever wrong.
+  static const _verticalWidth = 72.0;
+
+  /// Material's minimum touch target is 48. 56 leaves room for a label under the icon.
+  static const _tapTarget = 56.0;
 }

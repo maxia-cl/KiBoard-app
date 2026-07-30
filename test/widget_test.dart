@@ -1,13 +1,51 @@
-import 'package:flutter/widgets.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kiboard_app/main.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
+import 'package:kiboard_app/net/layout_source.dart';
 import 'package:kiboard_app/net/saved_session.dart';
 import 'package:kiboard_app/model/deck.dart';
 import 'package:kiboard_app/ui/deck/adaptive_grid.dart';
+import 'package:kiboard_app/ui/deck/deck_screen.dart';
 import 'package:kiboard_app/ui/deck/key_grid.dart';
+import 'package:kiboard_app/ui/deck/key_widget.dart';
+
+/// Ten keys on the phone's own grid — what a real host sends once it has repaginated for the grid
+/// the client declared in `hello`. DeckScreen reshapes it to the orientation itself as long as the
+/// capacity matches, which is the case this exists to produce.
+class _TenKeys implements LayoutSource {
+  final _controller = StreamController<Layout>.broadcast();
+
+  static final _layout = Layout(
+    mode: 'auto',
+    source: const LayoutSourceInfo(kind: 'profile', id: 'test', appName: 'Test'),
+    grid: const Grid(rows: 5, cols: 2),
+    page: 0,
+    pages: 1,
+    keys: List.generate(10, DeckKey.empty),
+  );
+
+  @override
+  Stream<Layout> layouts() {
+    scheduleMicrotask(() => _controller.add(_layout));
+    return _controller.stream;
+  }
+
+  @override
+  Future<void> pressKey({required int pos, required String press}) async {}
+  @override
+  Future<void> setMode(String mode, {String? deckId}) async {}
+  @override
+  Future<WindowsPage> listWindows(int page) async => throw UnimplementedError();
+  @override
+  Future<void> focusWindow(int windowId) async {}
+
+  void dispose() => _controller.close();
+}
 
 void main() {
   // A stored session is what lets the app skip pairing on every launch, so its round trip is worth
@@ -154,6 +192,46 @@ void main() {
         expect(parseHostAddress(bad), isNull, reason: 'should refuse "$bad"');
       }
     });
+  });
+
+  /// The unit test above pins `sizeForDevice`, which is orientation-independent by construction —
+  /// so it cannot fail. What CAN fail is the other half: `sizeToFit` capping that size when the
+  /// shell turns out wider than the reserve assumed, in one orientation only. That is the runtime
+  /// `CAPPED BY BOX` case, and it is what widening the landscape strip risks.
+  ///
+  /// So this one measures the key as actually laid out, both ways up.
+  testWidgets('the rendered key is the same size held either way', (tester) async {
+    // A layout of the shape a REAL host sends: ten keys on the phone's own grid, which transposes
+    // to 5x2 upright and 2x5 sideways. The FP fixtures are 3x5 = fifteen, so the capacity guard in
+    // DeckScreen keeps their grid rather than the phone's and renders five columns into a portrait
+    // box — which caps by width and would make this measure the wrong thing entirely.
+    final source = _TenKeys();
+    addTearDown(source.dispose);
+
+    Future<double> keySizeAt(Size screen) async {
+      tester.view.physicalSize = screen;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData(size: screen),
+          child: MaterialApp(
+            home: DeckScreen(layoutSource: source, hostName: "M3X's PC"),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300)); // the fixture arrives on the stream
+      return tester.getSize(find.byType(KeyWidget).first).width;
+    }
+
+    // The reference phone, upright and sideways.
+    final upright = await keySizeAt(const Size(393, 873));
+    final sideways = await keySizeAt(const Size(873, 393));
+
+    expect(sideways, moreOrLessEquals(upright, epsilon: 0.5),
+        reason: 'the side strip is eating enough width to shrink the keys — check _verticalWidth '
+            'against the slack described on KeyGrid._reserveLong');
   });
 
   testWidgets('with no saved session, the app boots to discovery', (WidgetTester tester) async {
