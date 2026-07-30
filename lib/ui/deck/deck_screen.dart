@@ -75,6 +75,41 @@ class _DeckScreenState extends State<DeckScreen> {
   /// Positions lit green right now, because the host confirmed them.
   final Set<int> _confirmed = {};
 
+  /// What the last layout was of, so a page change can be told apart from a deck change.
+  String? _lastSource;
+  int _lastPage = 0;
+
+  /// Which way the pages should travel: +1 when going forward, -1 when coming back.
+  double _pageDir = 1;
+
+  /// Short enough that the pad still feels like hardware, long enough to read as a move. Android's
+  /// own page transitions sit around 300 ms; a control surface wants to be quicker than that.
+  static const _pageSlide = Duration(milliseconds: 200);
+
+  /// Identity of what is on screen. The deck as well as the page, so switching decks also swaps
+  /// rather than mutating the same grid under the user.
+  String _pageKey(Layout layout) => '${layout.mode}/${layout.source.id}#${layout.page}';
+
+  /// Reads the direction of a page change out of the layouts as they arrive.
+  ///
+  /// The host owns the page, so the phone never decides it — but it does have to know which way
+  /// the user went, or the new page would slide in from whichever side was hardcoded and half the
+  /// swipes would animate backwards.
+  void _trackPage(Layout layout) {
+    final source = '${layout.mode}/${layout.source.id}';
+    if (source != _lastSource) {
+      // A different deck, or auto mode following a different app. Not a swipe, so there is no
+      // direction to infer; leave the last one alone.
+      _lastSource = source;
+      _lastPage = layout.page;
+      return;
+    }
+    if (layout.page != _lastPage) {
+      _pageDir = layout.page > _lastPage ? 1 : -1;
+      _lastPage = layout.page;
+    }
+  }
+
   /// Swipe between the pages of a deck (§4.4 `set_page`). The host owns the page — it answers with
   /// the `layout` for it — so there is no local page state to keep in sync.
   void _swipePage(Layout layout, double velocity) {
@@ -176,6 +211,7 @@ class _DeckScreenState extends State<DeckScreen> {
               );
             }
             final layout = snapshot.data!;
+            _trackPage(layout);
             // Sideways the chrome runs down the left instead of across the top. Height is what
             // limits the number of rows on a phone held that way — barely 390 logical pixels of it
             // against 870 of width — so the bar belongs on the axis that has room to spare.
@@ -241,12 +277,41 @@ class _DeckScreenState extends State<DeckScreen> {
                               pageCount: layout.pages,
                               currentPage: layout.page,
                               dotsInside: !sideways,
-                              child: KeyGrid(
-                                grid: grid,
-                                keys: layout.keys,
-                                keySize: keySize,
-                                confirmed: _confirmed,
-                                onKeyPress: (pos, press) => _handlePress(layout, pos, press),
+                              // The page used to be REPLACED, which read as a cut rather than as
+                              // a move. It travels now, in the direction the swipe went, clipped
+                              // to the bezel so a page leaves through the edge of the device
+                              // instead of over it.
+                              child: ClipRect(
+                                child: AnimatedSwitcher(
+                                  duration: _pageSlide,
+                                  switchInCurve: Curves.easeOutCubic,
+                                  switchOutCurve: Curves.easeInCubic,
+                                  // Stacked rather than the default cross-fade-in-place: the two
+                                  // pages have to pass each other, so both must be laid out.
+                                  layoutBuilder: (current, previous) => Stack(
+                                    alignment: Alignment.center,
+                                    children: [...previous, ?current],
+                                  ),
+                                  transitionBuilder: (child, animation) {
+                                    // The outgoing child runs this same animation in REVERSE, so
+                                    // giving it the opposite start sends it out the far side while
+                                    // the new one comes in from the near one.
+                                    final incoming = (child.key as ValueKey<String>).value == _pageKey(layout);
+                                    final from = Offset(incoming ? _pageDir : -_pageDir, 0);
+                                    return SlideTransition(
+                                      position: Tween(begin: from, end: Offset.zero).animate(animation),
+                                      child: FadeTransition(opacity: animation, child: child),
+                                    );
+                                  },
+                                  child: KeyGrid(
+                                    key: ValueKey(_pageKey(layout)),
+                                    grid: grid,
+                                    keys: layout.keys,
+                                    keySize: keySize,
+                                    confirmed: _confirmed,
+                                    onKeyPress: (pos, press) => _handlePress(layout, pos, press),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
