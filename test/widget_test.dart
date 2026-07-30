@@ -20,13 +20,30 @@ import 'package:kiboard_app/ui/deck/key_widget.dart';
 class _TenKeys implements LayoutSource {
   final _controller = StreamController<Layout>.broadcast();
 
-  static final _layout = Layout(
+  /// Makes key 0 a `danger` key, so the confirmation can be driven.
+  final bool danger;
+
+  /// Positions that actually reached the host.
+  final pressed = <int>[];
+
+  _TenKeys({this.danger = false});
+
+  Layout get _layout => Layout(
     mode: 'auto',
     source: const LayoutSourceInfo(kind: 'profile', id: 'test', appName: 'Test'),
     grid: const Grid(rows: 5, cols: 2),
     page: 0,
     pages: 1,
-    keys: List.generate(10, DeckKey.empty),
+    keys: [
+      DeckKey(
+        pos: 0,
+        label: danger ? 'Close app' : 'Copy',
+        action: 'ctrl+c',
+        danger: danger,
+        kind: KeyKind.action,
+      ),
+      ...List.generate(9, (i) => DeckKey.empty(i + 1)),
+    ],
   );
 
   @override
@@ -36,7 +53,9 @@ class _TenKeys implements LayoutSource {
   }
 
   @override
-  Future<void> pressKey({required int pos, required String press}) async {}
+  Future<void> pressKey({required int pos, required String press}) async {
+    pressed.add(pos);
+  }
   @override
   Future<void> setMode(String mode, {String? deckId}) async {}
   @override
@@ -232,6 +251,67 @@ void main() {
     expect(sideways, moreOrLessEquals(upright, epsilon: 0.5),
         reason: 'the side strip is eating enough width to shrink the keys — check _verticalWidth '
             'against the slack described on KeyGrid._reserveLong');
+  });
+
+  /// §3 says a `danger` key is painted red AND asks before it acts. Only the paint was built, so
+  /// "Cerrar app" closed whatever was in front on one mis-tap — on a surface hit from muscle
+  /// memory, sitting next to keys that do nothing worse than copy.
+  group('a danger key asks first', () {
+    Future<_TenKeys> pumpDeck(WidgetTester tester) async {
+      final source = _TenKeys(danger: true);
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(home: DeckScreen(layoutSource: source, hostName: 'PC')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      return source;
+    }
+
+    testWidgets('and does nothing when the answer is no', (tester) async {
+      final source = await pumpDeck(tester);
+      await tester.tap(find.byType(KeyWidget).first);
+      // A key registers `onDoubleTap`, so the recognizer holds the short press back until the
+      // double-tap window closes. `pumpAndSettle` does not advance that timer — it only pumps
+      // frames — so the tap would otherwise never land.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Close app?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(source.pressed, isEmpty, reason: 'cancelling must not reach the host');
+    });
+
+    testWidgets('and goes through when the answer is yes', (tester) async {
+      final source = await pumpDeck(tester);
+      await tester.tap(find.byType(KeyWidget).first);
+      // A key registers `onDoubleTap`, so the recognizer holds the short press back until the
+      // double-tap window closes. `pumpAndSettle` does not advance that timer — it only pumps
+      // frames — so the tap would otherwise never land.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Close app'));
+      await tester.pumpAndSettle();
+      expect(source.pressed, [0]);
+    });
+
+    testWidgets('while an ordinary key still goes straight through', (tester) async {
+      final source = _TenKeys();
+      addTearDown(source.dispose);
+      await tester.pumpWidget(MaterialApp(home: DeckScreen(layoutSource: source, hostName: 'PC')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.tap(find.byType(KeyWidget).first);
+      // A key registers `onDoubleTap`, so the recognizer holds the short press back until the
+      // double-tap window closes. `pumpAndSettle` does not advance that timer — it only pumps
+      // frames — so the tap would otherwise never land.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(source.pressed, [0]);
+    });
   });
 
   testWidgets('with no saved session, the app boots to discovery', (WidgetTester tester) async {

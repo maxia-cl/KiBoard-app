@@ -121,11 +121,51 @@ class _DeckScreenState extends State<DeckScreen> {
     widget.session?.setPage(next);
   }
 
+  /// §3: a `danger` key is painted red AND asks before it acts. Only the painting was ever built,
+  /// so "Cerrar app" closed whatever was in front on a single mis-tap — on a surface hit from
+  /// muscle memory, next to keys that are harmless.
+  ///
+  /// Long and double presses ask too: the gesture does not change what the key does.
+  Future<bool> _confirmDanger(DeckKey key) async {
+    final label = (key.label ?? '').isEmpty ? 'This key' : key.label!;
+    final answer = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E20),
+        title: Text('$label?', style: const TextStyle(color: Color(DeckTokens.textPrimary))),
+        content: const Text(
+          'This one cannot be undone from here.',
+          style: TextStyle(color: Color(DeckTokens.textSecondary)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel', style: TextStyle(color: Color(DeckTokens.textSecondary))),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(DeckTokens.accent)),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(label),
+          ),
+        ],
+      ),
+    );
+    return answer ?? false;
+  }
+
   Future<void> _handlePress(Layout layout, int pos, String press) async {
     final key = layout.keys[pos];
     // Confirms the press landed on the device before the host has answered. A key pad that does
     // not acknowledge a touch feels broken even when it works.
     HapticFeedback.selectionClick();
+
+    // Asked BEFORE any of the branches below, so it covers a dangerous key whatever it does —
+    // not only the ones that end up going to the host.
+    if (key.danger && !await _confirmDanger(key)) {
+      trace('danger key pos=$pos cancelled');
+      return;
+    }
+    if (!mounted) return;
 
     if (key.action == 'windows') {
       widget.layoutSource.pressKey(pos: pos, press: press);
