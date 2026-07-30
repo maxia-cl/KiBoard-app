@@ -1,6 +1,8 @@
-// A socket that stops carrying traffic without ever erroring or closing.
+// The session against a real WebSocket server: what it does when the link dies, and what it keeps
+// from `hello_ack`.
 //
-// This is not a hypothetical: a phone that sleeps, or whose Wi-Fi radio drops into power save,
+// The link half is here because of a socket that stops carrying traffic without ever erroring or
+// closing. That is not a hypothetical: a phone that sleeps, or whose Wi-Fi radio drops into power save,
 // leaves a HALF-OPEN TCP connection. `onDone` and `onError` never fire. The deck kept saying
 // "online" while every press and every page swipe timed out one at a time, and the reconnect that
 // would have fixed it in a second never started — which is what "no funciona, ni cambiar de página
@@ -22,14 +24,30 @@ class _Host {
   Timer? _pings;
   bool answer = true;
 
+  /// Everything the phone sent, so a test can assert on the wire rather than on a mock.
+  final received = <Map<String, dynamic>>[];
+
+  /// What `hello_ack` offers (§2). Empty by default; the deck tests set it.
+  List<Map<String, dynamic>> decks = const [];
+
   _Host(this.server) {
     server.transform(WebSocketTransformer()).listen((ws) {
       socket = ws;
       ws.listen((raw) {
-        if (!answer) return; // gone quiet: the frames arrive and nothing comes back
         final msg = jsonDecode(raw as String) as Map<String, dynamic>;
+        received.add(msg);
+        if (!answer) return; // gone quiet: the frames arrive and nothing comes back
         if (msg['type'] == 'hello') {
-          ws.add(jsonEncode({'v': 2, 'type': 'hello_ack', 'ok': true, 'name': 'Test PC'}));
+          ws.add(jsonEncode({
+            'v': 2,
+            'type': 'hello_ack',
+            'ok': true,
+            'name': 'Test PC',
+            'decks': decks,
+          }));
+        }
+        if (msg['type'] == 'set_mode') {
+          ws.add(jsonEncode({'v': 2, 'type': 'command_result', 'ok': true}));
         }
       });
     });
@@ -49,6 +67,40 @@ class _Host {
 }
 
 void main() {
+  // F7's deck picker rests entirely on this: the list has been in every `hello_ack` since F1 and
+  // the phone discarded it, which is why manual mode could only ever land on `decks[0]`.
+  test('the decks offered in hello_ack are kept, and can be asked for by id', () async {
+    final host = await _Host.start();
+    addTearDown(host.stop);
+    host.decks = const [
+      {'id': 'obslive', 'name': 'OBS live', 'icon': 'obs'},
+      {'id': 'f6', 'name': 'F6 bench', 'icon': 'work'},
+    ];
+
+    final session = WsLayoutSource(ip: '127.0.0.1', port: host.server.port, token: 't', deviceId: 'd');
+    addTearDown(session.dispose);
+    await session.connect();
+
+    expect(session.decks.map((d) => d.id), ['obslive', 'f6']);
+    expect(session.decks.first.name, 'OBS live');
+
+    await session.setMode('manual', deckId: 'f6');
+    final sent = host.received.lastWhere((m) => m['type'] == 'set_mode');
+    expect(sent['mode'], 'manual');
+    expect(sent['deckId'], 'f6', reason: 'without the id the host falls back to decks[0]');
+  });
+
+  test('a host with no decks leaves the list empty rather than throwing', () async {
+    final host = await _Host.start();
+    addTearDown(host.stop);
+
+    final session = WsLayoutSource(ip: '127.0.0.1', port: host.server.port, token: 't', deviceId: 'd');
+    addTearDown(session.dispose);
+    await session.connect();
+
+    expect(session.decks, isEmpty);
+  });
+
   test('silence from the host is a dropped link, even when the socket says otherwise', () async {
     final host = await _Host.start();
     addTearDown(host.stop);

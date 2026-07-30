@@ -99,6 +99,10 @@ class WsLayoutSource implements LayoutSource {
     if (!_status.isClosed) _status.add(s);
   }
 
+  /// The decks this host offers, from the last `hello_ack`. Re-read on every reconnect, so a deck
+  /// added in the editor shows up without restarting the app.
+  List<DeckSummary> decks = const [];
+
   /// Mode to restore after a reconnect. A reconnect starts a brand-new session on the host, which
   /// defaults to auto — without this, every dropped connection would silently kick the user out of
   /// the deck they were using.
@@ -190,6 +194,12 @@ class WsLayoutSource implements LayoutSource {
     if (ack['ok'] != true) {
       throw HelloException(ack['error'] as String? ?? 'not_paired');
     }
+    // The decks the host offers (§2). This has arrived on every `hello_ack` since F1 and was
+    // thrown away until F7 — without it the phone can only reach whichever deck happens to be
+    // first in config.json, or one that some other deck has a `deck:` key pointing at.
+    decks = ((ack['decks'] as List?) ?? const [])
+        .map((d) => DeckSummary.fromJson(d as Map<String, dynamic>))
+        .toList(growable: false);
     _heardFromHost(); // the link is live: start expecting pings
     return ack['name'] as String? ?? '';
   }

@@ -28,6 +28,13 @@ const Map<String, IconData> _icons = {
   'obs': Icons.videocam,
   'macro': Icons.settings,
   'close': Icons.close,
+  // Named by the protocol's own `hello_ack` example (§2, `{"id":"work","icon":"work"}`) and
+  // implemented by neither side until the deck picker started drawing deck icons for real.
+  'work': Icons.work,
 };
 
 IconData iconFor(String? name) => _icons[name] ?? Icons.crop_square;
+
+/// A DECK's icon. Falls back to the deck glyph rather than the blank square: in a list of decks,
+/// an unknown name should still read as a deck instead of as a broken key.
+IconData iconForDeck(String? name) => _icons[name] ?? Icons.dashboard;

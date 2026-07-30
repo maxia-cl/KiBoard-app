@@ -10,6 +10,7 @@ import '../../net/layout_source.dart';
 import '../../net/saved_session.dart';
 import '../../net/trace.dart';
 import '../../net/ws_layout_source.dart';
+import '../icons.dart';
 import '../pair/discover_screen.dart';
 import '../tokens.g.dart';
 import '../input/dictation_screen.dart';
@@ -181,7 +182,7 @@ class _DeckScreenState extends State<DeckScreen> {
             final sideways = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
             final deck = Column(
               children: [
-                if (!sideways) _TopBar(layout: layout, layoutSource: widget.layoutSource),
+                if (!sideways) _TopBar(layout: layout, layoutSource: widget.layoutSource, session: widget.session),
                 if (widget.session != null) _LinkBanner(session: widget.session!),
                 Expanded(
                   child: Padding(
@@ -259,7 +260,7 @@ class _DeckScreenState extends State<DeckScreen> {
             if (!sideways) return deck;
             return Row(
               children: [
-                _TopBar(layout: layout, layoutSource: widget.layoutSource, vertical: true),
+                _TopBar(layout: layout, layoutSource: widget.layoutSource, session: widget.session, vertical: true),
                 Expanded(child: deck),
               ],
             );
@@ -386,17 +387,76 @@ class _TopBar extends StatelessWidget {
   final Layout layout;
   final LayoutSource layoutSource;
 
+  /// The live session, when there is one — it is where the host's deck list lives. Null for the
+  /// fixture-backed source used in tests, which has no host to have asked.
+  final WsLayoutSource? session;
+
   /// Sideways: the bar becomes a column on the left. ponytail: left because the branding already
   /// sat left and most people hold the right thumb over the keys — one constant to flip if that
   /// turns out backwards for someone.
   final bool vertical;
 
-  const _TopBar({required this.layout, required this.layoutSource, this.vertical = false});
+  const _TopBar({
+    required this.layout,
+    required this.layoutSource,
+    this.session,
+    this.vertical = false,
+  });
+
+  /// What the deck control says: the deck on screen, or an invitation when auto mode means there
+  /// is none.
+  String get _deckLabel =>
+      layout.mode == 'manual' ? (layout.source.name ?? 'Decks') : 'Decks';
+
+  /// The deck list, and a way to ask for one (F7). Before this the phone could only reach the deck
+  /// the host happened to put first, or one that another deck had a `deck:` key pointing at — a
+  /// key slot per destination, and a new deck unreachable until someone wired it up.
+  ///
+  /// Picking a deck implies manual mode: it is the only mode a deck exists in, so asking for one
+  /// while in auto can only mean "take me there".
+  Future<void> _pickDeck(BuildContext context) async {
+    final live = session;
+    if (live == null) return;
+    final decks = live.decks;
+    if (decks.isEmpty) return;
+    final current = layout.mode == 'manual' ? layout.source.id : null;
+
+    final chosen = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E20),
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final deck in decks)
+                ListTile(
+                  leading: Icon(
+                    iconForDeck(deck.icon),
+                    color: Color(deck.id == current ? DeckTokens.accent : DeckTokens.textSecondary),
+                  ),
+                  title: Text(
+                    deck.name,
+                    style: TextStyle(
+                      color: Color(
+                        deck.id == current ? DeckTokens.accent : DeckTokens.textPrimary,
+                      ),
+                    ),
+                  ),
+                  onTap: () => Navigator.of(sheetContext).pop(deck.id),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (chosen != null) await live.setMode('manual', deckId: chosen);
+  }
 
   @override
   Widget build(BuildContext context) {
     final title = layout.mode == 'auto' ? (layout.source.appName ?? 'Auto') : (layout.source.name ?? 'Manual');
-    if (vertical) return _vertical(title);
+    if (vertical) return _vertical(context, title);
     // Deliberately tight. Every pixel here is a pixel the keys do not get, and the keys are the
     // product — a DropdownButton at its default size alone ate ~48px of a phone held sideways.
     return Padding(
@@ -420,6 +480,16 @@ class _TopBar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (session != null && session!.decks.isNotEmpty)
+            TextButton.icon(
+              onPressed: () => _pickDeck(context),
+              icon: const Icon(Icons.dashboard, size: 16, color: Color(DeckTokens.textSecondary)),
+              label: Text(
+                _deckLabel,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 12),
+              ),
+            ),
           DropdownButton<String>(
             value: layout.mode,
             isDense: true,
@@ -448,13 +518,19 @@ class _TopBar extends StatelessWidget {
   /// The title and the mode switch stacked down the strip. The title is rotated rather than
   /// dropped: in auto mode it names the app the pad is following, which is the one thing on this
   /// screen that answers "why are these keys the keys?".
-  Widget _vertical(String title) {
+  Widget _vertical(BuildContext context, String title) {
     return SizedBox(
       width: _verticalWidth,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
         child: Column(
           children: [
+            if (session != null && session!.decks.isNotEmpty)
+              _StripButton(
+                icon: Icons.dashboard,
+                label: _deckLabel,
+                onTap: () => _pickDeck(context),
+              ),
             Expanded(
               child: RotatedBox(
                 quarterTurns: 3,
@@ -483,34 +559,10 @@ class _TopBar extends StatelessWidget {
             // 18x28 in a 40-wide strip, which is what "casi no se pueden presionar" was. This is
             // 56x56: above Material's 48 minimum, and it says which mode is on instead of hiding
             // it behind the menu.
-            Material(
-              color: const Color(DeckTokens.keyDefaultBackground),
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
-                child: SizedBox(
-                  width: _tapTarget,
-                  height: _tapTarget,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
-                        color: const Color(DeckTokens.textPrimary),
-                        size: 20,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        layout.mode == 'auto' ? 'Auto' : 'Manual',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 10),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _StripButton(
+              icon: layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
+              label: layout.mode == 'auto' ? 'Auto' : 'Manual',
+              onTap: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
             ),
           ],
         ),
@@ -529,4 +581,49 @@ class _TopBar extends StatelessWidget {
 
   /// Material's minimum touch target is 48. 56 leaves room for a label under the icon.
   static const _tapTarget = 56.0;
+}
+
+/// One control in the side strip: 56x56, an icon and a word. Both the deck picker and the mode
+/// toggle are this — the strip is narrow enough that two shapes would read as two kinds of thing.
+class _StripButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _StripButton({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Material(
+        color: const Color(DeckTokens.keyDefaultBackground),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: SizedBox(
+            width: _TopBar._tapTarget,
+            height: _TopBar._tapTarget,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: const Color(DeckTokens.textPrimary), size: 20),
+                const SizedBox(height: 2),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 10),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

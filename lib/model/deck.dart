@@ -195,6 +195,22 @@ class Layout {
   );
 }
 
+/// A deck the host offers, as named in `hello_ack` (protocol §2). Just enough to list them and ask
+/// for one by id — the keys themselves only ever arrive in a `layout`.
+class DeckSummary {
+  final String id;
+  final String name;
+  final String? icon;
+
+  const DeckSummary({required this.id, required this.name, this.icon});
+
+  factory DeckSummary.fromJson(Map<String, dynamic> json) => DeckSummary(
+    id: json['id'] as String,
+    name: json['name'] as String? ?? json['id'] as String,
+    icon: json['icon'] as String?,
+  );
+}
+
 class WindowsPage {
   final Grid grid;
   final int page;
