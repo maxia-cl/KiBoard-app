@@ -133,41 +133,63 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     }
                     final hosts = snapshot.data ?? const [];
                     if (hosts.isEmpty) {
-                      // R1: a discovery failure must be EXPLAINED, not left blank. The two causes
-                      // that actually happen are a network that drops multicast and a firewall
-                      // that has not been allowed yet, and neither is the user's fault or fixable
-                      // from this screen — so the way out is offered right here.
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'No PCs found on this network yet.',
-                              style: TextStyle(color: Color(DeckTokens.textPrimary), fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Some networks never pass on the messages KiBoard listens for — '
-                              'guest WiFi and plenty of ISP routers among them. The PC can also '
-                              'still be waiting for you to allow it through its firewall.\n\n'
-                              'Typing the address works on any network.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 13),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
+                      // R1: a discovery failure must be EXPLAINED, not left blank. The cause that
+                      // actually happens is a network that drops multicast, which is neither the
+                      // user's fault nor fixable from this screen — so the way out is offered
+                      // right here.
+                      //
+                      // Centred when there is room, scrolling when there is not. A plain `Center`
+                      // overflowed the bottom held sideways; a plain scroll view left it stuck to
+                      // the top with a void underneath in portrait. `minHeight` is what lets one
+                      // widget do both. Of all the screens to get this wrong, the one a user
+                      // reaches when nothing else works is the worst.
+                      return LayoutBuilder(
+                        builder: (context, box) => SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: box.maxHeight),
+                            child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                TextButton(onPressed: _rescan, child: const Text('Scan again')),
-                                const SizedBox(width: 8),
-                                FilledButton(
-                                  style: FilledButton.styleFrom(backgroundColor: const Color(DeckTokens.accent)),
-                                  onPressed: _enterAddress,
-                                  child: const Text('Enter its address'),
+                                const Text(
+                                  'No PCs found on this network yet.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Color(DeckTokens.textPrimary),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                // Two lines, not four. The long version fitted upright and had to
+                                // be scrolled sideways, which left the buttons sliced in half
+                                // below the fold — it looked broken even though nothing was.
+                                const Text(
+                                  'Some networks — guest WiFi, plenty of ISP routers — never pass '
+                                  'on the messages KiBoard listens for. Typing the address works '
+                                  'anyway.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 13),
+                                ),
+                                const SizedBox(height: 16),
+                                // Wrap, not Row: two buttons side by side is a nice-to-have, and
+                                // at a large text size they simply do not fit next to each other.
+                                Wrap(
+                                  alignment: WrapAlignment.center,
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    TextButton(onPressed: _rescan, child: const Text('Scan again')),
+                                    FilledButton(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: const Color(DeckTokens.accent),
+                                      ),
+                                      onPressed: _enterAddress,
+                                      child: const Text('Enter its address'),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
+                          ),
                         ),
                       );
                     }
@@ -219,12 +241,18 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Center(
+              // `TextButton.icon` lays its icon and label out in a Row that never wraps, so a
+              // `Center` around it — which hands down loose constraints — let this line run 149 px
+              // off the right edge of a 360 px phone. A full-width box gives that Row something to
+              // wrap inside, and the button centres its own content.
+              SizedBox(
+                width: double.infinity,
                 child: TextButton.icon(
                   onPressed: _enterAddress,
-                  icon: const Icon(Icons.keyboard_alt_outlined, color: Color(DeckTokens.textSecondary)),
+                  icon: const Icon(Icons.keyboard_alt_outlined, color: Color(DeckTokens.textSecondary), size: 18),
                   label: const Text(
                     "Don't see your PC? Enter its address",
+                    textAlign: TextAlign.center,
                     style: TextStyle(color: Color(DeckTokens.textSecondary)),
                   ),
                 ),

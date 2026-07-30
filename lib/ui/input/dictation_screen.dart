@@ -141,7 +141,9 @@ class _DictationScreenState extends State<DictationScreen> {
               ),
             ),
             Expanded(
-              child: Center(
+              // Scrollable: what lands here is whatever the person said, at 20 pt, and a long
+              // sentence dictated with the phone held sideways has nowhere to go otherwise.
+              child: SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
