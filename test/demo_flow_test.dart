@@ -76,7 +76,7 @@ void main() {
     await tester.pump(const Duration(seconds: 9));
   });
 
-  testWidgets('DiscoverScreen shows a rescan option when nothing is found', (tester) async {
+  testWidgets('DiscoverScreen explains an empty list instead of leaving it blank (R1)', (tester) async {
     await tester.pumpWidget(
       MaterialApp(home: DiscoverScreen(discovery: FakeDiscovery(const []))),
     );
@@ -84,6 +84,36 @@ void main() {
 
     expect(find.text('No PCs found on this network yet.'), findsOneWidget);
     expect(find.text('Scan again'), findsOneWidget);
+    // R1 is not satisfied by a message: the way out has to be reachable from the dead end itself.
+    expect(find.textContaining('guest WiFi'), findsOneWidget);
+    expect(find.text('Enter its address'), findsOneWidget);
+  });
+
+  testWidgets('a typed address reaches the same pairing screen as a discovered host (R1)', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: DiscoverScreen(discovery: FakeDiscovery(const []))),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Enter its address'));
+    await tester.pumpAndSettle();
+    expect(find.text("Your PC's address"), findsOneWidget);
+
+    // Something unreadable is refused in place, without closing the sheet or dialling a guess.
+    await tester.enterText(find.byType(TextField), 'not an address:::');
+    await tester.tap(find.text('Connect'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining("doesn't look like an address"), findsOneWidget);
+
+    // A port that is not the default, so the name has to carry it.
+    await tester.enterText(find.byType(TextField), '127.0.0.1:9001');
+    await tester.tap(find.text('Connect'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // The ordinary §2 pairing screen, named by what was typed — the real name arrives in pair_ack.
+    expect(find.text('"127.0.0.1:9001" wants to connect'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 9)); // let the bounded connect attempt fail cleanly
   });
 
   testWidgets('PairingCodeScreen: entering the right code pairs and opens the deck', (tester) async {

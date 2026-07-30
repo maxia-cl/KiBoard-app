@@ -111,6 +111,51 @@ void main() {
     });
   });
 
+  // R1: the typed address is the path that works on a network which never passes mDNS on, so it
+  // has to accept what a person actually types — including the whole URL, if that is what the PC
+  // showed them — and refuse what it cannot read instead of dialling a guess.
+  group('parseHostAddress', () {
+    test('a bare address takes the default port', () {
+      expect(parseHostAddress('192.168.1.11'), (host: '192.168.1.11', port: defaultHostPort));
+      expect(parseHostAddress('  desktop.local  '), (host: 'desktop.local', port: defaultHostPort));
+    });
+
+    test('an explicit port wins', () {
+      expect(parseHostAddress('192.168.1.11:9000'), (host: '192.168.1.11', port: 9000));
+    });
+
+    test('a pasted URL is read, not rejected', () {
+      expect(parseHostAddress('ws://192.168.1.11:8770'), (host: '192.168.1.11', port: 8770));
+      expect(parseHostAddress('http://desktop.local/'), (host: 'desktop.local', port: defaultHostPort));
+    });
+
+    test('IPv6 keeps its colons', () {
+      // Bracketed, with and without a port.
+      expect(parseHostAddress('[::1]:9000'), (host: '::1', port: 9000));
+      expect(parseHostAddress('[fe80::1]'), (host: 'fe80::1', port: defaultHostPort));
+      // Bare: every colon belongs to the address. Reading the last group as a port would dial
+      // somewhere else entirely — the same trap `wsUri` exists for.
+      expect(
+        parseHostAddress('2803:c600:5108:844a:80a9:4d6f:5152:153b'),
+        (host: '2803:c600:5108:844a:80a9:4d6f:5152:153b', port: defaultHostPort),
+      );
+    });
+
+    test('what it cannot read comes back null', () {
+      const bads = [
+        '', '   ', ':8770', '192.168.1.11:', '192.168.1.11:abc',
+        '192.168.1.11:0', '192.168.1.11:70000', '[::1', '[]', 'ws://',
+        'my pc', // a host cannot contain a space
+        // Colon-heavy but not an address. Taking these on faith handed `wsUri` a FormatException
+        // instead of telling the user about their typo.
+        'not an address:::', 'a:b:c', '[nope]:8770',
+      ];
+      for (final bad in bads) {
+        expect(parseHostAddress(bad), isNull, reason: 'should refuse "$bad"');
+      }
+    });
+  });
+
   testWidgets('with no saved session, the app boots to discovery', (WidgetTester tester) async {
     // No stored session: a phone that has never paired must land on discovery, not on a deck it
     // has no host for.
