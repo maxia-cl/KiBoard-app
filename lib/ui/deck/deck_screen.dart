@@ -204,15 +204,27 @@ class _DeckScreenState extends State<DeckScreen> {
                         final wanted = AdaptiveGrid.forSpace(w, h);
                         widget.session?.setGrid(wanted);
 
-                        // Keep drawing the grid the host last SENT: the new one only exists once
-                        // its `layout` arrives, and painting 5 columns of a 2-column layout would
-                        // flash a broken frame.
+                        // Reshape to the new orientation IMMEDIATELY, without waiting for the
+                        // host's answer. The grid is a fixed count that merely transposes, and
+                        // pagination is by count — so the very same ten keys are on screen either
+                        // way and only their arrangement changes. Waiting used to mean rendering
+                        // five columns into a portrait box: `sizeToFit` then shrank the key to
+                        // 57 pixels. With a host that lasted 150ms; with no host it never ended,
+                        // which is what "the icons go tiny when I rotate" was.
                         //
+                        // Capacity guards it: if the host ever sends a different number of keys
+                        // than this grid holds, keep what it sent rather than reflow into a shape
+                        // the keys do not fill.
+                        final grid = wanted.capacity == layout.grid.capacity &&
+                                layout.keys.length == wanted.capacity
+                            ? wanted
+                            : layout.grid;
+
                         // The size comes from the DEVICE, not from this box, so rotating does not
                         // resize the keys. `sizeToFit` only caps it, in case a screen turns out
                         // tighter than the reserve assumed.
-                        final byDevice = KeyGrid.sizeForDevice(MediaQuery.sizeOf(context), layout.grid);
-                        final byBox = KeyGrid.sizeToFit(layout.grid, w, h);
+                        final byDevice = KeyGrid.sizeForDevice(MediaQuery.sizeOf(context), grid);
+                        final byBox = KeyGrid.sizeToFit(grid, w, h);
                         final keySize = math.min(byDevice, byBox);
                         _traceSize(byDevice, byBox, keySize, w, h);
                         return SizedBox.expand(
@@ -223,13 +235,13 @@ class _DeckScreenState extends State<DeckScreen> {
                           child: GestureDetector(
                             onHorizontalDragEnd: (d) => _swipePage(layout, d.primaryVelocity ?? 0),
                             child: DeviceBezel(
-                              gridWidth: KeyGrid.widthFor(layout.grid, keySize),
-                              gridHeight: KeyGrid.heightFor(layout.grid, keySize),
+                              gridWidth: KeyGrid.widthFor(grid, keySize),
+                              gridHeight: KeyGrid.heightFor(grid, keySize),
                               pageCount: layout.pages,
                               currentPage: layout.page,
                               dotsInside: !sideways,
                               child: KeyGrid(
-                                grid: layout.grid,
+                                grid: grid,
                                 keys: layout.keys,
                                 keySize: keySize,
                                 confirmed: _confirmed,
