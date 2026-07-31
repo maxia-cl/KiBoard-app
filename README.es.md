@@ -49,7 +49,8 @@ El fijado guarda el DER entero en vez de un hash: estrictamente más fuerte, ~35
 guardada, y ninguna biblioteca de criptografía para la única comparación que hace la app. Una sesión
 guardada de antes adopta lo que ve una vez y fija desde ahí — confianza en el primer uso, el trato
 de SSH. Es un **cambio que rompe compatibilidad**: teléfono y host hay que recompilarlos e
-instalarlos juntos. También deja la app atada a `dart:io`, así que no hay build web.
+instalarlos juntos. El gancho del fijado es solo de `dart:io`, así que el build web sigue
+compilando pero no puede abrir una sesión.
 
 Sigue abierto en F7: el onboarding de primer uso, y la mitad QR del respaldo de dirección manual —
 el teléfono no tiene escáner ni dependencia de cámara.

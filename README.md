@@ -46,8 +46,8 @@ after moving the pin).
 Pinning stores the whole DER rather than a hash: strictly stronger, ~350 bytes in the saved session,
 and no crypto package for the one comparison the app makes. A session saved before pinning adopts
 what it sees once and pins after — first-use trust, the bargain SSH makes. This is a **breaking
-change**: phone and host must be rebuilt and installed together. It also makes the app `dart:io`
-only, so there is no web build.
+change**: phone and host must be rebuilt and installed together. The pinning hook is `dart:io`
+only, so the web build still compiles but cannot open a session.
 
 Still open in F7: first-run onboarding, and the QR half of the manual-address fallback — the phone
 has no scanner and no camera dependency at all.
