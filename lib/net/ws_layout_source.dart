@@ -6,6 +6,8 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../model/deck.dart';
 import 'discovered_host.dart';
 import 'layout_source.dart';
+import 'pinned_socket.dart';
+import 'trace.dart';
 
 /// Thrown when `hello` is rejected: revoked, invalid_token, protocol_too_old (protocol §5).
 class HelloException implements Exception {
@@ -36,6 +38,8 @@ class WsLayoutSource implements LayoutSource {
     required this.deviceId,
     Grid grid = const Grid(rows: 3, cols: 5),
     String? locale,
+    this.certificate,
+    this.silenceLimit = const Duration(seconds: 40),
     // ignore: prefer_initializing_formals -- `grid` is public and mutable behind a getter
   })  : _grid = grid,
         locale = locale ?? deviceLocale();
@@ -50,6 +54,10 @@ class WsLayoutSource implements LayoutSource {
   Grid get grid => _grid;
   Grid _grid;
   final String locale;
+
+  /// The host's certificate, base64 DER (§2.2). Null means first use — the next connection adopts
+  /// what it sees and sets this, and the caller saves it so the one after that can compare.
+  String? certificate;
 
   WebSocketChannel? _channel;
 
@@ -97,6 +105,10 @@ class WsLayoutSource implements LayoutSource {
     if (!_status.isClosed) _status.add(s);
   }
 
+  /// The decks this host offers, from the last `hello_ack`. Re-read on every reconnect, so a deck
+  /// added in the editor shows up without restarting the app.
+  List<DeckSummary> decks = const [];
+
   /// Mode to restore after a reconnect. A reconnect starts a brand-new session on the host, which
   /// defaults to auto — without this, every dropped connection would silently kick the user out of
   /// the deck they were using.
@@ -106,6 +118,29 @@ class WsLayoutSource implements LayoutSource {
   Timer? _retry;
   int _attempt = 0;
   bool _closed = false;
+
+  /// The host pings every 15 s (§4.4). Silence for longer than this means the link is gone —
+  /// whatever the socket believes.
+  ///
+  /// `onDone`/`onError` are not enough on their own, and that is not an edge case: a phone that
+  /// sleeps, or whose Wi-Fi radio drops into power save, leaves a HALF-OPEN TCP connection. Nothing
+  /// errors and nothing closes; frames simply stop arriving and everything sent goes nowhere. The
+  /// deck kept saying "online" while every press timed out one at a time, which is exactly what
+  /// "no funciona, ni cambiar de página" looked like. Two and a half missed pings, so a single
+  /// late one costs nothing. Injectable only so a test does not have to wait forty seconds.
+  final Duration silenceLimit;
+  Timer? _watchdog;
+
+  /// Restarts the silence timer. Called for EVERY frame, ping included — the point is traffic, not
+  /// which message it was.
+  void _heardFromHost() {
+    if (_closed) return;
+    _watchdog?.cancel();
+    _watchdog = Timer(silenceLimit, () {
+      trace('nothing from the host in ${silenceLimit.inSeconds}s — treating the link as gone');
+      _onDisconnected();
+    });
+  }
 
   /// Opens the socket and authenticates. Returns the host's display name.
   /// Throws [HelloException] with a short code on any failure, never hangs.
@@ -117,17 +152,25 @@ class WsLayoutSource implements LayoutSource {
 
   Future<String> _openSocket() async {
     _setStatus(SessionStatus.connecting);
-    final channel = WebSocketChannel.connect(wsUri(ip, port));
+    final PinnedSocket pinned;
     try {
-      await channel.ready.timeout(handshakeTimeout);
+      pinned = await PinnedSocket.connect(ip, port, expected: certificate, timeout: handshakeTimeout);
     } on TimeoutException {
       throw const HelloException('connect_timeout');
     } catch (e) {
+      // A refused certificate lands here too, as a handshake failure. It is deliberately NOT
+      // fatal: a host that was reinstalled looks the same from out here, and the reconnect loop
+      // retrying is the same thing it does for a PC that is simply off.
       throw HelloException('connect_failed: $e');
     }
+    // First use adopts what it saw (§2.2). Every connection after this compares against it, so
+    // this is the one moment the value can change.
+    certificate ??= pinned.certificate;
+    final channel = pinned.channel;
     _channel = channel;
     _socket = channel.stream.listen(
       (raw) {
+        _heardFromHost();
         final msg = jsonDecode(raw as String) as Map<String, dynamic>;
         // Captured here, on the socket's own subscription, so a layout is remembered even when
         // nothing is listening to `layouts()` yet.
@@ -164,6 +207,13 @@ class WsLayoutSource implements LayoutSource {
     if (ack['ok'] != true) {
       throw HelloException(ack['error'] as String? ?? 'not_paired');
     }
+    // The decks the host offers (§2). This has arrived on every `hello_ack` since F1 and was
+    // thrown away until F7 — without it the phone can only reach whichever deck happens to be
+    // first in config.json, or one that some other deck has a `deck:` key pointing at.
+    decks = ((ack['decks'] as List?) ?? const [])
+        .map((d) => DeckSummary.fromJson(d as Map<String, dynamic>))
+        .toList(growable: false);
+    _heardFromHost(); // the link is live: start expecting pings
     return ack['name'] as String? ?? '';
   }
 
@@ -178,8 +228,11 @@ class WsLayoutSource implements LayoutSource {
   /// Wi-Fi is disconnected far more often than it is connected badly.
   void _onDisconnected() {
     if (_closed) return;
+    _watchdog?.cancel();
+    _watchdog = null;
     _socket?.cancel();
     _socket = null;
+    _channel?.sink.close();
     _channel = null;
     _setStatus(SessionStatus.offline);
     _scheduleReconnect();
@@ -233,15 +286,24 @@ class WsLayoutSource implements LayoutSource {
   /// (folder/page) is answered with the new `layout` instead of a `key_result` — for navigation
   /// the layout IS the result — so waiting for either keeps both cases from hanging. The layout
   /// also reaches the UI through [layouts], which shares this broadcast stream.
-  Future<Map<String, dynamic>> pressResult({required int pos, required String press}) {
+  Future<Map<String, dynamic>> pressResult({required int pos, required String press}) async {
     final id = '${++_keyId}';
     final answered = _messages.firstWhere(
       (m) => (m['type'] == 'key_result' && m['id'] == id) || m['type'] == 'layout',
     );
     _send({'v': 2, 'type': 'key', 'id': id, 'page': _page, 'pos': pos, 'press': press});
     // Bounded like every other request: the caller lights the key green on this future, so an
-    // unanswered press would otherwise leave it waiting for a confirmation that never comes.
-    return answered.timeout(handshakeTimeout);
+    // unanswered press would otherwise leave it waiting for a confirmation that never comes. This
+    // one still THROWS, unlike session control — the caller is waiting on the answer to decide
+    // whether to light the key — but a press that went unanswered also means the link is down, and
+    // saying so is what starts the reconnect.
+    try {
+      return await answered.timeout(handshakeTimeout);
+    } on TimeoutException {
+      trace('no answer to a key press — the link is down');
+      _onDisconnected();
+      rethrow;
+    }
   }
 
   @override
@@ -255,7 +317,7 @@ class WsLayoutSource implements LayoutSource {
       'mode': mode,
       'deckId': ?deckId,
     });
-    await replied.timeout(handshakeTimeout);
+    await _sessionRequest(replied);
   }
 
   /// Protocol §4.4 `set_grid` — the phone was rotated, so the grid it derived from the screen
@@ -270,14 +332,14 @@ class WsLayoutSource implements LayoutSource {
       'type': 'set_grid',
       'grid': {'rows': next.rows, 'cols': next.cols},
     });
-    await replied.timeout(handshakeTimeout);
+    await _sessionRequest(replied);
   }
 
   /// Protocol §4.4 `set_page` — swiping between the pages of a deck.
   Future<void> setPage(int page) async {
     final replied = _replyTo();
     _send({'v': 2, 'type': 'set_page', 'page': page});
-    await replied.timeout(handshakeTimeout);
+    await _sessionRequest(replied);
   }
 
   /// Subscribes for a session-control reply before the request goes out. Both `set_mode` and
@@ -285,6 +347,25 @@ class WsLayoutSource implements LayoutSource {
   /// nothing to render.
   Future<Map<String, dynamic>> _replyTo() =>
       _messages.firstWhere((m) => m['type'] == 'layout' || m['type'] == 'command_result');
+
+  /// Waits for a session-control reply, and treats not getting one as what it is: the link is not
+  /// working. Two things follow from that, and both were missing.
+  ///
+  /// It marks the link down, so the banner says so and the reconnect starts — otherwise a
+  /// half-open socket is only ever discovered one failed request at a time, and never repaired.
+  ///
+  /// And it does NOT rethrow. `set_mode`, `set_page` and `set_grid` are called from taps, gestures
+  /// and a layout builder, none of which catch: the mode toggle surfaced an 8-second
+  /// `TimeoutException` as an unhandled error in the widget tree while the user just saw a button
+  /// that did nothing. The banner is where this belongs.
+  Future<void> _sessionRequest(Future<Map<String, dynamic>> reply) async {
+    try {
+      await reply.timeout(handshakeTimeout);
+    } on TimeoutException {
+      trace('no answer to a session request — the link is down');
+      _onDisconnected();
+    }
+  }
 
   @override
   Future<WindowsPage> listWindows(int page) async {
@@ -313,6 +394,8 @@ class WsLayoutSource implements LayoutSource {
 
   Future<void> dispose() async {
     _closed = true; // stops the reconnect loop: an intentional close is not a dropped connection
+    _watchdog?.cancel();
+    _watchdog = null;
     _retry?.cancel();
     _retry = null;
     await _socket?.cancel();

@@ -91,6 +91,22 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
               style: const TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 10),
             ),
           ),
+          // §4.3's second line: the window's title. The host has always sent it and the model has
+          // always parsed it, and nothing drew it — so the switcher listed two windows called
+          // "chrome" with no way to tell which was which, which is the one job it has.
+          //
+          // Only `windows` keys carry it; a deck key leaves this out entirely.
+          if ((key.sub ?? '').isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: Text(
+                key.sub!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 8, height: 1.2),
+              ),
+            ),
         ],
       );
     }

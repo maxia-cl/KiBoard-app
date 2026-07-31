@@ -7,8 +7,8 @@ import '../tokens.g.dart';
 import 'pairing_code_screen.dart';
 
 /// protocol/README.md §1: the phone browses `_kiboard._tcp` and lists hosts without scanning
-/// anything. QR / manual IP stay as the mandatory fallback (R1) — this screen only implements the
-/// mDNS path; the fallback stays a stub until it's actually needed.
+/// anything, and R1's fallback lives here too — typing the address by hand, for the networks that
+/// block multicast. Discovery is a convenience, never the only way in.
 class DiscoverScreen extends StatefulWidget {
   final Discovery discovery;
   DiscoverScreen({super.key, Discovery? discovery}) : discovery = discovery ?? MdnsDiscovery();
@@ -22,6 +22,89 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   void _rescan() {
     setState(() => _hosts = widget.discovery.discover());
+  }
+
+  void _open(DiscoveredHost host) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => PairingCodeScreen(host: host)));
+  }
+
+  /// R1's escape hatch: the address typed by hand. Deliberately reuses the ordinary pairing screen
+  /// — a typed host is still a §2 pair_request, so there is no second flow to keep working.
+  Future<void> _enterAddress() async {
+    // No TextEditingController on purpose: the sheet keeps animating out after `pop`, so anything
+    // disposed when this function resumes is still being built for a few frames. `onChanged` into a
+    // local has no lifecycle to get wrong.
+    var text = '';
+    String? error;
+    final typed = await showModalBottomSheet<({String host, int port})>(
+      context: context,
+      isScrollControlled: true, // the keyboard is what makes this sheet tight
+      backgroundColor: const Color(0xFF1E1E20),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          void submit() {
+            final parsed = parseHostAddress(text);
+            if (parsed == null) {
+              setSheetState(() => error = "That doesn't look like an address.");
+              return;
+            }
+            Navigator.of(sheetContext).pop(parsed);
+          }
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(sheetContext).viewInsets.bottom),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Your PC's address",
+                  style: TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'KiBoard shows it on the PC, under the pairing code. The port is '
+                  '$defaultHostPort unless you changed it.',
+                  style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  autofocus: true,
+                  autocorrect: false,
+                  keyboardType: TextInputType.url,
+                  textInputAction: TextInputAction.go,
+                  onChanged: (v) => text = v,
+                  onSubmitted: (_) => submit(),
+                  style: const TextStyle(color: Color(DeckTokens.textPrimary)),
+                  decoration: InputDecoration(
+                    hintText: '192.168.1.11',
+                    hintStyle: const TextStyle(color: Color(DeckTokens.textSecondary)),
+                    filled: true,
+                    fillColor: const Color(0xFF2C2C2E),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    errorText: error,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(DeckTokens.accent),
+                      padding: const EdgeInsets.all(14),
+                    ),
+                    onPressed: submit,
+                    child: const Text('Connect'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    if (typed == null || !mounted) return;
+    _open(DiscoveredHost.typed(host: typed.host, port: typed.port));
   }
 
   @override
@@ -50,17 +133,63 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     }
                     final hosts = snapshot.data ?? const [];
                     if (hosts.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'No PCs found on this network yet.',
-                              style: TextStyle(color: Color(DeckTokens.textSecondary)),
+                      // R1: a discovery failure must be EXPLAINED, not left blank. The cause that
+                      // actually happens is a network that drops multicast, which is neither the
+                      // user's fault nor fixable from this screen — so the way out is offered
+                      // right here.
+                      //
+                      // Centred when there is room, scrolling when there is not. A plain `Center`
+                      // overflowed the bottom held sideways; a plain scroll view left it stuck to
+                      // the top with a void underneath in portrait. `minHeight` is what lets one
+                      // widget do both. Of all the screens to get this wrong, the one a user
+                      // reaches when nothing else works is the worst.
+                      return LayoutBuilder(
+                        builder: (context, box) => SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: box.maxHeight),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'No PCs found on this network yet.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Color(DeckTokens.textPrimary),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                // Two lines, not four. The long version fitted upright and had to
+                                // be scrolled sideways, which left the buttons sliced in half
+                                // below the fold — it looked broken even though nothing was.
+                                const Text(
+                                  'Some networks — guest WiFi, plenty of ISP routers — never pass '
+                                  'on the messages KiBoard listens for. Typing the address works '
+                                  'anyway.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 13),
+                                ),
+                                const SizedBox(height: 16),
+                                // Wrap, not Row: two buttons side by side is a nice-to-have, and
+                                // at a large text size they simply do not fit next to each other.
+                                Wrap(
+                                  alignment: WrapAlignment.center,
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    TextButton(onPressed: _rescan, child: const Text('Scan again')),
+                                    FilledButton(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: const Color(DeckTokens.accent),
+                                      ),
+                                      onPressed: _enterAddress,
+                                      child: const Text('Enter its address'),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 12),
-                            TextButton(onPressed: _rescan, child: const Text('Scan again')),
-                          ],
+                          ),
                         ),
                       );
                     }
@@ -74,9 +203,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                           borderRadius: BorderRadius.circular(12),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => PairingCodeScreen(host: host)),
-                            ),
+                            onTap: () => _open(host),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Row(
@@ -114,12 +241,18 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Center(
+              // `TextButton.icon` lays its icon and label out in a Row that never wraps, so a
+              // `Center` around it — which hands down loose constraints — let this line run 149 px
+              // off the right edge of a 360 px phone. A full-width box gives that Row something to
+              // wrap inside, and the button centres its own content.
+              SizedBox(
+                width: double.infinity,
                 child: TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.qr_code, color: Color(DeckTokens.textSecondary)),
+                  onPressed: _enterAddress,
+                  icon: const Icon(Icons.keyboard_alt_outlined, color: Color(DeckTokens.textSecondary), size: 18),
                   label: const Text(
-                    "Don't see your PC? Scan a QR or enter its address",
+                    "Don't see your PC? Enter its address",
+                    textAlign: TextAlign.center,
                     style: TextStyle(color: Color(DeckTokens.textSecondary)),
                   ),
                 ),
