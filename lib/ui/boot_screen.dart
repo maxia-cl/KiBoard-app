@@ -34,10 +34,17 @@ class _BootScreenState extends State<BootScreen> {
       port: saved.port,
       token: saved.token,
       deviceId: saved.deviceId,
+      certificate: saved.certificate,
     );
     try {
       await source.connect();
       trace('reconnected to "${saved.hostName}"');
+      // §2.2 first use: a session stored before pinning existed has just adopted a certificate.
+      // Written back here, once, so every launch after this one compares instead of adopting.
+      if (saved.certificate == null && source.certificate != null) {
+        trace('adopted this host\'s certificate — pinned from now on');
+        await saved.withCertificate(source.certificate!).save();
+      }
     } on HelloException catch (e) {
       // A revoked token is the one case where the saved session is worthless: drop it and pair
       // again. Anything else is a host that is merely asleep — open the deck and let it retry.

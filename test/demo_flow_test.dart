@@ -15,6 +15,8 @@ import 'package:kiboard_app/net/pairing_client.dart';
 import 'package:kiboard_app/ui/pair/discover_screen.dart';
 import 'package:kiboard_app/ui/pair/pairing_code_screen.dart';
 
+import 'tls_fake.dart';
+
 class FakeDiscovery implements Discovery {
   final List<DiscoveredHost> hosts;
   FakeDiscovery(this.hosts);
@@ -55,31 +57,34 @@ const _host = DiscoveredHost(
 );
 
 void main() {
+  // The two tests below reach a pairing screen, which opens a REAL socket — so they need a real
+  // HttpClient. `flutter_test` installs a mock one that answers the `wss://` upgrade with
+  // `UnsupportedError: Mocked response`, which is not a failure the app could meet in the field.
   testWidgets('DiscoverScreen lists hosts and navigates to pairing on tap', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: DiscoverScreen(discovery: FakeDiscovery([_host]))),
-    );
-    await tester.pumpAndSettle();
+    await withRealSockets(() async {
+      await tester.pumpWidget(MaterialApp(home: DiscoverScreen(discovery: FakeDiscovery([_host]))));
+      await tester.pumpAndSettle();
 
-    expect(find.text("M3X's PC"), findsOneWidget);
-    await tester.tap(find.text("M3X's PC"));
-    // Navigating here creates a real PairingClient that tries to open an actual socket to
-    // 127.0.0.1:8770 (nothing is listening in a test sandbox) — don't pumpAndSettle, its
-    // still-loading spinner animates forever while that connection attempt hangs/fails.
-    await tester.pump(); // start the push transition
-    await tester.pump(const Duration(milliseconds: 300)); // let it finish
+      expect(find.text("M3X's PC"), findsOneWidget);
+      await tester.tap(find.text("M3X's PC"));
+      // Navigating here creates a real PairingClient that tries to open an actual socket to
+      // 127.0.0.1:8770 (nothing is listening in a test sandbox) — don't pumpAndSettle, its
+      // still-loading spinner animates forever while that connection attempt hangs/fails.
+      await tester.pump(); // start the push transition
+      await tester.pump(const Duration(milliseconds: 300)); // let it finish
 
-    expect(find.text('"M3X\'s PC" wants to connect'), findsOneWidget);
+      expect(find.text('"M3X\'s PC" wants to connect'), findsOneWidget);
 
-    // The connect attempt is BOUNDED now: advancing past the handshake timeout lets it fail
-    // cleanly and drains the timer, instead of leaving the screen (and the test) hanging.
-    await tester.pump(const Duration(seconds: 9));
+      // The connect attempt is BOUNDED now: advancing past the handshake timeout lets it fail
+      // cleanly and drains the timer, instead of leaving the screen (and the test) hanging.
+      await tester.pump(const Duration(seconds: 9));
+    });
   });
 
-  testWidgets('DiscoverScreen explains an empty list instead of leaving it blank (R1)', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: DiscoverScreen(discovery: FakeDiscovery(const []))),
-    );
+  testWidgets('DiscoverScreen explains an empty list instead of leaving it blank (R1)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(MaterialApp(home: DiscoverScreen(discovery: FakeDiscovery(const []))));
     await tester.pumpAndSettle();
 
     expect(find.text('No PCs found on this network yet.'), findsOneWidget);
@@ -89,34 +94,40 @@ void main() {
     expect(find.text('Enter its address'), findsOneWidget);
   });
 
-  testWidgets('a typed address reaches the same pairing screen as a discovered host (R1)', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(home: DiscoverScreen(discovery: FakeDiscovery(const []))),
-    );
-    await tester.pumpAndSettle();
+  testWidgets('a typed address reaches the same pairing screen as a discovered host (R1)', (
+    tester,
+  ) async {
+    await withRealSockets(() async {
+      await tester.pumpWidget(
+        MaterialApp(home: DiscoverScreen(discovery: FakeDiscovery(const []))),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Enter its address'));
-    await tester.pumpAndSettle();
-    expect(find.text("Your PC's address"), findsOneWidget);
+      await tester.tap(find.text('Enter its address'));
+      await tester.pumpAndSettle();
+      expect(find.text("Your PC's address"), findsOneWidget);
 
-    // Something unreadable is refused in place, without closing the sheet or dialling a guess.
-    await tester.enterText(find.byType(TextField), 'not an address:::');
-    await tester.tap(find.text('Connect'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining("doesn't look like an address"), findsOneWidget);
+      // Something unreadable is refused in place, without closing the sheet or dialling a guess.
+      await tester.enterText(find.byType(TextField), 'not an address:::');
+      await tester.tap(find.text('Connect'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining("doesn't look like an address"), findsOneWidget);
 
-    // A port that is not the default, so the name has to carry it.
-    await tester.enterText(find.byType(TextField), '127.0.0.1:9001');
-    await tester.tap(find.text('Connect'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+      // A port that is not the default, so the name has to carry it.
+      await tester.enterText(find.byType(TextField), '127.0.0.1:9001');
+      await tester.tap(find.text('Connect'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-    // The ordinary §2 pairing screen, named by what was typed — the real name arrives in pair_ack.
-    expect(find.text('"127.0.0.1:9001" wants to connect'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 9)); // let the bounded connect attempt fail cleanly
+      // The ordinary §2 pairing screen, named by what was typed — the real name arrives in pair_ack.
+      expect(find.text('"127.0.0.1:9001" wants to connect'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 9)); // let the bounded connect attempt fail cleanly
+    });
   });
 
-  testWidgets('PairingCodeScreen: entering the right code pairs and opens the deck', (tester) async {
+  testWidgets('PairingCodeScreen: entering the right code pairs and opens the deck', (
+    tester,
+  ) async {
     final fake = FakePairing();
     await tester.pumpWidget(
       MaterialApp(
@@ -144,10 +155,14 @@ void main() {
     expect(find.text('Adobe Photoshop'), findsOneWidget);
   });
 
-  testWidgets('PairingCodeScreen: a wrong code shows the host error, not a mock string', (tester) async {
+  testWidgets('PairingCodeScreen: a wrong code shows the host error, not a mock string', (
+    tester,
+  ) async {
     final fake = FakePairing();
     await tester.pumpWidget(
-      MaterialApp(home: PairingCodeScreen.withClient(host: _host, client: fake)),
+      MaterialApp(
+        home: PairingCodeScreen.withClient(host: _host, client: fake),
+      ),
     );
     await tester.pumpAndSettle();
 

@@ -154,17 +154,17 @@ void main() {
   // Regression: mDNS answers with an IPv6 address often enough that this decides whether pairing
   // works at all. `'ws://$ip:$port'` throws `FormatException: Invalid port` on a bare IPv6 literal
   // — the first colon of the address reads as the port separator.
-  group('wsUri', () {
+  group('wssUri', () {
     test('brackets IPv6 literals', () {
       expect(
-        wsUri('2803:c600:5108:844a:80a9:4d6f:5152:153b', 8770).toString(),
-        'ws://[2803:c600:5108:844a:80a9:4d6f:5152:153b]:8770',
+        wssUri('2803:c600:5108:844a:80a9:4d6f:5152:153b', 8770).toString(),
+        'wss://[2803:c600:5108:844a:80a9:4d6f:5152:153b]:8770',
       );
     });
 
     test('leaves IPv4 and hostnames alone', () {
-      expect(wsUri('192.168.1.11', 8770).toString(), 'ws://192.168.1.11:8770');
-      expect(wsUri('desktop.local', 8770).toString(), 'ws://desktop.local:8770');
+      expect(wssUri('192.168.1.11', 8770).toString(), 'wss://192.168.1.11:8770');
+      expect(wssUri('desktop.local', 8770).toString(), 'wss://desktop.local:8770');
     });
   });
 

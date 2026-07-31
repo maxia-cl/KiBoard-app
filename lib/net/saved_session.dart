@@ -7,8 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// a six-digit code on every launch would be a bug, not security).
 ///
 /// The token is a bearer credential for the LAN. It lives in SharedPreferences, which on Android
-/// is private to the app's sandbox — good enough while the transport is plain `ws://` anyway.
-/// F7's `wss://` work is when this deserves the Keystore.
+/// is private to the app's sandbox. Since F7 it no longer crosses the network in the clear — the
+/// Keystore is still the right home for it, and still not where it lives.
 class SavedSession {
   final String ip;
   final int port;
@@ -16,13 +16,28 @@ class SavedSession {
   final String deviceId;
   final String hostName;
 
+  /// The host's certificate, base64 DER — pinned at pairing (§2.2). Null on a session stored
+  /// before pinning existed: the next connection adopts what it sees and saves it, which is
+  /// first-use trust and is written down as such in the contract.
+  final String? certificate;
+
   const SavedSession({
     required this.ip,
     required this.port,
     required this.token,
     required this.deviceId,
     required this.hostName,
+    this.certificate,
   });
+
+  SavedSession withCertificate(String cert) => SavedSession(
+    ip: ip,
+    port: port,
+    token: token,
+    deviceId: deviceId,
+    hostName: hostName,
+    certificate: cert,
+  );
 
   static const _key = 'session';
 
@@ -32,6 +47,7 @@ class SavedSession {
     'token': token,
     'deviceId': deviceId,
     'hostName': hostName,
+    'certificate': ?certificate,
   };
 
   static SavedSession _fromJson(Map<String, dynamic> j) => SavedSession(
@@ -40,6 +56,7 @@ class SavedSession {
     token: j['token'] as String,
     deviceId: j['deviceId'] as String,
     hostName: j['hostName'] as String? ?? '',
+    certificate: j['certificate'] as String?,
   );
 
   Future<void> save() async {

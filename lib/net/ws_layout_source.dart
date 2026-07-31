@@ -6,6 +6,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../model/deck.dart';
 import 'discovered_host.dart';
 import 'layout_source.dart';
+import 'pinned_socket.dart';
 import 'trace.dart';
 
 /// Thrown when `hello` is rejected: revoked, invalid_token, protocol_too_old (protocol §5).
@@ -37,6 +38,7 @@ class WsLayoutSource implements LayoutSource {
     required this.deviceId,
     Grid grid = const Grid(rows: 3, cols: 5),
     String? locale,
+    this.certificate,
     this.silenceLimit = const Duration(seconds: 40),
     // ignore: prefer_initializing_formals -- `grid` is public and mutable behind a getter
   })  : _grid = grid,
@@ -52,6 +54,10 @@ class WsLayoutSource implements LayoutSource {
   Grid get grid => _grid;
   Grid _grid;
   final String locale;
+
+  /// The host's certificate, base64 DER (§2.2). Null means first use — the next connection adopts
+  /// what it sees and sets this, and the caller saves it so the one after that can compare.
+  String? certificate;
 
   WebSocketChannel? _channel;
 
@@ -146,14 +152,21 @@ class WsLayoutSource implements LayoutSource {
 
   Future<String> _openSocket() async {
     _setStatus(SessionStatus.connecting);
-    final channel = WebSocketChannel.connect(wsUri(ip, port));
+    final PinnedSocket pinned;
     try {
-      await channel.ready.timeout(handshakeTimeout);
+      pinned = await PinnedSocket.connect(ip, port, expected: certificate, timeout: handshakeTimeout);
     } on TimeoutException {
       throw const HelloException('connect_timeout');
     } catch (e) {
+      // A refused certificate lands here too, as a handshake failure. It is deliberately NOT
+      // fatal: a host that was reinstalled looks the same from out here, and the reconnect loop
+      // retrying is the same thing it does for a PC that is simply off.
       throw HelloException('connect_failed: $e');
     }
+    // First use adopts what it saw (§2.2). Every connection after this compares against it, so
+    // this is the one moment the value can change.
+    certificate ??= pinned.certificate;
+    final channel = pinned.channel;
     _channel = channel;
     _socket = channel.stream.listen(
       (raw) {

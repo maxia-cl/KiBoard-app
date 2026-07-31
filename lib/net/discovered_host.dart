@@ -7,7 +7,9 @@ import 'dart:ui';
 /// the port separator and throws `FormatException: Invalid port`. Observed on a real phone, where
 /// pairing worked or failed depending on which address family mDNS happened to answer with. The
 /// `Uri` constructor adds the brackets IPv6 requires.
-Uri wsUri(String host, int port) => Uri(scheme: 'ws', host: host, port: port);
+/// §1: the transport is TLS now. The scheme changed with it, so the name did too — a `wsUri` left
+/// in place would compile happily and connect to a port that no longer speaks plaintext.
+Uri wssUri(String host, int port) => Uri(scheme: 'wss', host: host, port: port);
 
 /// The host's default port (protocol §1). Only needed when the address was typed by hand — mDNS
 /// carries the real one, and a host on another port has to be typed with it.

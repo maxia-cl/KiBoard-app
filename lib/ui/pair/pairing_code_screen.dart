@@ -148,6 +148,9 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
   Future<LayoutSource> _openRealSession(PairingResult result) async {
     // The pairing socket has done its job; holding it open would leave the host with two
     // connections per phone for the rest of the session.
+    // §2.2: the certificate seen during pairing is what the session pins. Read BEFORE disposing —
+    // the client is about to be thrown away and it is the only thing that saw it.
+    final certificate = _client is PairingClient ? (_client as PairingClient).certificate : null;
     await _client.dispose();
     trace('pairing socket closed; opening session -> ${widget.host.ip}:${widget.host.port}');
     final source = WsLayoutSource(
@@ -155,6 +158,7 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
       port: widget.host.port,
       token: result.token,
       deviceId: result.deviceId,
+      certificate: certificate,
     );
     final hostName = await source.connect();
     trace('hello_ack ok');
@@ -168,6 +172,9 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
       token: result.token,
       deviceId: result.deviceId,
       hostName: hostName.isEmpty ? result.hostName : hostName,
+      // Whatever the session ended up pinning, which is the pairing's certificate unless something
+      // went wrong — in which case saving what was actually used is the honest thing anyway.
+      certificate: source.certificate,
     ).save();
     trace('session saved — next launch skips pairing');
     return source;

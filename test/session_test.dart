@@ -16,6 +16,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kiboard_app/net/ws_layout_source.dart';
 
+import 'tls_fake.dart';
+
 /// A host that speaks just enough protocol to get a session open, and can then go quiet — or keep
 /// its keepalive up, which is the case that must NOT trip the watchdog.
 class _Host {
@@ -53,7 +55,9 @@ class _Host {
     });
   }
 
-  static Future<_Host> start() async => _Host(await HttpServer.bind('127.0.0.1', 0));
+  /// TLS, because §2.2 is the only transport the client speaks — see `tls_fake.dart`.
+  static Future<_Host> start() async =>
+      _Host(await HttpServer.bindSecure('127.0.0.1', 0, fakeHostContext()));
 
   /// The 15 s keepalive of §4.4, sped up.
   void keepAlive(Duration every) {

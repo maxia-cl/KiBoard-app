@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-import 'discovered_host.dart';
+import 'pinned_socket.dart';
 
 /// Thrown for every `error` code the host can send back during pairing (protocol/README.md §5):
 /// pairing_closed, bad_code, rate_limited, protocol_too_old...
@@ -55,9 +55,17 @@ class PairingClient implements Pairing {
   /// fetch a fresh code rather than let the user retype into a dead connection.
   Future<void> get died => _died.future;
 
+  /// The certificate this pairing saw, base64 DER. Recorded so the session that follows can pin it
+  /// (§2.2): pairing is the one moment a client has to decide what "this host" means.
+  String? certificate;
+
   Future<void> connect(String ip, int port) async {
-    final channel = WebSocketChannel.connect(wsUri(ip, port));
-    await channel.ready.timeout(_timeout);
+    // No `expected`: pairing IS first use. Nothing has been agreed yet, so there is nothing to
+    // compare against — the contract says that out loud rather than implying a guarantee it cannot
+    // make.
+    final pinned = await PinnedSocket.connect(ip, port, timeout: _timeout);
+    certificate = pinned.certificate;
+    final channel = pinned.channel;
     _channel = channel;
     _socket = channel.stream.listen(
       (raw) => _incoming.add(jsonDecode(raw as String) as Map<String, dynamic>),
