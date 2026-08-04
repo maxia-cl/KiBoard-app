@@ -20,13 +20,11 @@ class Splash extends StatefulWidget {
   // device before lowering it.
   static const _minimum = Duration(milliseconds: 1800);
 
-  /// How long Android 12+ spends clipping the app window into its own splash icon on the way out.
-  /// The mark waits for it: during that window the phone would draw this screen shrunk into a
-  /// rounded rectangle in the corner, which is what "se ve en una esquina" was. Flutter cannot
-  /// cancel that animation — but it can decline to put anything in it, so the reveal happens over
-  /// flat brand colour and the composition arrives afterwards, looking deliberate.
-  static const _revealDelay = Duration(milliseconds: 450);
-  static const _fade = Duration(milliseconds: 350);
+  /// The mark fades in rather than appearing hard, but it starts on the FIRST frame. An earlier
+  /// version waited 450 ms to stay out of Android's splash-exit animation — with the system splash
+  /// now flat brand colour and no icon, that wait bought nothing and cost an empty coloured screen
+  /// at every launch.
+  static const _fade = Duration(milliseconds: 250);
 
   /// Runs [work] and the minimum display time together, so the splash costs nothing when the work
   /// is slower than it is.
@@ -45,7 +43,8 @@ class _SplashState extends State<Splash> {
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(Splash._revealDelay, () {
+    // Next frame, so the opacity actually animates from 0 instead of building at 1.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() => _shown = true);
     });
   }

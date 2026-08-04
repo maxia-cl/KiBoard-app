@@ -48,6 +48,11 @@ class Brand {
     onAccent: Color(0xFF1A0E0D),
   );
 
+  /// The app runs on a fixed dark theme (see `main.dart`), so this is `dark` in practice today.
+  /// It still asks rather than hardcoding, because the light half exists and the day the app
+  /// follows the system this is the only line that has to be right. The Android launch theme is
+  /// pinned dark to match — a system splash that followed the phone showed a cream screen in front
+  /// of a dark app.
   static Brand of(BuildContext c) =>
       Theme.of(c).brightness == Brightness.dark ? dark : light;
 
