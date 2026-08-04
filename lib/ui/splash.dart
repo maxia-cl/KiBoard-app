@@ -52,14 +52,17 @@ class _SplashState extends State<Splash> {
   @override
   Widget build(BuildContext context) {
     final brand = Brand.of(context);
-    final logo = Brand.logoAsset(context);
 
-    // Sized off the SHORT side, so the phone held sideways at launch scales the mark down instead
-    // of blowing it across the screen. Fixed pixel sizes looked right in one orientation only.
+    // KiMouse's composition exactly: the brush mark, tinted with the brand colour, over the rest of
+    // the product name in a light sans with wide tracking. Same shape, different colour and
+    // different word — which is what makes two apps read as one house.
     //
-    // No watermark: KiMouse can put its mark behind itself because that mark is a transparent
-    // silhouette. KiBoard's is a solid tile, and at any opacity it reads as a card sitting behind
-    // the logo rather than as texture on the paper.
+    // Not v1's logo file: that one spells "board" in mahjong tiles, a second lockup competing with
+    // the mark. `mark.png` is the brush lifted off the tile (see the launcher icon), white with
+    // alpha, so it takes a tint.
+    //
+    // Sized off the SHORT side, so the phone held sideways at launch scales it down instead of
+    // blowing it across the screen. Fixed pixel sizes looked right in one orientation only.
     final short = MediaQuery.sizeOf(context).shortestSide;
 
     return Scaffold(
@@ -68,23 +71,28 @@ class _SplashState extends State<Splash> {
         opacity: _shown ? 1 : 0,
         duration: Splash._fade,
         curve: Curves.easeOut,
-        // Centred explicitly. The first version leaned on a Stack, which takes the size of its
-        // biggest child under loose constraints — so the composition sat at the top of the screen
-        // instead of the middle. That, plus the watermark reading as a card, is what looked like
-        // the start screen appearing "in a corner".
+        // Centred explicitly: a Stack takes the size of its biggest child under loose constraints,
+        // which put the whole composition at the top of the screen.
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset(logo, width: short * 0.6, semanticLabel: 'KiBoard'),
-              const SizedBox(height: 10),
+              Image.asset(
+                'assets/brand/mark.png',
+                width: short * 0.45,
+                color: brand.accent,
+                colorBlendMode: BlendMode.srcIn,
+                semanticLabel: 'KiBoard',
+              ),
+              const SizedBox(height: 8),
               Text(
-                'KiBoard',
+                'board',
                 style: TextStyle(
                   color: brand.ink,
-                  fontSize: 34,
+                  fontSize: short * 0.11,
                   fontWeight: FontWeight.w300,
-                  letterSpacing: 8,
+                  // 0.28 em, the tracking KiMouse sets on "mouse".
+                  letterSpacing: short * 0.11 * 0.28,
                 ),
               ),
             ],
