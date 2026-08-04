@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The tile red of the logo. It is the BACKGROUND layer so the colour reaches every corner of
+         whatever mask the launcher applies — a legacy PNG gets shrunk into a white circle instead,
+         which is what KiBoard 2 shipped before this. -->
+    <color name="ic_launcher_background">#B22420</color>
+</resources>
