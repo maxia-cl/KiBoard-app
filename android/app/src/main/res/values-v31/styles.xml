@@ -6,6 +6,10 @@
         <item name="android:windowFullscreen">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">false</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <!-- No icon on the system splash: it is the giant mark Android animates away by clipping the
+             app window into it, which is what made KiBoard's own start screen appear shrunk in a
+             corner. Flat brand colour instead, so the handoff to the app's splash is invisible. -->
+        <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
         <item name="android:windowSplashScreenBackground">#F7F2E9</item>
     </style>
     <!-- Theme applied to the Android Window as soon as the process has started.
