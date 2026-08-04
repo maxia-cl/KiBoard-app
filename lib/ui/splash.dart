@@ -14,7 +14,11 @@ import 'brand.dart';
 class Splash extends StatelessWidget {
   const Splash({super.key});
 
-  static const _minimum = Duration(milliseconds: 1200);
+  // Measured on the reference phone: Android's own splash screen holds the first ~1.2 s of a cold
+  // start, and the hold only begins once Flutter draws. At 1200 ms the brand was on screen for
+  // about half a second. This is the number that makes it readable — check it again on a fast
+  // device before lowering it.
+  static const _minimum = Duration(milliseconds: 1800);
 
   /// Runs [work] and the minimum display time together, so the splash costs nothing when the work
   /// is slower than it is.
@@ -28,21 +32,31 @@ class Splash extends StatelessWidget {
     final brand = Brand.of(context);
     final logo = Brand.logoAsset(context);
 
+    // Sized off the SHORT side, so the phone being held sideways at launch scales the mark down
+    // instead of blowing it across the screen. Fixed pixel sizes looked right in one orientation
+    // and only in that one.
+    final short = MediaQuery.sizeOf(context).shortestSide;
+
     return Scaffold(
       backgroundColor: brand.paper,
       body: Stack(
         alignment: Alignment.center,
         children: [
-          // The watermark is the same file, blown up and almost invisible. At 6% it reads as
-          // texture on the paper rather than as a second logo.
+          // The watermark is the square mark, NOT the full logo: two copies of the same wordmark
+          // at different sizes collide, and the tiles of the big one land on the name. KiMouse
+          // gets away with one file because its mark is a single silhouette.
           Opacity(
-            opacity: 0.06,
-            child: Image.asset(logo, width: 460, excludeFromSemantics: true),
+            opacity: 0.05,
+            child: Image.asset(
+              'assets/brand/icon.png',
+              width: short * 0.85,
+              excludeFromSemantics: true,
+            ),
           ),
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset(logo, width: 200, semanticLabel: 'KiBoard'),
+              Image.asset(logo, width: short * 0.55, semanticLabel: 'KiBoard'),
               const SizedBox(height: 10),
               Text(
                 'KiBoard',

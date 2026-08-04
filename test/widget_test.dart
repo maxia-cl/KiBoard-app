@@ -328,7 +328,7 @@ void main() {
     // behind it — asserting the order here is what stops the hold from being quietly dropped.
     expect(find.byType(Splash), findsOneWidget);
     expect(find.textContaining('Looking for PCs'), findsNothing);
-    await tester.pump(const Duration(milliseconds: 1300));
+    await tester.pump(const Duration(milliseconds: 1900));
 
     expect(find.byType(Splash), findsNothing);
     expect(find.text('KiBoard'), findsOneWidget);
