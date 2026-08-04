@@ -14,7 +14,7 @@
         </intent>
     </queries>
     <application
-        android:label="kiboard_app"
+        android:label="KiBoard"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
