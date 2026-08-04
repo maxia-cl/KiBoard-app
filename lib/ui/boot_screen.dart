@@ -5,7 +5,7 @@ import '../net/trace.dart';
 import '../net/ws_layout_source.dart';
 import 'deck/deck_screen.dart';
 import 'pair/discover_screen.dart';
-import 'tokens.g.dart';
+import 'splash.dart';
 
 /// Decides what the app opens on: the deck if this phone is already paired, discovery if not.
 ///
@@ -20,7 +20,9 @@ class BootScreen extends StatefulWidget {
 }
 
 class _BootScreenState extends State<BootScreen> {
-  late final Future<Widget> _next = _decide();
+  // Wrapped so the brand mark stays up for its own minimum rather than for however long the
+  // reconnect happens to take — a logo that flashes for 80 ms reads as a glitch.
+  late final Future<Widget> _next = Splash.hold(_decide());
 
   Future<Widget> _decide() async {
     final saved = await SavedSession.load();
@@ -65,12 +67,7 @@ class _BootScreenState extends State<BootScreen> {
     return FutureBuilder<Widget>(
       future: _next,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Scaffold(
-            backgroundColor: Color(0xFF0F0F10),
-            body: Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent))),
-          );
-        }
+        if (!snapshot.hasData) return const Splash();
         return snapshot.data!;
       },
     );

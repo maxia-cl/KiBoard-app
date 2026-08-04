@@ -70,6 +70,7 @@ flutter:
   # Phase FP fixtures, read straight from the pinned KiBoard-protocol submodule (see
   # docs/implementation-plan.md §1.1). F3 replaces MockLayoutSource with the real WS client.
   assets:
+    - assets/brand/
     - KiBoard-protocol/protocol/deck-tokens.json
     - KiBoard-protocol/protocol/fixtures/
 

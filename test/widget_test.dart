@@ -8,6 +8,7 @@ import 'package:kiboard_app/main.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/layout_source.dart';
 import 'package:kiboard_app/net/saved_session.dart';
+import 'package:kiboard_app/ui/splash.dart';
 import 'package:kiboard_app/model/deck.dart';
 import 'package:kiboard_app/ui/deck/adaptive_grid.dart';
 import 'package:kiboard_app/ui/deck/deck_screen.dart';
@@ -322,6 +323,14 @@ void main() {
     await tester.pumpWidget(const KiBoardApp());
     await tester.pump(); // BootScreen resolves SavedSession.load()
     await tester.pump();
+
+    // The brand mark comes first and holds, so it cannot flash past as a glitch. Discovery is
+    // behind it — asserting the order here is what stops the hold from being quietly dropped.
+    expect(find.byType(Splash), findsOneWidget);
+    expect(find.textContaining('Looking for PCs'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 1300));
+
+    expect(find.byType(Splash), findsNothing);
     expect(find.text('KiBoard'), findsOneWidget);
     expect(find.textContaining('Looking for PCs'), findsOneWidget);
 
