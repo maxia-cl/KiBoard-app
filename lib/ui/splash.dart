@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'brand.dart';
+import 'wordmark.dart';
 
 /// The first thing the app shows, in KiBoard's own colours rather than the deck's.
 ///
@@ -102,29 +103,7 @@ class _SplashState extends State<Splash> {
                   ),
                 ),
               ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.asset(
-                    'assets/brand/mark.png',
-                    width: short * 0.45,
-                    color: brand.accent,
-                    colorBlendMode: BlendMode.srcIn,
-                    semanticLabel: 'KiBoard',
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'board',
-                    style: TextStyle(
-                      color: brand.ink,
-                      fontSize: short * 0.11,
-                      fontWeight: FontWeight.w300,
-                      // 0.28 em, the tracking KiMouse sets on "mouse".
-                      letterSpacing: short * 0.11 * 0.28,
-                    ),
-                  ),
-                ],
-              ),
+              Wordmark(markHeight: short * 0.42, stacked: true),
             ],
           ),
         ),

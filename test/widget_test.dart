@@ -9,6 +9,7 @@ import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/layout_source.dart';
 import 'package:kiboard_app/net/saved_session.dart';
 import 'package:kiboard_app/ui/splash.dart';
+import 'package:kiboard_app/ui/wordmark.dart';
 import 'package:kiboard_app/model/deck.dart';
 import 'package:kiboard_app/ui/deck/adaptive_grid.dart';
 import 'package:kiboard_app/ui/deck/deck_screen.dart';
@@ -331,7 +332,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1900));
 
     expect(find.byType(Splash), findsNothing);
-    expect(find.text('KiBoard'), findsOneWidget);
+    // The name is the lockup now — a tinted mark plus the rest of the word — in both places, so
+    // there is no plain 'KiBoard' string to look for.
+    expect(find.byType(Wordmark), findsOneWidget);
     expect(find.textContaining('Looking for PCs'), findsOneWidget);
 
     // Real mDNS discovery has no platform channel in a test sandbox — don't pumpAndSettle, the
