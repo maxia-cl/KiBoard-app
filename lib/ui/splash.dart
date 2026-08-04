@@ -74,26 +74,56 @@ class _SplashState extends State<Splash> {
         // Centred explicitly: a Stack takes the size of its biggest child under loose constraints,
         // which put the whole composition at the top of the screen.
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Image.asset(
-                'assets/brand/mark.png',
-                width: short * 0.45,
-                color: brand.accent,
-                colorBlendMode: BlendMode.srcIn,
-                semanticLabel: 'KiBoard',
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'board',
-                style: TextStyle(
-                  color: brand.ink,
-                  fontSize: short * 0.11,
-                  fontWeight: FontWeight.w300,
-                  // 0.28 em, the tracking KiMouse sets on "mouse".
-                  letterSpacing: short * 0.11 * 0.28,
+              // KiMouse puts its product behind its lockup — a mouse, barely there. KiBoard's
+              // product is the deck, so this is the grid: the fixed 5x2 of §3, drawn rather than
+              // shipped as an asset because it is six numbers and a rounded rectangle.
+              SizedBox(
+                width: short * 0.92,
+                height: short * 0.92 * 2 / 5,
+                child: Opacity(
+                  opacity: 0.055,
+                  child: GridView.count(
+                    crossAxisCount: 5,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: short * 0.02,
+                    crossAxisSpacing: short * 0.02,
+                    children: List.generate(
+                      10,
+                      (_) => DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: brand.ink,
+                          borderRadius: BorderRadius.circular(short * 0.025),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/brand/mark.png',
+                    width: short * 0.45,
+                    color: brand.accent,
+                    colorBlendMode: BlendMode.srcIn,
+                    semanticLabel: 'KiBoard',
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'board',
+                    style: TextStyle(
+                      color: brand.ink,
+                      fontSize: short * 0.11,
+                      fontWeight: FontWeight.w300,
+                      // 0.28 em, the tracking KiMouse sets on "mouse".
+                      letterSpacing: short * 0.11 * 0.28,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

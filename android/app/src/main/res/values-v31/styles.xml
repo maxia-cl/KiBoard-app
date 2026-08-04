@@ -6,8 +6,11 @@
         <item name="android:windowFullscreen">false</item>
         <item name="android:windowDrawsSystemBarBackgrounds">false</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
-        <!-- The mark on brand colour. Without it the system splash is an empty coloured screen for as
-             long as Flutter takes to draw, which is the first thing anyone sees. -->
+        <!-- No icon: the app's own start screen is the brand moment, and showing the mark twice —
+             once as Android's circle, once as the lockup — read as two screens. The cost is a flat
+             brand-coloured frame for as long as Flutter takes to draw, which is the same colour as
+             what follows, so it reads as the screen simply arriving. -->
+        <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>
         <item name="android:windowSplashScreenBackground">#141210</item>
     </style>
     <!-- Theme applied to the Android Window as soon as the process has started.
