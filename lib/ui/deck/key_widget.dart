@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../model/deck.dart';
 import '../icons.dart';
@@ -86,7 +86,11 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
           if (imageBytes != null)
             Image.memory(imageBytes, width: widget.size * 0.42, height: widget.size * 0.42)
           else
-            Icon(iconFor(key.icon), color: const Color(DeckTokens.textPrimary), size: widget.size * 0.32),
+            Icon(
+              iconFor(key.icon),
+              color: const Color(DeckTokens.textPrimary),
+              size: widget.size * 0.32,
+            ),
           const SizedBox(height: 2),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -111,100 +115,154 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 8, height: 1.2),
+                style: const TextStyle(
+                  color: Color(DeckTokens.textSecondary),
+                  fontSize: 8,
+                  height: 1.2,
+                ),
               ),
             ),
         ],
       );
     }
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: isEmpty ? null : (_) => setState(() => _pressed = true),
-      onTapCancel: isEmpty ? null : () => setState(() => _pressed = false),
-      onTapUp: isEmpty
-          ? null
-          : (_) {
-              setState(() => _pressed = false);
-            },
-      onTap: isEmpty ? null : () => widget.onPress?.call('short'),
-      onDoubleTap: isEmpty ? null : () => widget.onPress?.call('double'),
-      onLongPressStart: isEmpty ? null : (_) => _ringController.forward(from: 0),
-      onLongPress: isEmpty ? null : () => widget.onPress?.call('long'),
-      onLongPressEnd: isEmpty ? null : (_) => _ringController.reset(),
-      onLongPressCancel: isEmpty ? null : () => _ringController.reset(),
-      child: AnimatedScale(
-        scale: _pressed ? DeckTokens.pressScale : 1.0,
-        duration: const Duration(milliseconds: DeckTokens.pressDurationMs),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: DeckTokens.pressDurationMs),
-              width: widget.size,
-              height: widget.size,
-              decoration: BoxDecoration(
-                color: widget.launching
-                    // Solid, not blended: this one lasts seconds, so it is a state the key is IN
-                    // rather than a flash, and it should be readable across the room.
-                    ? const Color(DeckTokens.accent)
-                    : widget.confirmed
-                    // Blended rather than solid green: the key stays recognisable while it
-                    // acknowledges, which matters when the confirmation is this brief.
-                    ? Color.lerp(baseColor, const Color(DeckTokens.stateOn), 0.55)
-                    : _pressed
-                    ? Color.lerp(baseColor, Colors.black, DeckTokens.pressDarkenPercent / 100)
-                    : baseColor,
-                borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
-              ),
-              child: content,
-            ),
-            if (key.stateOn)
-              Positioned(
-                top: 4,
-                right: 4,
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(color: Color(DeckTokens.stateOn), shape: BoxShape.circle),
-                ),
-              ),
-            if (key.current)
-              Positioned(
-                left: 2,
-                top: 8,
-                bottom: 8,
-                child: Container(width: 3, color: const Color(DeckTokens.accent)),
-              ),
-            if (key.minimized)
-              Container(
+    // The colour of the cap itself, before the light on it. Kept out of the decoration so the
+    // gradient and the shadow have one thing to shade rather than three colours to agree on.
+    final face = widget.launching
+        // Blended, not solid: this lasts seconds and sits on a pad full of app icons, where a flat
+        // red block reads as an alarm. Enough to see across the room, little enough that the key
+        // still looks like itself.
+        ? Color.lerp(baseColor, const Color(DeckTokens.accent), 0.45)!
+        : widget.confirmed
+        // Blended rather than solid green: the key stays recognisable while it acknowledges, which
+        // matters when the confirmation is this brief.
+        ? Color.lerp(baseColor, const Color(DeckTokens.stateOn), 0.55)!
+        : _pressed
+        ? Color.lerp(baseColor, Colors.black, DeckTokens.pressDarkenPercent / 100)!
+        : baseColor;
+
+    // The cap comes back up on the POINTER, not on the tap. With `onDoubleTap` registered the tap
+    // recognizer holds its verdict for the double-press window (§3.1, 300 ms) before `onTapUp`
+    // fires — so the key stayed visibly down for a third of a second after the finger left, which
+    // is the one thing a physical button never does. The Listener sits outside the arena and does
+    // not wait for anyone.
+    return Listener(
+      onPointerUp: isEmpty ? null : (_) => setState(() => _pressed = false),
+      onPointerCancel: isEmpty ? null : (_) => setState(() => _pressed = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        // The buzz belongs to the press, not to the release: a real key answers under the finger.
+        // This is also what a press that never reaches the PC still gets — the deck feeling dead on
+        // a dropped link was the complaint that put the confirmation dot in §3.1.
+        onTapDown: isEmpty
+            ? null
+            : (_) {
+                HapticFeedback.selectionClick();
+                setState(() => _pressed = true);
+              },
+        onTapCancel: isEmpty ? null : () => setState(() => _pressed = false),
+        onTapUp: isEmpty
+            ? null
+            : (_) {
+                setState(() => _pressed = false);
+              },
+        onTap: isEmpty ? null : () => widget.onPress?.call('short'),
+        onDoubleTap: isEmpty ? null : () => widget.onPress?.call('double'),
+        onLongPressStart: isEmpty ? null : (_) => _ringController.forward(from: 0),
+        onLongPress: isEmpty ? null : () => widget.onPress?.call('long'),
+        onLongPressEnd: isEmpty ? null : (_) => _ringController.reset(),
+        onLongPressCancel: isEmpty ? null : () => _ringController.reset(),
+        child: AnimatedScale(
+          scale: _pressed ? DeckTokens.pressScale : 1.0,
+          duration: const Duration(milliseconds: DeckTokens.pressDurationMs),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: DeckTokens.pressDurationMs),
                 width: widget.size,
                 height: widget.size,
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
+                  // §3.0: this has to read as a key cap, not as a coloured rectangle. A real one is
+                  // lit from above, so the face carries a top-to-bottom gradient and the cap sits on
+                  // a shadow. Pressed, the gradient FLIPS — the light now catches the bottom of a
+                  // face that has tilted away — and the shadow all but disappears, which is what
+                  // reads as travel rather than as a colour change.
+                  gradient: LinearGradient(
+                    begin: _pressed ? Alignment.bottomCenter : Alignment.topCenter,
+                    end: _pressed ? Alignment.topCenter : Alignment.bottomCenter,
+                    colors: [
+                      Color.lerp(face, Colors.white, _pressed ? 0.02 : 0.07)!,
+                      Color.lerp(face, Colors.black, _pressed ? 0.10 : 0.06)!,
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: _pressed ? 0.20 : 0.45),
+                      blurRadius: _pressed ? 2 : 7,
+                      offset: Offset(0, _pressed ? 1 : 3),
+                    ),
+                  ],
+                  // The hairline is the moulding around the cap: light along the top edge where it
+                  // catches, gone when the key is down.
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: _pressed ? 0.02 : 0.07),
+                    width: 1,
+                  ),
                 ),
+                child: content,
               ),
-            AnimatedBuilder(
-              animation: _ringController,
-              builder: (context, _) {
-                if (_ringController.value == 0) return const SizedBox.shrink();
-                return SizedBox(
-                  width: widget.size,
-                  height: widget.size,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: CircularProgressIndicator(
-                      value: _ringController.value,
-                      strokeWidth: 3,
-                      color: const Color(DeckTokens.accent),
-                      backgroundColor: Colors.transparent,
+              if (key.stateOn)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: Color(DeckTokens.stateOn),
+                      shape: BoxShape.circle,
                     ),
                   ),
-                );
-              },
-            ),
-          ],
+                ),
+              if (key.current)
+                Positioned(
+                  left: 2,
+                  top: 8,
+                  bottom: 8,
+                  child: Container(width: 3, color: const Color(DeckTokens.accent)),
+                ),
+              if (key.minimized)
+                Container(
+                  width: widget.size,
+                  height: widget.size,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
+                  ),
+                ),
+              AnimatedBuilder(
+                animation: _ringController,
+                builder: (context, _) {
+                  if (_ringController.value == 0) return const SizedBox.shrink();
+                  return SizedBox(
+                    width: widget.size,
+                    height: widget.size,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: CircularProgressIndicator(
+                        value: _ringController.value,
+                        strokeWidth: 3,
+                        color: const Color(DeckTokens.accent),
+                        backgroundColor: Colors.transparent,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

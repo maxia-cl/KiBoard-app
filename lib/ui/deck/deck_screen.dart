@@ -28,12 +28,7 @@ class DeckScreen extends StatefulWidget {
   /// no socket, so there is no connection state to report.
   final WsLayoutSource? session;
 
-  const DeckScreen({
-    super.key,
-    required this.layoutSource,
-    required this.hostName,
-    this.session,
-  });
+  const DeckScreen({super.key, required this.layoutSource, required this.hostName, this.session});
 
   @override
   State<DeckScreen> createState() => _DeckScreenState();
@@ -53,7 +48,9 @@ class _DeckScreenState extends State<DeckScreen> {
 
   @override
   void dispose() {
-    _launchTimer?.cancel();
+    for (final t in _launchTimers.values) {
+      t.cancel();
+    }
     WakelockPlus.disable();
     super.dispose();
   }
@@ -76,37 +73,42 @@ class _DeckScreenState extends State<DeckScreen> {
   /// Positions lit green right now, because the host confirmed them.
   final Set<int> _confirmed = {};
 
-  /// Positions painted brand red because a press asked an app to open and it is not up yet.
+  /// Positions tinted with the brand colour because a press asked an app to come up.
   ///
-  /// The key stays that colour until the host's next push says `state.running`, which rides the
-  /// 500 ms poll, so it clears by itself the moment the window appears. [_launchGiveUp] is the
-  /// backstop for the app that never comes up at all — an installer prompt, a crash — because a
-  /// key stuck red forever would be a worse lie than no colour.
+  /// Two things end it, whichever lands first: the host reporting `state.running` for that key, or
+  /// [_launchGrace]. The flag alone is not enough — it comes from matching a window back to the id
+  /// that launched it, and on the phone it was still reporting `false` with the window already
+  /// open, which left the deck looking like the press did nothing on one press and worked on the
+  /// next. The timer is what makes the feedback the same every time; the flag is what lets it end
+  /// early when it is right.
   final Set<int> _launching = {};
-  Timer? _launchTimer;
-  static const _launchGiveUp = Duration(seconds: 20);
+  final Map<int, Timer> _launchTimers = {};
+  static const _launchGrace = Duration(seconds: 6);
 
   void _markLaunching(int pos) {
     setState(() => _launching.add(pos));
-    _launchTimer?.cancel();
-    _launchTimer = Timer(_launchGiveUp, () {
-      if (mounted) setState(_launching.clear);
-    });
+    _launchTimers.remove(pos)?.cancel();
+    _launchTimers[pos] = Timer(_launchGrace, () => _stopLaunching(pos));
   }
 
-  /// Clears the ones whose app is up. Called on every layout, since that is when the answer
-  /// arrives — the host attaches `state.running` per send.
+  void _stopLaunching(int pos) {
+    _launchTimers.remove(pos)?.cancel();
+    if (mounted && _launching.contains(pos)) setState(() => _launching.remove(pos));
+  }
+
+  /// Ends the wait early for keys whose app the host now reports as up. Called on every layout,
+  /// since that is when the answer arrives.
   void _clearLaunched(Layout layout) {
     if (_launching.isEmpty) return;
-    final done = _launching.where((pos) {
-      final key = pos < layout.keys.length ? layout.keys[pos] : null;
-      return key == null || key.running == true;
-    }).toSet();
-    if (done.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _launching.removeAll(done));
-      });
-    }
+    final done = _launching
+        .where((pos) => pos >= layout.keys.length || layout.keys[pos].running == true)
+        .toList();
+    if (done.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final pos in done) {
+        _stopLaunching(pos);
+      }
+    });
   }
 
   /// What the last layout was of, so a page change can be told apart from a deck change.
@@ -189,10 +191,6 @@ class _DeckScreenState extends State<DeckScreen> {
 
   Future<void> _handlePress(Layout layout, int pos, String press) async {
     final key = layout.keys[pos];
-    // Confirms the press landed on the device before the host has answered. A key pad that does
-    // not acknowledge a touch feels broken even when it works.
-    HapticFeedback.selectionClick();
-
     // Asked BEFORE any of the branches below, so it covers a dangerous key whatever it does —
     // not only the ones that end up going to the host.
     if (key.danger && !await _confirmDanger(key)) {
@@ -239,11 +237,12 @@ class _DeckScreenState extends State<DeckScreen> {
         _showKeyError(result['error'] as String? ?? 'internal');
         return;
       }
-      // A key that opens an app carries `state.running: false` until it is up. That is the only
-      // thing on the wire that says "this press starts something slow", so it is what decides
-      // whether the key waits in red — the phone never sees the action itself (§4.2).
-      if (key.running == false) {
-        trace('key pos=$pos is launching — holding it red');
+      // `state.running` is present only on keys that open an app — null on every other key — so
+      // it is what tells the phone this press starts something slow. The phone never sees the
+      // action itself (§4.2). The VALUE does not gate the tint: an app already up gets focused
+      // rather than launched, which is quick, and the grace timer ends that case anyway.
+      if (key.running != null) {
+        trace('key pos=$pos opens an app — tinting it while it comes up');
         _markLaunching(pos);
       }
       trace('key pos=$pos confirmed — lighting up');
@@ -287,7 +286,9 @@ class _DeckScreenState extends State<DeckScreen> {
               return Column(
                 children: [
                   if (widget.session != null) _LinkBanner(session: widget.session!),
-                  Expanded(child: _NoLayoutYet(session: widget.session, hostName: widget.hostName)),
+                  Expanded(
+                    child: _NoLayoutYet(session: widget.session, hostName: widget.hostName),
+                  ),
                 ],
               );
             }
@@ -300,7 +301,12 @@ class _DeckScreenState extends State<DeckScreen> {
             final sideways = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
             final deck = Column(
               children: [
-                if (!sideways) _TopBar(layout: layout, layoutSource: widget.layoutSource, session: widget.session),
+                if (!sideways)
+                  _TopBar(
+                    layout: layout,
+                    layoutSource: widget.layoutSource,
+                    session: widget.session,
+                  ),
                 if (widget.session != null) _LinkBanner(session: widget.session!),
                 Expanded(
                   child: Padding(
@@ -313,9 +319,13 @@ class _DeckScreenState extends State<DeckScreen> {
                       builder: (context, constraints) {
                         // Space the grid itself gets, after the bezel takes its share.
                         final w = constraints.maxWidth - DeviceBezel.chromeWidth();
-                        final h = constraints.maxHeight -
-                            DeviceBezel.chromeHeightFor(layout.pages, constraints.maxHeight,
-                                dotsInside: true);
+                        final h =
+                            constraints.maxHeight -
+                            DeviceBezel.chromeHeightFor(
+                              layout.pages,
+                              constraints.maxHeight,
+                              dotsInside: true,
+                            );
 
                         // §3.1: the phone derives rows x cols from the space it has and tells the
                         // host. Rotating changes it, so this is checked on every layout pass —
@@ -334,7 +344,8 @@ class _DeckScreenState extends State<DeckScreen> {
                         // Capacity guards it: if the host ever sends a different number of keys
                         // than this grid holds, keep what it sent rather than reflow into a shape
                         // the keys do not fill.
-                        final grid = wanted.capacity == layout.grid.capacity &&
+                        final grid =
+                            wanted.capacity == layout.grid.capacity &&
                                 layout.keys.length == wanted.capacity
                             ? wanted
                             : layout.grid;
@@ -384,10 +395,14 @@ class _DeckScreenState extends State<DeckScreen> {
                                     // The outgoing child runs this same animation in REVERSE, so
                                     // giving it the opposite start sends it out the far side while
                                     // the new one comes in from the near one.
-                                    final incoming = (child.key as ValueKey<String>).value == _pageKey(layout);
+                                    final incoming =
+                                        (child.key as ValueKey<String>).value == _pageKey(layout);
                                     final from = Offset(incoming ? _pageDir : -_pageDir, 0);
                                     return SlideTransition(
-                                      position: Tween(begin: from, end: Offset.zero).animate(animation),
+                                      position: Tween(
+                                        begin: from,
+                                        end: Offset.zero,
+                                      ).animate(animation),
                                       child: FadeTransition(opacity: animation, child: child),
                                     );
                                   },
@@ -414,7 +429,12 @@ class _DeckScreenState extends State<DeckScreen> {
             if (!sideways) return deck;
             return Row(
               children: [
-                _TopBar(layout: layout, layoutSource: widget.layoutSource, session: widget.session, vertical: true),
+                _TopBar(
+                  layout: layout,
+                  layoutSource: widget.layoutSource,
+                  session: widget.session,
+                  vertical: true,
+                ),
                 Expanded(child: deck),
               ],
             );
@@ -492,9 +512,9 @@ class _LinkBanner extends StatelessWidget {
               onPressed: () async {
                 await SavedSession.clear();
                 if (!context.mounted) return;
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => DiscoverScreen()),
-                );
+                Navigator.of(
+                  context,
+                ).pushReplacement(MaterialPageRoute(builder: (_) => DiscoverScreen()));
               },
               child: const Text('Pair again'),
             ),
@@ -559,8 +579,7 @@ class _TopBar extends StatelessWidget {
 
   /// What the deck control says: the deck on screen, or an invitation when auto mode means there
   /// is none.
-  String get _deckLabel =>
-      layout.mode == 'manual' ? (layout.source.name ?? 'Decks') : 'Decks';
+  String get _deckLabel => layout.mode == 'manual' ? (layout.source.name ?? 'Decks') : 'Decks';
 
   /// The deck list, and a way to ask for one (F7). Before this the phone could only reach the deck
   /// the host happened to put first, or one that another deck had a `deck:` key pointing at — a
@@ -592,9 +611,7 @@ class _TopBar extends StatelessWidget {
                   title: Text(
                     deck.name,
                     style: TextStyle(
-                      color: Color(
-                        deck.id == current ? DeckTokens.accent : DeckTokens.textPrimary,
-                      ),
+                      color: Color(deck.id == current ? DeckTokens.accent : DeckTokens.textPrimary),
                     ),
                   ),
                   onTap: () => Navigator.of(sheetContext).pop(deck.id),
@@ -609,7 +626,9 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = layout.mode == 'auto' ? (layout.source.appName ?? 'Auto') : (layout.source.name ?? 'Manual');
+    final title = layout.mode == 'auto'
+        ? (layout.source.appName ?? 'Auto')
+        : (layout.source.name ?? 'Manual');
     if (vertical) return _vertical(context, title);
     // Deliberately tight. Every pixel here is a pixel the keys do not get, and the keys are the
     // product — a DropdownButton at its default size alone ate ~48px of a phone held sideways.

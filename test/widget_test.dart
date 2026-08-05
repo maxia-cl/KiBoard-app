@@ -371,10 +371,43 @@ void main() {
     final box = tester.widget<AnimatedContainer>(
       find.descendant(of: find.byType(KeyWidget), matching: find.byType(AnimatedContainer)).first,
     );
-    expect(
-      (box.decoration as BoxDecoration).color,
-      const Color(DeckTokens.accent),
-      reason: 'solid brand red, not the blended green of a press confirmation',
+    // The cap is shaded, so the tint shows up in the gradient rather than in a flat colour. What
+    // this asserts is that it leans red and stays a KEY — solid accent was too loud on a pad of
+    // app icons, and the green of a press confirmation means something else entirely.
+    final face = ((box.decoration as BoxDecoration).gradient as LinearGradient).colors.first;
+    expect(face.r, greaterThan(face.g * 1.5), reason: 'clearly red');
+    expect(face.r, lessThan(const Color(DeckTokens.accent).r), reason: 'blended, not solid accent');
+  });
+
+  testWidgets('a key travels when it is held down, like a cap on a spring', (tester) async {
+    // §3.0: it has to read as hardware. What sells that is not the colour change but the light and
+    // the shadow moving together — lit from above and standing on a shadow at rest; lit from below
+    // and sitting almost flat while it is held. Asserted because it is invisible in a screenshot
+    // taken a frame late, and it is exactly the kind of detail a later refactor drops.
+    final key = DeckKey.fromLayoutJson({'pos': 0, 'label': 'Copy', 'kind': 'action'});
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: Center(child: KeyWidget(keyData: key, size: 80)))),
     );
+
+    BoxDecoration decoration() => tester
+        .widget<AnimatedContainer>(
+          find.descendant(of: find.byType(KeyWidget), matching: find.byType(AnimatedContainer)).first,
+        )
+        .decoration! as BoxDecoration;
+
+    final atRest = decoration();
+    expect((atRest.gradient! as LinearGradient).begin, Alignment.topCenter);
+
+    final gesture = await tester.startGesture(tester.getCenter(find.byType(KeyWidget)));
+    await tester.pump(const Duration(milliseconds: 120));
+    final held = decoration();
+
+    expect((held.gradient! as LinearGradient).begin, Alignment.bottomCenter, reason: 'lit from below');
+    expect(held.boxShadow!.first.blurRadius, lessThan(atRest.boxShadow!.first.blurRadius),
+        reason: 'the cap is down, so it stands on almost no shadow');
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect((decoration().gradient! as LinearGradient).begin, Alignment.topCenter, reason: 'it comes back up');
   });
 }
