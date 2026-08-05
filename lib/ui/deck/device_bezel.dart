@@ -42,8 +42,10 @@ class DeviceBezel extends StatelessWidget {
 
   // Compact is the phone held sideways, where every pixel of height is a pixel off the keys.
   // Trimmed to the minimum that still reads as a bezel rather than a hairline.
-  static double _padTop(bool compact) => compact ? 6 : DeckTokens.bezelPaddingTopPx;
-  static double _padBottom(bool compact) => compact ? 6 : DeckTokens.bezelPaddingBottomPx;
+  /// 2, not 6, on a short screen: sideways those 8 pixels are the difference between a key that
+  /// matches the upright one and one that does not, and at this size the frame still reads.
+  static double _padTop(bool compact) => compact ? 2 : DeckTokens.bezelPaddingTopPx;
+  static double _padBottom(bool compact) => compact ? 2 : DeckTokens.bezelPaddingBottomPx;
 
   /// Vertical space the bezel needs BEYOND the grid it wraps: its padding, the page dots when
   /// there is more than one page, and the engraved logo.

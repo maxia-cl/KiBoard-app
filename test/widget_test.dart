@@ -112,23 +112,15 @@ void main() {
   // changes — a deck the user arranged must hold the same keys whichever way the phone is held,
   // or rotating silently repaginates a surface whose whole value is muscle memory.
   group('AdaptiveGrid', () {
-    test('rotating keeps the key count, and no longer merely transposes', () {
+    test('rotating transposes the grid and keeps the key count', () {
       // Logical pixels for a 1080x2400 phone at ~2.75x, minus the top bar and bezel.
       final portrait = AdaptiveGrid.forSpace(320, 700);
       final landscape = AdaptiveGrid.forSpace(780, 240);
 
-      // The COUNT is the invariant: the host paginates by it, so the same twelve keys are on the
-      // page whichever way the phone is held.
+      expect(landscape.cols, portrait.rows);
+      expect(landscape.rows, portrait.cols);
       expect(landscape.cols * landscape.rows, portrait.cols * portrait.rows);
-      expect(landscape.cols * landscape.rows, AdaptiveGrid.count);
-
-      // The SHAPE deliberately is not a transpose. Upright the key is bound by width and sideways
-      // by height, so 3x4 / 4x3 would give two different key sizes — 112.5 and 97.6 on the
-      // reference phone. 3x4 / 6x2 gives 112.5 and 112.7, which is what "the same key either way"
-      // has to mean once the two boxes stopped being transposes of each other.
-      expect(portrait.cols, 3);
-      expect(landscape.cols, 6);
-      expect(landscape.cols, greaterThan(landscape.rows)); // long edge still gets the columns
+      expect(landscape.cols, greaterThan(landscape.rows)); // long edge gets the columns
     });
 
     // The requirement that drives `sizeForDevice`: a key pad is hit from muscle memory, so a

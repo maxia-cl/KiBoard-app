@@ -292,6 +292,13 @@ class _DeckScreenState extends State<DeckScreen> {
             // limits the number of rows on a phone held that way — barely 390 logical pixels of it
             // against 870 of width — so the bar belongs on the axis that has room to spare.
             final sideways = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+            // Sideways the key is bound by HEIGHT, and the system bars own 40 of the 393 the phone
+            // has. Three rows at the upright size need 369; hiding the bars is what closes that
+            // gap, and it is what §3.0 asks for anyway — the device IS the screen. Upright there
+            // is height to spare, so the bars stay: a clock is worth more than a bigger key there.
+            SystemChrome.setEnabledSystemUIMode(
+              sideways ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+            );
             final deck = Column(
               children: [
                 if (!sideways)
@@ -343,14 +350,14 @@ class _DeckScreenState extends State<DeckScreen> {
                             ? wanted
                             : layout.grid;
 
-                        // The BOX decides now. `sizeForDevice` used to, so that a key measured the
-                        // same however the phone was held (F3) — but that promise assumed the same
-                        // number of keys either way, and 3 columns upright against 5 sideways ends
-                        // it. Keeping the old cap would have held the key at 95 in a space that
-                        // fits 112. It is still traced, so the two numbers stay visible.
+                        // The DEVICE decides and the box only caps, which is what makes the key
+                        // the same size however the phone is held (F3). Both reserves were
+                        // re-measured after the bezel and the system bars stopped taking what they
+                        // used to: at the old numbers this held the key at 95 inside a box that
+                        // fits 112.
                         final byDevice = KeyGrid.sizeForDevice(MediaQuery.sizeOf(context), grid);
                         final byBox = KeyGrid.sizeToFit(grid, w, h);
-                        final keySize = math.min(byBox, KeyGrid.maxKeySize);
+                        final keySize = math.min(byDevice, byBox);
                         _traceSize(byDevice, byBox, keySize, w, h);
                         return SizedBox.expand(
                           // §4.4 `set_page`. The dots were drawn from the start but nothing ever

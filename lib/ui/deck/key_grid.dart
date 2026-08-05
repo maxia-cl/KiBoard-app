@@ -76,18 +76,22 @@ class KeyGrid extends StatelessWidget {
   /// lets the box cap bite in one orientation only — which is the rotation-resize this whole
   /// mechanism exists to prevent.
   ///
-  /// MEASURED from the `space=WxH` the trace prints, against a 393x873 logical screen:
-  ///   upright   space 337x674  -> shell costs  56 wide, 199 tall
-  ///   sideways  space 755x320  -> shell costs 118 wide,  73 tall
-  /// The short edge of the DEVICE is the height sideways (73) and the width upright (56): worst
-  /// case 73. The long edge is the width sideways (118) and the height upright (199): worst 199.
-  /// A few pixels of slack on each, because too small a reserve is what makes the cap bite.
+  /// RE-MEASURED after the bezel went to 4 at the sides and the deck went full screen sideways,
+  /// against the same 393x873 logical phone:
+  ///   upright   space 369x682  -> shell costs  24 wide, 191 tall
+  ///   sideways  space 755x389  -> shell costs 118 wide,   4 tall
+  /// The short edge of the DEVICE is the height sideways (4) and the width upright (24): worst
+  /// case 24. The long edge is the width sideways (118) and the height upright (191): worst 191.
+  ///
+  /// The old 80 dated from a 20 px bezel and a status bar sideways; left alone it held the key at
+  /// 95 in a box that now fits 112, which is the whole point of this pair of numbers being
+  /// MEASURED rather than guessed.
   ///
   /// Measure with a deck that PAGINATES. 185 looked right against a single-page layout and then
   /// capped as soon as a second page appeared: the dots are 18 of those pixels, and they only
   /// exist when there is somewhere to go.
-  static const _reserveShort = 80.0;
-  static const _reserveLong = 200.0;
+  static const _reserveShort = 24.0;
+  static const _reserveLong = 191.0;
 
   /// The largest key that fits BOTH dimensions of the space available.
   ///
