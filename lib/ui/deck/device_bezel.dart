@@ -60,26 +60,30 @@ class DeviceBezel extends StatelessWidget {
   /// a Row whose height `chromeHeightFor` has already budgeted at 8, so a vertical margin here is
   /// height nobody reserved — which is precisely how this overflowed the deck by 4.4 pixels.
   static Widget dot(bool active, {bool stacked = false}) => Container(
-        margin: stacked
-            ? const EdgeInsets.symmetric(vertical: 3)
-            : const EdgeInsets.symmetric(horizontal: 3),
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: active ? const Color(DeckTokens.pageDotActive) : const Color(DeckTokens.pageDotInactive),
-        ),
-      );
+    margin: stacked
+        ? const EdgeInsets.symmetric(vertical: 3)
+        : const EdgeInsets.symmetric(horizontal: 3),
+    width: 8,
+    height: 8,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: active
+          ? const Color(DeckTokens.pageDotActive)
+          : const Color(DeckTokens.pageDotInactive),
+    ),
+  );
 
   /// Horizontal space the bezel needs beyond the grid.
   static double chromeWidth() => 2 * DeckTokens.bezelPaddingSidePx;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final compact = isCompact(constraints.maxHeight);
-      return _shell(compact);
-    });
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = isCompact(constraints.maxHeight);
+        return _shell(compact);
+      },
+    );
   }
 
   Widget _shell(bool compact) {
@@ -118,7 +122,11 @@ class DeviceBezel extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               DeckTokens.bezelLogoText,
-              style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 11, letterSpacing: 2),
+              style: TextStyle(
+                color: Color(DeckTokens.textSecondary),
+                fontSize: 11,
+                letterSpacing: 2,
+              ),
             ),
           ],
         ],

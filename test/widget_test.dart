@@ -8,7 +8,6 @@ import 'package:kiboard_app/main.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/layout_source.dart';
 import 'package:kiboard_app/net/saved_session.dart';
-import 'package:kiboard_app/ui/tokens.g.dart';
 import 'package:kiboard_app/ui/splash.dart';
 import 'package:kiboard_app/ui/wordmark.dart';
 import 'package:kiboard_app/model/deck.dart';

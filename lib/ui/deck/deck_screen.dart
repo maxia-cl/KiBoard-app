@@ -70,9 +70,6 @@ class _DeckScreenState extends State<DeckScreen> {
     );
   }
 
-  /// Positions lit green right now, because the host confirmed them.
-  final Set<int> _confirmed = {};
-
   /// Positions tinted with the brand colour because a press asked an app to come up.
   ///
   /// Two things end it, whichever lands first: the host reporting `state.running` for that key, or
@@ -245,11 +242,7 @@ class _DeckScreenState extends State<DeckScreen> {
         trace('key pos=$pos opens an app — tinting it while it comes up');
         _markLaunching(pos);
       }
-      trace('key pos=$pos confirmed — lighting up');
-      setState(() => _confirmed.add(pos));
-      await Future<void>.delayed(const Duration(milliseconds: 220));
-      if (!mounted) return;
-      setState(() => _confirmed.remove(pos));
+      trace('key pos=$pos confirmed');
     } on TimeoutException {
       if (mounted) _showKeyError('no answer from the PC');
     }
@@ -411,7 +404,6 @@ class _DeckScreenState extends State<DeckScreen> {
                                     grid: grid,
                                     keys: layout.keys,
                                     keySize: keySize,
-                                    confirmed: _confirmed,
                                     launching: _launching,
                                     onKeyPress: (pos, press) => _handlePress(layout, pos, press),
                                   ),

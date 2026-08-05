@@ -22,15 +22,8 @@ class KeyWidget extends StatefulWidget {
   final double size;
   final void Function(String press)? onPress;
 
-  /// Lit green because the host answered `key_result` ok (§3.1). This is the ONLY signal that the
-  /// PC actually did the thing — the press animation only proves the phone felt the touch, and
-  /// Elgato's number-one complaint is not knowing whether the deck is still talking to anything.
-  final bool confirmed;
-
-  /// Pressed, and the app it opens is not up yet. Painted in the brand red until the host says
-  /// `state.running` — launching an app takes seconds, and without this the deck looks like it
-  /// swallowed the press. The green `confirmed` flash cannot say it: that only means the PC
-  /// received the press, not that anything happened.
+  /// Pressed, and the app it opens is not up yet — see the spinner below. Launching takes seconds,
+  /// and without it the deck looks like it swallowed the press.
   final bool launching;
 
   const KeyWidget({
@@ -38,7 +31,6 @@ class KeyWidget extends StatefulWidget {
     required this.keyData,
     required this.size,
     this.onPress,
-    this.confirmed = false,
     this.launching = false,
   });
 
@@ -132,19 +124,15 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
 
     // The colour of the cap itself, before the light on it. Kept out of the decoration so the
     // gradient and the shadow have one thing to shade rather than three colours to agree on.
-    final face = widget.confirmed
-        // Blended rather than solid green: the key stays recognisable while it acknowledges, which
-        // matters when the confirmation is this brief.
-        ? Color.lerp(baseColor, const Color(DeckTokens.stateOn), 0.55)!
-        : _pressed
+    // The cap's own colour. A press used to blend it green when `key_result` came back ok — the
+    // only proof §3.1 had that the PC did the thing — but on a surface that is meant to feel like
+    // hardware the flash read as a status light nobody asked for. What acknowledges a press now is
+    // the press itself: the cap goes down under the finger, the haptic fires, and a press the PC
+    // REFUSES still says so out loud (the snackbar in `_handlePress`).
+    final face = _pressed
         ? Color.lerp(baseColor, Colors.black, DeckTokens.pressDarkenPercent / 100)!
         : baseColor;
 
-    // The cap comes back up on the POINTER, not on the tap. With `onDoubleTap` registered the tap
-    // recognizer holds its verdict for the double-press window (§3.1, 300 ms) before `onTapUp`
-    // fires — so the key stayed visibly down for a third of a second after the finger left, which
-    // is the one thing a physical button never does. The Listener sits outside the arena and does
-    // not wait for anyone.
     return Listener(
       onPointerUp: isEmpty ? null : (_) => setState(() => _pressed = false),
       onPointerCancel: isEmpty ? null : (_) => setState(() => _pressed = false),

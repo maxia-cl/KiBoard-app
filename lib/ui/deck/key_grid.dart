@@ -14,9 +14,6 @@ class KeyGrid extends StatelessWidget {
   final double keySize;
   final void Function(int pos, String press)? onKeyPress;
 
-  /// Positions the host has just confirmed with `key_result` ok — painted lit (§3.1).
-  final Set<int> confirmed;
-
   /// Positions waiting for the app they opened to appear (see `KeyWidget.launching`).
   final Set<int> launching;
 
@@ -26,7 +23,6 @@ class KeyGrid extends StatelessWidget {
     required this.keys,
     required this.keySize,
     this.onKeyPress,
-    this.confirmed = const {},
     this.launching = const {},
   });
 
@@ -126,7 +122,6 @@ class KeyGrid extends StatelessWidget {
               keyData: key,
               size: keySize,
               launching: launching.contains(key.pos),
-              confirmed: confirmed.contains(key.pos),
               onPress: (p) => onKeyPress?.call(key.pos, p),
             ),
         ],
