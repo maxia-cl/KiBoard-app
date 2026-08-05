@@ -655,20 +655,22 @@ class _TopBar extends StatelessWidget {
                 style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 12),
               ),
             ),
-          DropdownButton<String>(
-            value: layout.mode,
-            isDense: true,
-            dropdownColor: const Color(0xFF1E1E20),
-            underline: const SizedBox.shrink(),
-            iconSize: 18,
-            style: const TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 12),
-            items: const [
-              DropdownMenuItem(value: 'auto', child: Text('Auto')),
-              DropdownMenuItem(value: 'manual', child: Text('Manual')),
-            ],
-            onChanged: (mode) {
-              if (mode != null) layoutSource.setMode(mode);
-            },
+          // The same control as the deck button next to it — icon, label, one tap — instead of a
+          // DropdownButton, which drew its own text at its own size and made the pair look like
+          // two different kinds of thing. There are exactly two modes, so the menu was a second
+          // tap for nothing; sideways it has been a toggle since F5 and this is now the same
+          // gesture in both orientations.
+          TextButton.icon(
+            onPressed: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
+            icon: Icon(
+              layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
+              size: 16,
+              color: const Color(DeckTokens.textSecondary),
+            ),
+            label: Text(
+              layout.mode == 'auto' ? 'Auto' : 'Manual',
+              style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 12),
+            ),
           ),
           // The settings cog that used to sit here was a bare `Icon` with no handler in either
           // orientation — it has done nothing since F3. Removed rather than enlarged: there is no
