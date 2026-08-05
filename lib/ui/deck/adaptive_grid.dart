@@ -12,27 +12,28 @@ class AdaptiveGrid {
   /// 5 keys along the long edge, 2 along the short one. What does not fit goes to the next page
   /// (§3.1), it is not lost.
   ///
-  /// 3 on the short edge, decided by measuring rather than by argument. It was 2 because a third
-  /// column looked like it cost 10% of the key — but that measurement kept the bezel's 20 px of
-  /// side padding, and upright the key is bound by HEIGHT, so those 20 px were pure margin next to
-  /// 54 more of centring slack. With the bezel at 4 the third column costs 1.4%: 112.5 against
-  /// 114.1, which is inside the noise. What it really costs is the width of the drawn frame.
-  static const _long = 5;
-  static const _short = 3;
+  /// **12 keys, shaped to the orientation: 3x4 upright, 6x2 sideways.**
+  ///
+  /// Not a transpose any more, and that is the point. Upright the key is bound by width and
+  /// sideways by HEIGHT — measured on the reference phone, 369x655 against 755x320 — so a shape
+  /// that merely swaps rows and columns cannot give the same key twice. 3x5 upright reads 112.5;
+  /// its transpose sideways reads 97.6, because three rows have to fit in 320.
+  ///
+  /// 3x4 / 6x2 does: 112.5 and 112.7. Same key, same twelve keys on the page, rearranged rather
+  /// than repaginated — the host paginates by COUNT, so what travels is the same twelve either
+  /// way. It costs one row upright against the 3x5 that came before it.
+  static const _count = 12;
+  static const _upright = Grid(rows: 4, cols: 3);
+  static const _sideways = Grid(rows: 2, cols: 6);
 
   /// Keys per page, whatever the orientation.
-  static const count = _long * _short;
+  static const count = _count;
 
-  /// Keys along the short edge of the device — the count that decides key size, since the short
-  /// edge is what binds.
-  static const short = _short;
+  /// Keys along the short edge of the device.
+  static const short = 3;
 
   /// Keys along the long edge.
-  static const long = _long;
+  static const long = 4;
 
-  /// [width] and [height] are the space left for the grid itself — the caller has already taken
-  /// out the top bar and everything the bezel puts around it.
-  static Grid forSpace(double width, double height) => width >= height
-      ? const Grid(rows: _short, cols: _long)
-      : const Grid(rows: _long, cols: _short);
+  static Grid forSpace(double width, double height) => width >= height ? _sideways : _upright;
 }
