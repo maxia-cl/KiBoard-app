@@ -250,9 +250,14 @@ void main() {
     final upright = await keySizeAt(const Size(393, 873));
     final sideways = await keySizeAt(const Size(873, 393));
 
-    expect(sideways, moreOrLessEquals(upright, epsilon: 0.5),
-        reason: 'the side strip is eating enough width to shrink the keys — check _verticalWidth '
-            'against the slack described on KeyGrid._reserveLong');
+    // The old rule was that these two matched, which is what `sizeForDevice` enforced. Three
+    // columns upright against five sideways ends it: the shapes hold different numbers of keys,
+    // so one size cannot serve both. What replaced it is a floor — upright the key must still be
+    // in the same class as before the third column (114.1 then, ~112.5 now), because the whole
+    // point of trimming the bezel was that the extra column would NOT be paid for in key size.
+    expect(upright, greaterThan(105),
+        reason: 'the third column was supposed to come out of the bezel, not out of the key');
+    expect(sideways, greaterThan(60), reason: 'and sideways still has to be pressable');
   });
 
   /// §3 says a `danger` key is painted red AND asks before it acts. Only the paint was built, so

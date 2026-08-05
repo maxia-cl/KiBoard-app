@@ -44,6 +44,9 @@ class KeyGrid extends StatelessWidget {
   /// bar, the bezel padding and the page dots. Being generous here costs a few pixels of key; not
   /// being generous enough costs an overflow, so [sizeToFit] still caps the result against the
   /// space really on offer.
+  /// A ceiling, so a tablet does not get keys the size of a hand. Nothing on a phone reaches it.
+  static const maxKeySize = 140.0;
+
   static double sizeForDevice(Size screen, Grid grid) {
     const gapRatio = DeckTokens.keyGapRatioOfSide;
     final small = math.min(grid.rows, grid.cols);

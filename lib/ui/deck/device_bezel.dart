@@ -26,7 +26,11 @@ class DeviceBezel extends StatelessWidget {
     this.dotsInside = true,
   });
 
-  static const _logoLineHeight = 16.0; // 11px font, default line height, rounded up
+  /// The logo's line box, PINNED rather than estimated: the style below sets `height: 1.2`, so
+  /// this is 11 x 1.2 and not whatever line height the ambient theme happens to carry. It was
+  /// "16, rounded up" and the real box was 20 — invisible while the key had slack to absorb it,
+  /// a 4 px overflow the moment the grid started taking the whole box.
+  static const _logoLineHeight = 11 * 1.2;
 
   /// Below this height the shell goes compact. A phone held sideways has ~390 logical pixels top
   /// to bottom, and the full-size padding plus the engraved logo were eating a third of it — on
@@ -74,7 +78,13 @@ class DeviceBezel extends StatelessWidget {
   );
 
   /// Horizontal space the bezel needs beyond the grid.
-  static double chromeWidth() => 2 * DeckTokens.bezelPaddingSidePx;
+  /// The drawn frame down each side. Thin on purpose: upright the key is bound by height, so
+  /// every pixel here is margin taken off the grid's width and given to nothing — at 20 it was the
+  /// difference between two columns and three. The top and bottom keep the token's full padding,
+  /// which is where the bezel still reads as a bezel.
+  static const _padSide = 4.0;
+
+  static double chromeWidth() => 2 * _padSide;
 
   @override
   Widget build(BuildContext context) {
@@ -96,19 +106,20 @@ class DeviceBezel extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(DeckTokens.bezelCornerRadiusPx),
       ),
-      padding: EdgeInsets.fromLTRB(
-        DeckTokens.bezelPaddingSidePx,
-        _padTop(compact),
-        DeckTokens.bezelPaddingSidePx,
-        _padBottom(compact),
-      ),
+      padding: EdgeInsets.fromLTRB(_padSide, _padTop(compact), _padSide, _padBottom(compact)),
       // Fills whatever it is given and centres the keys inside, rather than shrink-wrapping them.
       // Shrink-wrapped, the pad floated as a small slab in the middle of the screen; the phone is
       // meant to BE the device (§3.0), so the shell goes edge to edge and the keys sit in it.
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(width: gridWidth, height: gridHeight, child: child),
+          // The grid takes what is left after the fixed parts below, instead of a height the
+          // caller worked out for it. Two places computing the same number is how a 4 px
+          // overflow appears the moment one of them is off — and `chromeHeightFor` had to guess
+          // at a text line box, which is a number only the text engine really knows.
+          Flexible(
+            child: SizedBox(width: gridWidth, height: gridHeight, child: child),
+          ),
           if (dotsInside && pageCount > 1) ...[
             const SizedBox(height: 10),
             Row(
@@ -125,6 +136,7 @@ class DeviceBezel extends StatelessWidget {
               style: TextStyle(
                 color: Color(DeckTokens.textSecondary),
                 fontSize: 11,
+                height: 1.2,
                 letterSpacing: 2,
               ),
             ),

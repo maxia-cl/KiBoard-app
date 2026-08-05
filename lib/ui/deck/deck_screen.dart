@@ -343,12 +343,14 @@ class _DeckScreenState extends State<DeckScreen> {
                             ? wanted
                             : layout.grid;
 
-                        // The size comes from the DEVICE, not from this box, so rotating does not
-                        // resize the keys. `sizeToFit` only caps it, in case a screen turns out
-                        // tighter than the reserve assumed.
+                        // The BOX decides now. `sizeForDevice` used to, so that a key measured the
+                        // same however the phone was held (F3) — but that promise assumed the same
+                        // number of keys either way, and 3 columns upright against 5 sideways ends
+                        // it. Keeping the old cap would have held the key at 95 in a space that
+                        // fits 112. It is still traced, so the two numbers stay visible.
                         final byDevice = KeyGrid.sizeForDevice(MediaQuery.sizeOf(context), grid);
                         final byBox = KeyGrid.sizeToFit(grid, w, h);
-                        final keySize = math.min(byDevice, byBox);
+                        final keySize = math.min(byBox, KeyGrid.maxKeySize);
                         _traceSize(byDevice, byBox, keySize, w, h);
                         return SizedBox.expand(
                           // §4.4 `set_page`. The dots were drawn from the start but nothing ever
