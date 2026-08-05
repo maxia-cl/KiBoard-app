@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../wordmark.dart';
+
 import '../../net/discovered_host.dart';
 import '../../net/discovery.dart';
 import '../../net/mdns_discovery.dart';
@@ -52,14 +54,23 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           }
 
           return SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(sheetContext).viewInsets.bottom),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              24,
+              24,
+              24 + MediaQuery.of(sheetContext).viewInsets.bottom,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   "Your PC's address",
-                  style: TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 18, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: Color(DeckTokens.textPrimary),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -81,7 +92,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     hintStyle: const TextStyle(color: Color(DeckTokens.textSecondary)),
                     filled: true,
                     fillColor: const Color(0xFF2C2C2E),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
                     errorText: error,
                   ),
                 ),
@@ -117,19 +131,24 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'KiBoard',
-                style: TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 28, fontWeight: FontWeight.bold),
-              ),
+              // The same lockup as the start screen, at header size — KiMouse puts it in exactly
+              // these two places, which is what stops the name being a bold word in one and a
+              // drawn mark in the other.
+              const Wordmark(markHeight: 34),
               const SizedBox(height: 4),
-              const Text('Looking for PCs on your network…', style: TextStyle(color: Color(DeckTokens.textSecondary))),
+              const Text(
+                'Looking for PCs on your network…',
+                style: TextStyle(color: Color(DeckTokens.textSecondary)),
+              ),
               const SizedBox(height: 24),
               Expanded(
                 child: FutureBuilder<List<DiscoveredHost>>(
                   future: _hosts,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState != ConnectionState.done) {
-                      return const Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent)));
+                      return const Center(
+                        child: CircularProgressIndicator(color: Color(DeckTokens.accent)),
+                      );
                     }
                     final hosts = snapshot.data ?? const [];
                     if (hosts.isEmpty) {
@@ -167,7 +186,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                   'on the messages KiBoard listens for. Typing the address works '
                                   'anyway.',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 13),
+                                  style: TextStyle(
+                                    color: Color(DeckTokens.textSecondary),
+                                    fontSize: 13,
+                                  ),
                                 ),
                                 const SizedBox(height: 16),
                                 // Wrap, not Row: two buttons side by side is a nice-to-have, and
@@ -208,7 +230,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                               padding: const EdgeInsets.all(16),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.desktop_windows, color: Color(DeckTokens.accent)),
+                                  const Icon(
+                                    Icons.desktop_windows,
+                                    color: Color(DeckTokens.accent),
+                                  ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
@@ -224,12 +249,18 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                         if (!host.pairingOpen)
                                           const Text(
                                             'Not accepting new pairings right now',
-                                            style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 12),
+                                            style: TextStyle(
+                                              color: Color(DeckTokens.textSecondary),
+                                              fontSize: 12,
+                                            ),
                                           ),
                                       ],
                                     ),
                                   ),
-                                  const Icon(Icons.chevron_right, color: Color(DeckTokens.textSecondary)),
+                                  const Icon(
+                                    Icons.chevron_right,
+                                    color: Color(DeckTokens.textSecondary),
+                                  ),
                                 ],
                               ),
                             ),
@@ -249,7 +280,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 width: double.infinity,
                 child: TextButton.icon(
                   onPressed: _enterAddress,
-                  icon: const Icon(Icons.keyboard_alt_outlined, color: Color(DeckTokens.textSecondary), size: 18),
+                  icon: const Icon(
+                    Icons.keyboard_alt_outlined,
+                    color: Color(DeckTokens.textSecondary),
+                    size: 18,
+                  ),
                   label: const Text(
                     "Don't see your PC? Enter its address",
                     textAlign: TextAlign.center,
