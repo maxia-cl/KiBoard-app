@@ -39,6 +39,11 @@ class DeckKey {
   final String? doublePress;
   final bool danger;
   final bool stateOn;
+
+  /// `state.running` (§3), which the host attaches per send for keys that open an app. **Null means
+  /// this key is not one of those** — the difference matters: `false` is "that app is not open yet"
+  /// and drives the launching colour, while null is "there is nothing to wait for".
+  final bool? running;
   final KeyKind kind;
   final String? folderId;
   final int? targetPage;
@@ -59,6 +64,7 @@ class DeckKey {
     this.doublePress,
     this.danger = false,
     this.stateOn = false,
+    this.running,
     this.kind = KeyKind.empty,
     this.folderId,
     this.targetPage,
@@ -84,6 +90,7 @@ class DeckKey {
       doublePress: json['double'] as String?,
       danger: json['danger'] as bool? ?? false,
       stateOn: state?['on'] as bool? ?? false,
+      running: state?['running'] as bool?,
       kind: _kindFromString(json['kind'] as String?),
     );
   }
@@ -113,6 +120,7 @@ class DeckKey {
     doublePress: doublePress,
     danger: danger,
     stateOn: stateOn,
+    running: running,
     kind: kind,
     folderId: folderId ?? this.folderId,
     targetPage: targetPage ?? this.targetPage,

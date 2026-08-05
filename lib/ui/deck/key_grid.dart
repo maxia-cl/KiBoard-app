@@ -17,6 +17,9 @@ class KeyGrid extends StatelessWidget {
   /// Positions the host has just confirmed with `key_result` ok — painted lit (§3.1).
   final Set<int> confirmed;
 
+  /// Positions waiting for the app they opened to appear (see `KeyWidget.launching`).
+  final Set<int> launching;
+
   const KeyGrid({
     super.key,
     required this.grid,
@@ -24,6 +27,7 @@ class KeyGrid extends StatelessWidget {
     required this.keySize,
     this.onKeyPress,
     this.confirmed = const {},
+    this.launching = const {},
   });
 
   static double gapFor(double keySize) => keySize * DeckTokens.keyGapRatioOfSide;
@@ -121,6 +125,7 @@ class KeyGrid extends StatelessWidget {
             KeyWidget(
               keyData: key,
               size: keySize,
+              launching: launching.contains(key.pos),
               confirmed: confirmed.contains(key.pos),
               onPress: (p) => onKeyPress?.call(key.pos, p),
             ),

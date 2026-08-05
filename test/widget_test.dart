@@ -8,6 +8,7 @@ import 'package:kiboard_app/main.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/layout_source.dart';
 import 'package:kiboard_app/net/saved_session.dart';
+import 'package:kiboard_app/ui/tokens.g.dart';
 import 'package:kiboard_app/ui/splash.dart';
 import 'package:kiboard_app/ui/wordmark.dart';
 import 'package:kiboard_app/model/deck.dart';
@@ -343,5 +344,37 @@ void main() {
     // strand the user on a spinner (the bug seen on the phone after an app restart).
     await tester.pump(const Duration(seconds: 5));
     expect(find.textContaining('No PCs found'), findsOneWidget);
+  });
+
+  testWidgets('a key waiting for its app to open is painted brand red', (tester) async {
+    // `state.running` is the only thing on the wire that marks a key as one that opens an app —
+    // the phone never sees the action (§4.2) — so parsing it is half the feature.
+    final waiting = DeckKey.fromLayoutJson({
+      'pos': 0,
+      'label': 'Photoshop',
+      'kind': 'action',
+      'state': {'running': false},
+    });
+    final ordinary = DeckKey.fromLayoutJson({'pos': 1, 'label': 'Copy', 'kind': 'action'});
+    expect(waiting.running, isFalse, reason: 'false is "not open yet", and it drives the colour');
+    expect(ordinary.running, isNull, reason: 'null is "nothing to wait for" — a different thing');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: KeyWidget(keyData: waiting, size: 80, launching: true),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final box = tester.widget<AnimatedContainer>(
+      find.descendant(of: find.byType(KeyWidget), matching: find.byType(AnimatedContainer)).first,
+    );
+    expect(
+      (box.decoration as BoxDecoration).color,
+      const Color(DeckTokens.accent),
+      reason: 'solid brand red, not the blended green of a press confirmation',
+    );
   });
 }

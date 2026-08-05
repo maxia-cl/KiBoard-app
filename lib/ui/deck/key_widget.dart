@@ -27,12 +27,19 @@ class KeyWidget extends StatefulWidget {
   /// Elgato's number-one complaint is not knowing whether the deck is still talking to anything.
   final bool confirmed;
 
+  /// Pressed, and the app it opens is not up yet. Painted in the brand red until the host says
+  /// `state.running` — launching an app takes seconds, and without this the deck looks like it
+  /// swallowed the press. The green `confirmed` flash cannot say it: that only means the PC
+  /// received the press, not that anything happened.
+  final bool launching;
+
   const KeyWidget({
     super.key,
     required this.keyData,
     required this.size,
     this.onPress,
     this.confirmed = false,
+    this.launching = false,
   });
 
   @override
@@ -137,7 +144,11 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
               width: widget.size,
               height: widget.size,
               decoration: BoxDecoration(
-                color: widget.confirmed
+                color: widget.launching
+                    // Solid, not blended: this one lasts seconds, so it is a state the key is IN
+                    // rather than a flash, and it should be readable across the room.
+                    ? const Color(DeckTokens.accent)
+                    : widget.confirmed
                     // Blended rather than solid green: the key stays recognisable while it
                     // acknowledges, which matters when the confirmation is this brief.
                     ? Color.lerp(baseColor, const Color(DeckTokens.stateOn), 0.55)

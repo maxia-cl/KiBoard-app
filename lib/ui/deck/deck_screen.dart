@@ -53,6 +53,7 @@ class _DeckScreenState extends State<DeckScreen> {
 
   @override
   void dispose() {
+    _launchTimer?.cancel();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -74,6 +75,39 @@ class _DeckScreenState extends State<DeckScreen> {
 
   /// Positions lit green right now, because the host confirmed them.
   final Set<int> _confirmed = {};
+
+  /// Positions painted brand red because a press asked an app to open and it is not up yet.
+  ///
+  /// The key stays that colour until the host's next push says `state.running`, which rides the
+  /// 500 ms poll, so it clears by itself the moment the window appears. [_launchGiveUp] is the
+  /// backstop for the app that never comes up at all — an installer prompt, a crash — because a
+  /// key stuck red forever would be a worse lie than no colour.
+  final Set<int> _launching = {};
+  Timer? _launchTimer;
+  static const _launchGiveUp = Duration(seconds: 20);
+
+  void _markLaunching(int pos) {
+    setState(() => _launching.add(pos));
+    _launchTimer?.cancel();
+    _launchTimer = Timer(_launchGiveUp, () {
+      if (mounted) setState(_launching.clear);
+    });
+  }
+
+  /// Clears the ones whose app is up. Called on every layout, since that is when the answer
+  /// arrives — the host attaches `state.running` per send.
+  void _clearLaunched(Layout layout) {
+    if (_launching.isEmpty) return;
+    final done = _launching.where((pos) {
+      final key = pos < layout.keys.length ? layout.keys[pos] : null;
+      return key == null || key.running == true;
+    }).toSet();
+    if (done.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _launching.removeAll(done));
+      });
+    }
+  }
 
   /// What the last layout was of, so a page change can be told apart from a deck change.
   String? _lastSource;
@@ -205,6 +239,13 @@ class _DeckScreenState extends State<DeckScreen> {
         _showKeyError(result['error'] as String? ?? 'internal');
         return;
       }
+      // A key that opens an app carries `state.running: false` until it is up. That is the only
+      // thing on the wire that says "this press starts something slow", so it is what decides
+      // whether the key waits in red — the phone never sees the action itself (§4.2).
+      if (key.running == false) {
+        trace('key pos=$pos is launching — holding it red');
+        _markLaunching(pos);
+      }
       trace('key pos=$pos confirmed — lighting up');
       setState(() => _confirmed.add(pos));
       await Future<void>.delayed(const Duration(milliseconds: 220));
@@ -252,6 +293,7 @@ class _DeckScreenState extends State<DeckScreen> {
             }
             final layout = snapshot.data!;
             _trackPage(layout);
+            _clearLaunched(layout);
             // Sideways the chrome runs down the left instead of across the top. Height is what
             // limits the number of rows on a phone held that way — barely 390 logical pixels of it
             // against 870 of width — so the bar belongs on the axis that has room to spare.
@@ -273,7 +315,7 @@ class _DeckScreenState extends State<DeckScreen> {
                         final w = constraints.maxWidth - DeviceBezel.chromeWidth();
                         final h = constraints.maxHeight -
                             DeviceBezel.chromeHeightFor(layout.pages, constraints.maxHeight,
-                                dotsInside: !sideways);
+                                dotsInside: true);
 
                         // §3.1: the phone derives rows x cols from the space it has and tells the
                         // host. Rotating changes it, so this is checked on every layout pass —
@@ -316,7 +358,13 @@ class _DeckScreenState extends State<DeckScreen> {
                               gridHeight: KeyGrid.heightFor(grid, keySize),
                               pageCount: layout.pages,
                               currentPage: layout.page,
-                              dotsInside: !sideways,
+                              // Under the keys in BOTH orientations. Sideways they used to live
+                              // in the side strip, to keep their 18 px off the height that caps
+                              // the key size — but the measured landscape box allows 94.2 px per
+                              // key against the 79.1 the device asks for, so the reserve comes out
+                              // of slack and the keys do not move. `CAPPED BY BOX` in the trace is
+                              // what shouts if that stops being true on some other screen.
+                              dotsInside: true,
                               // The page used to be REPLACED, which read as a cut rather than as
                               // a move. It travels now, in the direction the swipe went, clipped
                               // to the bezel so a page leaves through the edge of the device
@@ -349,6 +397,7 @@ class _DeckScreenState extends State<DeckScreen> {
                                     keys: layout.keys,
                                     keySize: keySize,
                                     confirmed: _confirmed,
+                                    launching: _launching,
                                     onKeyPress: (pos, press) => _handlePress(layout, pos, press),
                                   ),
                                 ),
@@ -653,12 +702,6 @@ class _TopBar extends StatelessWidget {
                 ),
               ),
             ),
-            // The page indicator lives here sideways, not in the bezel: on the width, which has
-            // room to spare, instead of the height, which is what caps the key size.
-            if (layout.pages > 1) ...[
-              for (var i = 0; i < layout.pages; i++) DeviceBezel.dot(i == layout.page, stacked: true),
-              const SizedBox(height: 8),
-            ],
             // A toggle, not a dropdown. There are exactly two modes, so a menu was a second tap
             // for nothing — and the icon-only DropdownButton it replaces had a hit area of about
             // 18x28 in a 40-wide strip, which is what "casi no se pueden presionar" was. This is
