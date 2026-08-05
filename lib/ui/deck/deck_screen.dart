@@ -628,10 +628,13 @@ class _TopBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 2, 8, 2),
       child: Row(
         children: [
+          // 20/15 across the row: the scale the mode dropdown used to draw itself at, which is
+          // the one that reads at arm's length. Only upright — sideways the height it costs comes
+          // straight off the keys, and there the strip has its own sizes.
           Icon(
             layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
             color: const Color(DeckTokens.textSecondary),
-            size: 16,
+            size: 20,
           ),
           const SizedBox(width: 6),
           Expanded(
@@ -648,11 +651,11 @@ class _TopBar extends StatelessWidget {
           if (session != null && session!.decks.isNotEmpty)
             TextButton.icon(
               onPressed: () => _pickDeck(context),
-              icon: const Icon(Icons.dashboard, size: 16, color: Color(DeckTokens.textSecondary)),
+              icon: const Icon(Icons.dashboard, size: 20, color: Color(DeckTokens.textSecondary)),
               label: Text(
                 _deckLabel,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 12),
+                style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 15),
               ),
             ),
           // The same control as the deck button next to it — icon, label, one tap — instead of a
@@ -664,12 +667,12 @@ class _TopBar extends StatelessWidget {
             onPressed: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
             icon: Icon(
               layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
-              size: 16,
+              size: 20,
               color: const Color(DeckTokens.textSecondary),
             ),
             label: Text(
               layout.mode == 'auto' ? 'Auto' : 'Manual',
-              style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 12),
+              style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 15),
             ),
           ),
           // The settings cog that used to sit here was a bare `Icon` with no handler in either
