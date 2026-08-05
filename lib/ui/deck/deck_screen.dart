@@ -648,32 +648,18 @@ class _TopBar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          // Upright uses the SAME control as the side strip: a 56x56 tile with its icon and its
+          // word. The size was picked in F5 because an icon-only dropdown in a 40-wide strip left
+          // a hit area of about 18x28 — "casi no se pueden presionar" — and nothing about holding
+          // the phone the other way makes a small target easier to hit. One widget for both, so
+          // the two orientations cannot drift apart on two numbers nobody remembers to sync.
           if (session != null && session!.decks.isNotEmpty)
-            TextButton.icon(
-              onPressed: () => _pickDeck(context),
-              icon: const Icon(Icons.dashboard, size: 20, color: Color(DeckTokens.textSecondary)),
-              label: Text(
-                _deckLabel,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 15),
-              ),
-            ),
-          // The same control as the deck button next to it — icon, label, one tap — instead of a
-          // DropdownButton, which drew its own text at its own size and made the pair look like
-          // two different kinds of thing. There are exactly two modes, so the menu was a second
-          // tap for nothing; sideways it has been a toggle since F5 and this is now the same
-          // gesture in both orientations.
-          TextButton.icon(
-            onPressed: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
-            icon: Icon(
-              layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
-              size: 20,
-              color: const Color(DeckTokens.textSecondary),
-            ),
-            label: Text(
-              layout.mode == 'auto' ? 'Auto' : 'Manual',
-              style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 15),
-            ),
+            _StripButton(icon: Icons.dashboard, label: _deckLabel, onTap: () => _pickDeck(context)),
+          const SizedBox(width: 6),
+          _StripButton(
+            icon: layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
+            label: layout.mode == 'auto' ? 'Auto' : 'Manual',
+            onTap: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
           ),
           // The settings cog that used to sit here was a bare `Icon` with no handler in either
           // orientation — it has done nothing since F3. Removed rather than enlarged: there is no
