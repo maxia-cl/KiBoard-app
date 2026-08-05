@@ -48,6 +48,10 @@ class KeyWidget extends StatefulWidget {
 
 class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMixin {
   bool _pressed = false;
+
+  /// How far the cap sinks, in logical pixels. Small on purpose: the travel on a real deck is
+  /// about a millimetre, and a millimetre at arm's length is about this.
+  static const _travel = 2.0;
   late final AnimationController _ringController;
 
   @override
@@ -128,12 +132,7 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
 
     // The colour of the cap itself, before the light on it. Kept out of the decoration so the
     // gradient and the shadow have one thing to shade rather than three colours to agree on.
-    final face = widget.launching
-        // Blended, not solid: this lasts seconds and sits on a pad full of app icons, where a flat
-        // red block reads as an alarm. Enough to see across the room, little enough that the key
-        // still looks like itself.
-        ? Color.lerp(baseColor, const Color(DeckTokens.accent), 0.45)!
-        : widget.confirmed
+    final face = widget.confirmed
         // Blended rather than solid green: the key stays recognisable while it acknowledges, which
         // matters when the confirmation is this brief.
         ? Color.lerp(baseColor, const Color(DeckTokens.stateOn), 0.55)!
@@ -168,7 +167,11 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
               },
         onTap: isEmpty ? null : () => widget.onPress?.call('short'),
         onDoubleTap: isEmpty ? null : () => widget.onPress?.call('double'),
-        onLongPressStart: isEmpty ? null : (_) => _ringController.forward(from: 0),
+        // Only where there IS a second action. Drawn on every key it promised one that does not
+        // exist — "¿qué significa el círculo rojo?" is what a control saying nothing looks like.
+        onLongPressStart: isEmpty || key.hold == null
+            ? null
+            : (_) => _ringController.forward(from: 0),
         onLongPress: isEmpty ? null : () => widget.onPress?.call('long'),
         onLongPressEnd: isEmpty ? null : (_) => _ringController.reset(),
         onLongPressCancel: isEmpty ? null : () => _ringController.reset(),
@@ -178,38 +181,46 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
           child: Stack(
             alignment: Alignment.center,
             children: [
+              // A key cap, not a coloured square. What reads as "physical" is three things
+              // agreeing: the light always comes from ABOVE (a gradient that flips reads as a
+              // different material, not as a pressed key), the cap stands on an ambient shadow,
+              // and pressing it moves the cap DOWN into that shadow instead of merely darkening.
               AnimatedContainer(
-                duration: const Duration(milliseconds: DeckTokens.pressDurationMs),
+                // Asymmetric on purpose: a real key gives way at once and springs back. Equal
+                // timings in both directions are the tell of a software button.
+                duration: Duration(milliseconds: _pressed ? 45 : 130),
+                curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
+                transform: Matrix4.translationValues(0, _pressed ? _travel : 0, 0),
+                transformAlignment: Alignment.center,
                 width: widget.size,
                 height: widget.size,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
-                  // §3.0: this has to read as a key cap, not as a coloured rectangle. A real one is
-                  // lit from above, so the face carries a top-to-bottom gradient and the cap sits on
-                  // a shadow. Pressed, the gradient FLIPS — the light now catches the bottom of a
-                  // face that has tilted away — and the shadow all but disappears, which is what
-                  // reads as travel rather than as a colour change.
+                  // Three stops, not two: a moulded cap is brightest just under its top edge, the
+                  // way it catches a ceiling light, and falls off towards the base.
                   gradient: LinearGradient(
-                    begin: _pressed ? Alignment.bottomCenter : Alignment.topCenter,
-                    end: _pressed ? Alignment.topCenter : Alignment.bottomCenter,
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0, 0.55, 1],
                     colors: [
-                      Color.lerp(face, Colors.white, _pressed ? 0.02 : 0.07)!,
-                      Color.lerp(face, Colors.black, _pressed ? 0.10 : 0.06)!,
+                      Color.lerp(face, Colors.white, _pressed ? 0.02 : 0.10)!,
+                      face,
+                      Color.lerp(face, Colors.black, _pressed ? 0.14 : 0.07)!,
                     ],
                   ),
+                  // Ambient occlusion rather than a drop shadow: wide, soft, pulled in by a
+                  // negative spread, so the cap reads as sitting ON something instead of floating.
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: _pressed ? 0.20 : 0.45),
-                      blurRadius: _pressed ? 2 : 7,
-                      offset: Offset(0, _pressed ? 1 : 3),
+                      color: Colors.black.withValues(alpha: _pressed ? 0.35 : 0.55),
+                      blurRadius: _pressed ? 3 : 10,
+                      spreadRadius: _pressed ? -3 : -2,
+                      offset: Offset(0, _pressed ? 1 : 4),
                     ),
                   ],
-                  // The hairline is the moulding around the cap: light along the top edge where it
-                  // catches, gone when the key is down.
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: _pressed ? 0.02 : 0.07),
-                    width: 1,
-                  ),
+                  // The seam where the cap meets its housing. Uniform, because Flutter cannot
+                  // round a border whose sides differ — the lit top edge is the overlay below.
+                  border: Border.all(color: Colors.black.withValues(alpha: _pressed ? 0.10 : 0.28)),
                 ),
                 child: content,
               ),
@@ -242,6 +253,50 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                     borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
                   ),
                 ),
+              // The moulding: the top edge catches the light, and only the top. It fades as the
+              // cap goes down, because a key level with its housing has no edge left to catch
+              // anything — that fade is half of what sells the travel.
+              IgnorePointer(
+                child: AnimatedOpacity(
+                  opacity: _pressed ? 0.15 : 1,
+                  duration: Duration(milliseconds: _pressed ? 45 : 130),
+                  child: Container(
+                    width: widget.size,
+                    height: widget.size,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0, 0.06],
+                        colors: [Colors.white.withValues(alpha: 0.16), Colors.transparent],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Opening an app takes seconds, and the deck has to say so with the vocabulary
+              // everyone already knows: a spinner. Colouring the key instead said "something is
+              // wrong with this key" — red is what a danger key is painted, and this is not that.
+              // The face dims so the spinner is the thing being read.
+              if (widget.launching) ...[
+                Container(
+                  width: widget.size,
+                  height: widget.size,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
+                  ),
+                ),
+                SizedBox(
+                  width: widget.size * 0.34,
+                  height: widget.size * 0.34,
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Color(DeckTokens.textPrimary),
+                  ),
+                ),
+              ],
               AnimatedBuilder(
                 animation: _ringController,
                 builder: (context, _) {
