@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_localizations.dart';
 import '../settings.dart';
 import 'manual_screen.dart';
+import 'nav.dart';
 import 'tokens.g.dart';
 
 /// Vibration, sound, language, and the manual. Everything the app has to ask the user, which is
@@ -62,7 +63,7 @@ Future<void> showSettingsSheet(BuildContext context) => showModalBottomSheet<voi
                 Navigator.of(sheetContext).pop();
                 Navigator.of(
                   context,
-                ).push(MaterialPageRoute<void>(builder: (_) => const ManualScreen()));
+                ).push(screenRoute<void>(const ManualScreen()));
               },
             ),
             const Divider(height: 1, color: Color(0xFF2C2C2E)),

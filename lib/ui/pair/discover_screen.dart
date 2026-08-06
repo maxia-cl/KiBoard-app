@@ -7,6 +7,7 @@ import '../wordmark.dart';
 import '../../net/discovered_host.dart';
 import '../../net/discovery.dart';
 import '../../net/mdns_discovery.dart';
+import '../nav.dart';
 import '../tokens.g.dart';
 import 'pairing_code_screen.dart';
 
@@ -29,7 +30,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   void _open(DiscoveredHost host) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => PairingCodeScreen(host: host)));
+    Navigator.of(context).push(screenRoute(PairingCodeScreen(host: host)));
   }
 
   /// R1's escape hatch: the address typed by hand. Deliberately reuses the ordinary pairing screen

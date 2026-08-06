@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -35,6 +36,15 @@ class KiBoardApp extends StatelessWidget {
         ],
         supportedLocales: AppLocalizations.supportedLocales,
         theme: ThemeData.dark(useMaterial3: true).copyWith(
+          // Declared, not inherited: Material 3's default page transition has changed twice, and
+          // this app's feel is not something a Flutter upgrade gets to decide. Zoom on Android,
+          // the platform slide on iOS. `ui/nav.dart` caps how long either may run.
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: ZoomPageTransitionsBuilder(),
+              TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            },
+          ),
           scaffoldBackgroundColor: const Color(0xFF0F0F10),
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(DeckTokens.accent),

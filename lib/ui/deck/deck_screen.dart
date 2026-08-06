@@ -13,6 +13,7 @@ import '../../settings.dart';
 import '../../net/ws_layout_source.dart';
 import '../../l10n/app_localizations.dart';
 import '../icons.dart';
+import '../nav.dart';
 import '../settings_sheet.dart';
 import '../pair/discover_screen.dart';
 import '../tokens.g.dart';
@@ -199,9 +200,9 @@ class _DeckScreenState extends State<DeckScreen> {
 
     if (key.action == 'windows') {
       widget.layoutSource.pressKey(pos: pos, press: press);
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => WindowSwitcherScreen(layoutSource: widget.layoutSource)),
-      );
+      Navigator.of(
+        context,
+      ).push(screenRoute(WindowSwitcherScreen(layoutSource: widget.layoutSource)));
       return;
     }
 
@@ -211,8 +212,8 @@ class _DeckScreenState extends State<DeckScreen> {
     // action — the press is never sent, and what reaches the host afterwards is `input`.
     if (session != null && (key.action == 'trackpad' || key.action == 'dictate')) {
       Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => key.action == 'trackpad'
+        screenRoute(
+          key.action == 'trackpad'
               ? TrackpadScreen(session: session)
               : DictationScreen(session: session),
         ),
@@ -521,9 +522,7 @@ class _LinkBanner extends StatelessWidget {
               onPressed: () async {
                 await SavedSession.clear();
                 if (!context.mounted) return;
-                Navigator.of(
-                  context,
-                ).pushReplacement(MaterialPageRoute(builder: (_) => DiscoverScreen()));
+                Navigator.of(context).pushReplacement(fadeRoute(DiscoverScreen()));
               },
               child: Text(t.pairAgain),
             ),

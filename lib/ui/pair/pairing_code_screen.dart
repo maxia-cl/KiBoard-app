@@ -10,6 +10,7 @@ import '../../net/saved_session.dart';
 import '../../net/trace.dart';
 import '../../net/ws_layout_source.dart';
 import '../deck/deck_screen.dart';
+import '../nav.dart';
 import '../tokens.g.dart';
 
 /// The host's error code -> what to say about it. Translated at the point of USE, not here: a
@@ -129,11 +130,9 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
       final source = await (widget.openSession ?? _openRealSession)(result);
       trace('session ready, opening the deck');
       if (!mounted) return;
+      // Fade-through, not a push: the deck is not "deeper" than the pairing screen, it replaces it.
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) =>
-              DeckScreen(layoutSource: source, hostName: result.hostName, session: _session),
-        ),
+        fadeRoute(DeckScreen(layoutSource: source, hostName: result.hostName, session: _session)),
       );
     } on PairingException catch (e) {
       if (!mounted) return;
