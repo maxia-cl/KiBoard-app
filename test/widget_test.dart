@@ -22,7 +22,7 @@ import 'package:kiboard_app/ui/deck/key_widget.dart';
 /// Ten keys on the phone's own grid — what a real host sends once it has repaginated for the grid
 /// the client declared in `hello`. DeckScreen reshapes it to the orientation itself as long as the
 /// capacity matches, which is the case this exists to produce.
-class _TenKeys implements LayoutSource {
+class _TenKeys extends LayoutSource {
   final _controller = StreamController<Layout>.broadcast();
 
   /// Makes key 0 a `danger` key, so the confirmation can be driven.
@@ -45,11 +45,18 @@ class _TenKeys implements LayoutSource {
     _controller.add(_layout);
   }
 
-  Layout get _layout => Layout(
+  /// §4.1 `page_preload`: a page the client is NOT on, as the host sends it unasked. Separate
+  /// stream, because nothing that reaches `layouts()` may change what is on screen.
+  final _preloadController = StreamController<Layout>.broadcast();
+  void preload(int page) => _preloadController.add(_layoutFor(page));
+
+  Layout get _layout => _layoutFor(paginated ? _page : 0);
+
+  Layout _layoutFor(int page) => Layout(
     mode: 'auto',
     source: const LayoutSourceInfo(kind: 'profile', id: 'test', appName: 'Test'),
     grid: const Grid(rows: 5, cols: 2),
-    page: paginated ? _page : 0,
+    page: page,
     pages: paginated ? 3 : 1,
     keys: [
       DeckKey(
@@ -57,7 +64,7 @@ class _TenKeys implements LayoutSource {
         label: danger
             ? 'Close app'
             : paginated
-            ? 'page $_page'
+            ? 'page $page'
             : 'Copy',
         action: 'ctrl+c',
         danger: danger,
@@ -74,6 +81,9 @@ class _TenKeys implements LayoutSource {
   }
 
   @override
+  Stream<Layout> preloads() => _preloadController.stream;
+
+  @override
   Future<void> pressKey({required int pos, required String press}) async {
     pressed.add(pos);
   }
@@ -85,7 +95,10 @@ class _TenKeys implements LayoutSource {
   @override
   Future<void> focusWindow(int windowId) async {}
 
-  void dispose() => _controller.close();
+  void dispose() {
+    _controller.close();
+    _preloadController.close();
+  }
 }
 
 void main() {
@@ -463,6 +476,24 @@ void main() {
       await tester.pumpAndSettle();
       // And it goes away again, rather than being built on every layout push for nothing.
       expect(find.byType(KeyGrid), findsOneWidget);
+    });
+
+    // §4.1 `page_preload`: the host sends the neighbours unasked, so the FIRST swipe onto a page
+    // works too — without it the phone only ever holds pages it has already been on.
+    testWidgets('a preloaded page is drawn without ever having been visited', (tester) async {
+      final source = await pumpDeck(tester);
+      source.preload(1);
+      await tester.pump();
+
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      await finger.moveBy(const Offset(-20, 0));
+      await tester.pump(const Duration(milliseconds: 120));
+
+      expect(find.text('page 1'), findsOneWidget, reason: 'never visited, still drawn');
+      expect(find.text('page 0'), findsOneWidget, reason: 'and it did not replace what is on screen');
+
+      await finger.up();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('a page it has never been sent draws nothing rather than guessing', (tester) async {

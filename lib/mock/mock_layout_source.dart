@@ -9,7 +9,7 @@ import '../net/layout_source.dart';
 /// Reads bundled fixtures instead of a WebSocket (docs/implementation-plan.md phase FP).
 /// Folder/page navigation is simulated locally: the real host resolves it server-side, the
 /// wire shape is identical either way (protocol §4.1), so `WsLayoutSource` (F3) is a drop-in swap.
-class MockLayoutSource implements LayoutSource {
+class MockLayoutSource extends LayoutSource {
   final _controller = StreamController<Layout>.broadcast();
 
   late Layout _autoLayout;

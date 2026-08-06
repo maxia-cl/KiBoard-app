@@ -284,6 +284,12 @@ class WsLayoutSource implements LayoutSource {
   }
 
   @override
+  Stream<Layout> preloads() =>
+      // The same body as a `layout`, so the same parser. Deliberately NOT merged into `layouts()`:
+      // everything downstream of that stream draws what it is given, and a preload must not.
+      _messages.where((m) => m['type'] == 'page_preload').map(Layout.fromJson);
+
+  @override
   Future<void> pressKey({required int pos, required String press}) =>
       pressResult(pos: pos, press: press);
 

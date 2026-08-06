@@ -48,6 +48,9 @@ class _DeckScreenState extends State<DeckScreen> {
     // the deck's whole point is being glanceable and pressable without ceremony while you work on
     // the PC. Released in dispose, so it only applies while the deck is actually on screen.
     WakelockPlus.enable();
+    // §4.1 `page_preload`. No `setState`: these change nothing on screen, they only make the next
+    // swipe have something to draw. The build that matters is the one the drag already triggers.
+    _preloads = widget.layoutSource.preloads().listen(_remember);
   }
 
   @override
@@ -56,6 +59,7 @@ class _DeckScreenState extends State<DeckScreen> {
       t.cancel();
     }
     _swipeGuard?.cancel();
+    _preloads?.cancel();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -157,10 +161,9 @@ class _DeckScreenState extends State<DeckScreen> {
     }
   }
 
-  /// Remembers a page so the next swipe towards it has something to draw. Called from `build`,
-  /// where the grid it was paginated for is known.
-  void _remember(Layout layout, Grid grid) {
-    _seen[_seenKey(layout, grid, layout.page)] = layout;
+  /// Remembers a page so a swipe towards it has something to draw.
+  void _remember(Layout layout) {
+    _seen[_seenKey(layout, layout.page)] = layout;
   }
 
   // --- the page swipe (§4.4 `set_page`) -------------------------------------
@@ -185,28 +188,31 @@ class _DeckScreenState extends State<DeckScreen> {
   /// nothing, but they have to stay up for the whole spring-back and not blink out on release.
   bool _swiping = false;
 
-  /// Pages this phone has already been sent, so the one you are dragging towards can be drawn
-  /// coming in behind instead of a black gap.
+  /// Pages this phone holds but is not on, so the one you are dragging towards can be drawn coming
+  /// in behind instead of a black gap.
   ///
-  /// The host sends ONE page — the one the session's cursor is on — and rendering another would
-  /// mean asking for it, which moves that cursor and would make the next push render the wrong
-  /// page. So the phone keeps what it has already been given. **The first swipe onto a page this
-  /// phone has not seen this session still shows the bezel**; closing that needs the host to send
-  /// the neighbours unasked, which is a protocol change.
+  /// Two sources, and they cover each other: every page that has been ON screen, and §4.1
+  /// `page_preload` — the neighbours the host sends unasked right after each layout, which is what
+  /// makes the FIRST swipe onto a page work too. The phone never asks for a page: the only way to
+  /// ask is `set_page`, which moves the host's page cursor, and its pushes render from that cursor.
   final Map<String, Layout> _seen = {};
+  StreamSubscription<Layout>? _preloads;
 
-  /// Identity of one page of one surface, for [_seen]. The grid is in it because a layout is
-  /// paginated FOR a grid — the page cached in portrait holds keys that a landscape grid splits
-  /// differently, so rotating has to miss rather than draw the wrong keys.
-  String _seenKey(Layout l, Grid grid, int page) =>
-      '${l.mode}/${l.source.id}/${grid.rows}x${grid.cols}#$page';
+  /// Identity of one page of one surface, for [_seen].
+  ///
+  /// Keyed on the grid's CAPACITY, not its shape: a layout is paginated for a number of keys, and
+  /// this screen re-shapes 5×3 to 3×5 itself when the count matches (see `build`). Keying on
+  /// rows×cols would miss every page cached in the other orientation while holding exactly the
+  /// keys that belong on screen. A genuinely different capacity paginates differently and misses,
+  /// which is right.
+  String _seenKey(Layout l, int page) => '${l.mode}/${l.source.id}/${l.grid.capacity}#$page';
 
-  /// The page on one side of this one, if it has been seen. Null is the honest answer, and the
-  /// caller draws nothing.
-  Layout? _neighbour(Layout layout, Grid grid, int delta) {
+  /// The page on one side of this one, if the phone has it. Null is the honest answer, and the
+  /// caller draws nothing rather than guessing.
+  Layout? _neighbour(Layout layout, int delta) {
     final page = layout.page + delta;
     if (page < 0 || page >= layout.pages) return null;
-    return _seen[_seenKey(layout, grid, page)];
+    return _seen[_seenKey(layout, page)];
   }
 
   /// Set while a committed swipe waits for the host's answer, so a page that is on its way out
@@ -471,9 +477,7 @@ class _DeckScreenState extends State<DeckScreen> {
                         // room around a real one.
                         final keySize = math.min(byDevice, byBox) * 0.98;
                         _traceSize(byDevice, byBox, keySize, w, h);
-                        // Here, not in `_trackPage`: this is where the grid it was paginated for
-                        // is known, and the grid is half of what makes a cached page valid.
-                        _remember(layout, grid);
+                        _remember(layout);
                         return SizedBox.expand(
                           // §4.4 `set_page`. The dots were drawn from the start but nothing ever
                           // moved between pages, so anything past the first screenful of a deck was
@@ -569,7 +573,7 @@ class _DeckScreenState extends State<DeckScreen> {
                                           ),
                                           if (_swiping)
                                             for (final side in const [-1, 1])
-                                              if (_neighbour(layout, grid, side) case final near?)
+                                              if (_neighbour(layout, side) case final near?)
                                                 Positioned(
                                                   left:
                                                       side *
