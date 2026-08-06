@@ -55,6 +55,7 @@ class _DeckScreenState extends State<DeckScreen> {
     for (final t in _launchTimers.values) {
       t.cancel();
     }
+    _swipeGuard?.cancel();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -144,17 +145,79 @@ class _DeckScreenState extends State<DeckScreen> {
     if (layout.page != _lastPage) {
       _pageDir = layout.page > _lastPage ? 1 : -1;
       _lastPage = layout.page;
+      // The page the swipe asked for has arrived. This runs during build, so it lands on the
+      // INCOMING subtree only — the outgoing one keeps the offset it was last built with and
+      // carries on out from there, which is what makes the swap continue the gesture instead of
+      // starting a second, separate move.
+      _swipeGuard?.cancel();
+      _dragDx = 0;
     }
   }
 
-  /// Swipe between the pages of a deck (§4.4 `set_page`). The host owns the page — it answers with
-  /// the `layout` for it — so there is no local page state to keep in sync.
-  void _swipePage(Layout layout, double velocity) {
-    if (velocity == 0 || layout.pages < 2) return;
-    final next = (layout.page + (velocity < 0 ? 1 : -1)).clamp(0, layout.pages - 1);
-    if (next == layout.page) return;
+  // --- the page swipe (§4.4 `set_page`) -------------------------------------
+  //
+  // The host owns the page and answers with the `layout` for it, so there is no local page state
+  // to keep in sync — but there IS a gesture to answer to, and it used to answer only on release:
+  // nothing moved while the finger did, and a slow drag (`primaryVelocity` ~ 0) did nothing at all.
+  // That is what "se queda pegado" was.
+  //
+  // What moves is the CURRENT page. The phone only ever holds the one the host sent, so there is
+  // no neighbour to bring in behind it; the gap shows the bezel, which reads as the page being
+  // pushed aside rather than as a missing screen.
+
+  /// Where the page sits relative to home, in pixels. Positive is dragged right (going back).
+  double _dragDx = 0;
+  bool _dragging = false;
+
+  /// Set while a committed swipe waits for the host's answer, so a page that is on its way out
+  /// cannot be left out there by a host that never replies. See [_swipeTimeout].
+  Timer? _swipeGuard;
+
+  /// Springing home, and carrying a committed page the rest of the way out.
+  static const _settle = Duration(milliseconds: 160);
+
+  /// A host that has not answered by now is asleep, not slow — the deck stays up while offline
+  /// (that is what the link banner is for), so the page has to come back rather than hang off
+  /// the edge of the screen.
+  static const _swipeTimeout = Duration(milliseconds: 400);
+
+  void _dragUpdate(Layout layout, double delta) {
+    // Resistance at the two ends, the way a list rubber-bands: it still moves, so the gesture is
+    // never dead under the finger, but it says there is nothing over there.
+    final pushingPastEnd =
+        (delta < 0 && layout.page >= layout.pages - 1) || (delta > 0 && layout.page <= 0);
+    setState(() {
+      _dragging = true;
+      _dragDx += pushingPastEnd ? delta * 0.25 : delta;
+    });
+  }
+
+  void _dragEnd(Layout layout, double velocity, double width) {
+    _dragging = false;
+    // Either a long drag or a quick flick commits. Distance is the half that was missing — a slow,
+    // deliberate drag across the whole pad ends at zero velocity and used to change nothing.
+    final far = _dragDx.abs() > width * 0.25;
+    final fast = velocity.abs() > 320;
+    final dir = (_dragDx != 0 ? _dragDx < 0 : velocity < 0) ? 1 : -1;
+    final next = (layout.page + dir).clamp(0, layout.pages - 1);
+
+    if (layout.pages < 2 || !(far || fast) || next == layout.page) {
+      setState(() => _dragDx = 0); // springs home over `_settle`
+      return;
+    }
+
     if (Settings.instance.value.haptics) HapticFeedback.selectionClick();
     trace('swipe -> page $next of ${layout.pages}');
+    // Keep going the way the finger was going. The swap catches it part way out, and the outgoing
+    // page keeps this offset because it is the widget that was already built — only the incoming
+    // one is rebuilt, at zero.
+    setState(() => _dragDx = -dir * width);
+    _swipeGuard?.cancel();
+    _swipeGuard = Timer(_swipeTimeout, () {
+      if (!mounted || _dragDx == 0) return;
+      trace('no layout for the swipe — putting the page back');
+      setState(() => _dragDx = 0);
+    });
     widget.session?.setPage(next);
   }
 
@@ -373,7 +436,16 @@ class _DeckScreenState extends State<DeckScreen> {
                           // unreachable. A key's tap recognizer loses the arena as soon as the
                           // pointer travels horizontally, so this does not swallow presses.
                           child: GestureDetector(
-                            onHorizontalDragEnd: (d) => _swipePage(layout, d.primaryVelocity ?? 0),
+                            onHorizontalDragUpdate: (d) => _dragUpdate(layout, d.delta.dx),
+                            onHorizontalDragEnd: (d) => _dragEnd(
+                              layout,
+                              d.primaryVelocity ?? 0,
+                              KeyGrid.widthFor(grid, keySize),
+                            ),
+                            onHorizontalDragCancel: () => setState(() {
+                              _dragging = false;
+                              _dragDx = 0;
+                            }),
                             child: DeviceBezel(
                               gridWidth: KeyGrid.widthFor(grid, keySize),
                               gridHeight: KeyGrid.heightFor(grid, keySize),
@@ -416,13 +488,29 @@ class _DeckScreenState extends State<DeckScreen> {
                                       child: FadeTransition(opacity: animation, child: child),
                                     );
                                   },
-                                  child: KeyGrid(
+                                  // The key is on the wrapper, not on the grid: the offset has to
+                                  // belong to the page, so that the outgoing one keeps it.
+                                  child: KeyedSubtree(
                                     key: ValueKey(_pageKey(layout)),
-                                    grid: grid,
-                                    keys: layout.keys,
-                                    keySize: keySize,
-                                    launching: _launching,
-                                    onKeyPress: (pos, press) => _handlePress(layout, pos, press),
+                                    // Zero duration while the finger is down, so the page IS the
+                                    // finger; `_settle` once it lifts, to spring home or to carry
+                                    // a committed page the rest of the way out. No controller and
+                                    // nothing to dispose.
+                                    child: TweenAnimationBuilder<double>(
+                                      tween: Tween<double>(end: _dragDx),
+                                      duration: _dragging ? Duration.zero : _settle,
+                                      curve: Curves.easeOut,
+                                      builder: (context, dx, child) =>
+                                          Transform.translate(offset: Offset(dx, 0), child: child),
+                                      child: KeyGrid(
+                                        grid: grid,
+                                        keys: layout.keys,
+                                        keySize: keySize,
+                                        launching: _launching,
+                                        onKeyPress: (pos, press) =>
+                                            _handlePress(layout, pos, press),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),

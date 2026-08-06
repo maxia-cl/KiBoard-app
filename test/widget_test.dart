@@ -31,14 +31,17 @@ class _TenKeys implements LayoutSource {
   /// Positions that actually reached the host.
   final pressed = <int>[];
 
-  _TenKeys({this.danger = false});
+  /// A deck with somewhere to swipe to, sitting on the middle page so both directions are open.
+  final bool paginated;
+
+  _TenKeys({this.danger = false, this.paginated = false});
 
   Layout get _layout => Layout(
     mode: 'auto',
     source: const LayoutSourceInfo(kind: 'profile', id: 'test', appName: 'Test'),
     grid: const Grid(rows: 5, cols: 2),
-    page: 0,
-    pages: 1,
+    page: paginated ? 1 : 0,
+    pages: paginated ? 3 : 1,
     keys: [
       DeckKey(
         pos: 0,
@@ -340,6 +343,87 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
       expect(source.pressed, [0]);
+    });
+  });
+
+  /// §4.4 `set_page`. The swipe used to read only `primaryVelocity` on RELEASE: nothing moved
+  /// while the finger did, and a slow, deliberate drag across the whole pad ended at zero velocity
+  /// and changed nothing at all. Both halves of "se queda pegado".
+  group('the page swipe follows the finger', () {
+    Future<_TenKeys> pumpDeck(WidgetTester tester) async {
+      final source = _TenKeys(paginated: true);
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      return source;
+    }
+
+    double gridX(WidgetTester tester) => tester.getTopLeft(find.byType(KeyGrid)).dx;
+
+    testWidgets('the page moves under the finger, before it is lifted', (tester) async {
+      await pumpDeck(tester);
+      final home = gridX(tester);
+
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      await finger.moveBy(const Offset(-80, 0));
+      await tester.pump();
+
+      expect(
+        gridX(tester),
+        closeTo(home - 80, 1),
+        reason: 'the page has to be where the finger is, not waiting for it to lift',
+      );
+      await finger.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a short drag springs home', (tester) async {
+      await pumpDeck(tester);
+      final home = gridX(tester);
+
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      await finger.moveBy(const Offset(-20, 0));
+      await tester.pump(const Duration(milliseconds: 120)); // slow: no velocity to commit on
+      await finger.up();
+      await tester.pumpAndSettle();
+
+      expect(gridX(tester), closeTo(home, 1));
+    });
+
+    testWidgets('a slow drag past a quarter of the pad still commits', (tester) async {
+      await pumpDeck(tester);
+      final home = gridX(tester);
+      final width = tester.getSize(find.byType(KeyGrid)).width;
+
+      // Deliberately slow — each move is a frame apart, so the release velocity is ~0. This is the
+      // exact gesture the old velocity-only rule threw away.
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      for (var moved = 0.0; moved < width * 0.4; moved += width * 0.1) {
+        await finger.moveBy(Offset(-width * 0.1, 0));
+        await tester.pump(const Duration(milliseconds: 120));
+      }
+      await finger.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(
+        gridX(tester),
+        lessThan(home - width * 0.5),
+        reason: 'a committed page carries on out instead of snapping back',
+      );
+
+      // ...and with no session to answer it, the guard puts the page back rather than leaving the
+      // deck blank. Being offline is a normal state for this screen.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(gridX(tester), closeTo(home, 1));
     });
   });
 
