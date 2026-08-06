@@ -113,7 +113,9 @@ class DeviceBezel extends StatelessWidget {
       // Shrink-wrapped, the pad floated as a small slab in the middle of the screen; the phone is
       // meant to BE the device (§3.0), so the shell goes edge to edge and the keys sit in it.
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        // Bottom-aligned, so the slack the keys give back collects along the TOP edge instead of
+        // being split evenly. The logo and the dots stay where they were, hung off the bottom.
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
           // The grid takes what is left after the fixed parts below, instead of a height the
           // caller worked out for it. Two places computing the same number is how a 4 px

@@ -129,43 +129,59 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
     // hardware the flash read as a status light nobody asked for. What acknowledges a press now is
     // the press itself: the cap goes down under the finger, the haptic fires, and a press the PC
     // REFUSES still says so out loud (the snackbar in `_handlePress`).
-    final face = _pressed
+    // Down while the app comes up: a real button that stays in is the clearest way to say "this
+    // one is working on it", and it also says the obvious thing about pressing it again.
+    final down = _pressed || widget.launching;
+
+    final face = down
         ? Color.lerp(baseColor, Colors.black, DeckTokens.pressDarkenPercent / 100)!
         : baseColor;
 
+    // While it is launching the key answers nothing: no press, no long press, no second tap. It
+    // is already doing the thing, and a deck that accepts a press it will ignore is worse than one
+    // that says it is busy.
+    final deaf = isEmpty || widget.launching;
+
     return Listener(
-      onPointerUp: isEmpty ? null : (_) => setState(() => _pressed = false),
-      onPointerCancel: isEmpty ? null : (_) => setState(() => _pressed = false),
+      onPointerUp: deaf ? null : (_) => setState(() => _pressed = false),
+      onPointerCancel: deaf ? null : (_) => setState(() => _pressed = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         // The buzz belongs to the press, not to the release: a real key answers under the finger.
         // This is also what a press that never reaches the PC still gets — the deck feeling dead on
         // a dropped link was the complaint that put the confirmation dot in §3.1.
-        onTapDown: isEmpty
+        onTapDown: deaf
             ? null
             : (_) {
+                // Both belong to the press, not the release: a real key answers under the finger.
+                // The click is the system's own, so it follows the phone's sound settings and
+                // costs no asset — silent when the user has keypress sounds off, which is the
+                // right default for something you might use in a call.
                 HapticFeedback.selectionClick();
+                SystemSound.play(SystemSoundType.click);
                 setState(() => _pressed = true);
               },
-        onTapCancel: isEmpty ? null : () => setState(() => _pressed = false),
-        onTapUp: isEmpty
+        onTapCancel: deaf ? null : () => setState(() => _pressed = false),
+        onTapUp: deaf
             ? null
             : (_) {
                 setState(() => _pressed = false);
               },
-        onTap: isEmpty ? null : () => widget.onPress?.call('short'),
-        onDoubleTap: isEmpty ? null : () => widget.onPress?.call('double'),
+        onTap: deaf ? null : () => widget.onPress?.call('short'),
+        onDoubleTap: deaf ? null : () => widget.onPress?.call('double'),
         // Only where there IS a second action. Drawn on every key it promised one that does not
         // exist — "¿qué significa el círculo rojo?" is what a control saying nothing looks like.
-        onLongPressStart: isEmpty || key.hold == null
-            ? null
-            : (_) => _ringController.forward(from: 0),
-        onLongPress: isEmpty ? null : () => widget.onPress?.call('long'),
-        onLongPressEnd: isEmpty ? null : (_) => _ringController.reset(),
-        onLongPressCancel: isEmpty ? null : () => _ringController.reset(),
+        onLongPressStart: deaf || key.hold == null ? null : (_) => _ringController.forward(from: 0),
+        onLongPress: deaf ? null : () => widget.onPress?.call('long'),
+        onLongPressEnd: deaf ? null : (_) => _ringController.reset(),
+        onLongPressCancel: deaf ? null : () => _ringController.reset(),
         child: AnimatedScale(
-          scale: _pressed ? DeckTokens.pressScale : 1.0,
-          duration: const Duration(milliseconds: DeckTokens.pressDurationMs),
+          // Barely there: the old 0.96 shrank the whole cap, which reads as a card being tapped.
+          // A key pushed straight down only loses a hair of width to perspective.
+          scale: down ? 0.985 : 1.0,
+          // Asymmetric — a real key gives way at once and springs back.
+          duration: Duration(milliseconds: down ? 45 : 130),
+          curve: down ? Curves.easeOut : Curves.easeOutBack,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -176,9 +192,9 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
               AnimatedContainer(
                 // Asymmetric on purpose: a real key gives way at once and springs back. Equal
                 // timings in both directions are the tell of a software button.
-                duration: Duration(milliseconds: _pressed ? 45 : 130),
-                curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
-                transform: Matrix4.translationValues(0, _pressed ? _travel : 0, 0),
+                duration: Duration(milliseconds: down ? 45 : 130),
+                curve: down ? Curves.easeOut : Curves.easeOutBack,
+                transform: Matrix4.translationValues(0, down ? _travel : 0, 0),
                 transformAlignment: Alignment.center,
                 width: widget.size,
                 height: widget.size,
@@ -191,24 +207,24 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                     end: Alignment.bottomCenter,
                     stops: const [0, 0.55, 1],
                     colors: [
-                      Color.lerp(face, Colors.white, _pressed ? 0.02 : 0.10)!,
+                      Color.lerp(face, Colors.white, down ? 0.02 : 0.10)!,
                       face,
-                      Color.lerp(face, Colors.black, _pressed ? 0.14 : 0.07)!,
+                      Color.lerp(face, Colors.black, down ? 0.14 : 0.07)!,
                     ],
                   ),
                   // Ambient occlusion rather than a drop shadow: wide, soft, pulled in by a
                   // negative spread, so the cap reads as sitting ON something instead of floating.
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: _pressed ? 0.35 : 0.55),
-                      blurRadius: _pressed ? 3 : 10,
-                      spreadRadius: _pressed ? -3 : -2,
-                      offset: Offset(0, _pressed ? 1 : 4),
+                      color: Colors.black.withValues(alpha: down ? 0.35 : 0.55),
+                      blurRadius: down ? 3 : 10,
+                      spreadRadius: down ? -3 : -2,
+                      offset: Offset(0, down ? 1 : 4),
                     ),
                   ],
                   // The seam where the cap meets its housing. Uniform, because Flutter cannot
                   // round a border whose sides differ — the lit top edge is the overlay below.
-                  border: Border.all(color: Colors.black.withValues(alpha: _pressed ? 0.10 : 0.28)),
+                  border: Border.all(color: Colors.black.withValues(alpha: down ? 0.10 : 0.28)),
                 ),
                 child: content,
               ),
@@ -246,8 +262,8 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
               // anything — that fade is half of what sells the travel.
               IgnorePointer(
                 child: AnimatedOpacity(
-                  opacity: _pressed ? 0.15 : 1,
-                  duration: Duration(milliseconds: _pressed ? 45 : 130),
+                  opacity: down ? 0.15 : 1,
+                  duration: Duration(milliseconds: down ? 45 : 130),
                   child: Container(
                     width: widget.size,
                     height: widget.size,

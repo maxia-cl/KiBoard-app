@@ -373,6 +373,13 @@ void main() {
     // Waiting is said with a spinner, the vocabulary everyone already knows. Red belongs to the
     // danger key; painting a launching key with it said "something is wrong here" instead.
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    // And the cap stays DOWN while it waits — a button that is working on it looks held, and a
+    // held button is also the plainest way to say another press will do nothing.
+    final cap = tester.widget<AnimatedContainer>(
+      find.descendant(of: find.byType(KeyWidget), matching: find.byType(AnimatedContainer)).first,
+    );
+    expect((cap.transform ?? Matrix4.identity()).getTranslation().y, greaterThan(0));
     final box = tester.widget<AnimatedContainer>(
       find.descendant(of: find.byType(KeyWidget), matching: find.byType(AnimatedContainer)).first,
     );

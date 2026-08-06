@@ -357,7 +357,10 @@ class _DeckScreenState extends State<DeckScreen> {
                         // fits 112.
                         final byDevice = KeyGrid.sizeForDevice(MediaQuery.sizeOf(context), grid);
                         final byBox = KeyGrid.sizeToFit(grid, w, h);
-                        final keySize = math.min(byDevice, byBox);
+                        // 2% off the key, given to the top edge of the frame below. The pad was
+                        // sitting hard against the top of the device and the gap reads as breathing
+                        // room around a real one.
+                        final keySize = math.min(byDevice, byBox) * 0.98;
                         _traceSize(byDevice, byBox, keySize, w, h);
                         return SizedBox.expand(
                           // §4.4 `set_page`. The dots were drawn from the start but nothing ever
