@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -74,6 +75,14 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
   static const _holdLimit = Duration(milliseconds: 1500);
 
   bool get _opensApp => widget.keyData.running != null;
+
+  /// Where the finger landed, and whether it has since travelled far enough to be a swipe.
+  ///
+  /// The deck swipes sideways to change page, and a swipe starts on a key. Buzzing and clicking on
+  /// touch-down meant every page change also sounded like a press that never happened — the key
+  /// correctly did nothing, and correctly said it had. Feedback belongs to the press that lands.
+  Offset? _downAt;
+  bool _slid = false;
 
   void _releaseAfterLimit() {
     _holdTimer?.cancel();
@@ -205,17 +214,34 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
       // DOWN on the pointer, not on the tap. With `onDoubleTap` registered the tap recognizer
       // waits for the arena before it says anything — measured at ~100 ms here — and a key pad
       // that answers a tenth of a second late feels broken even when it works.
+      // DOWN on the pointer, not on the tap. With `onDoubleTap` registered the tap recognizer
+      // waits for the arena before it says anything — measured at about 100 ms — and a key pad
+      // that answers a tenth of a second late feels broken even when it works. The cap moving is
+      // safe to show at once; it costs nothing if the touch turns out to be a swipe.
       onPointerDown: deaf
           ? null
-          : (_) {
-              final prefs = Settings.instance.value;
-              if (prefs.haptics) HapticFeedback.selectionClick();
-              if (prefs.sound) SystemSound.play(SystemSoundType.click);
+          : (e) {
+              _downAt = e.position;
+              _slid = false;
               setState(() => _pressed = true);
+            },
+      onPointerMove: deaf
+          ? null
+          : (e) {
+              if (_slid || _downAt == null) return;
+              if ((e.position - _downAt!).distance <= kTouchSlop) return;
+              // Far enough to be the page swipe. The key gives up now, silently.
+              _slid = true;
+              setState(() => _pressed = false);
             },
       onPointerUp: deaf
           ? null
           : (_) {
+              if (_slid) return; // it was a swipe; nothing was pressed
+              // The click and the buzz land HERE, on a press that actually happened.
+              final prefs = Settings.instance.value;
+              if (prefs.haptics) HapticFeedback.selectionClick();
+              if (prefs.sound) SystemSound.play(SystemSoundType.click);
               if (_opensApp) {
                 _releaseAfterLimit(); // stays down until the launch takes over
               } else {

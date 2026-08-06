@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:kiboard_app/l10n/app_localizations.dart';
@@ -530,5 +531,50 @@ void main() {
     // image as far as Flutter is concerned, so it decodes again and shows one empty frame — which
     // is every icon on the page blinking each time the host re-sends a layout.
     expect(identical(await provider(), await provider()), isTrue);
+  });
+
+  testWidgets('a swipe across a key neither clicks nor buzzes', (tester) async {
+    // The deck changes page with a sideways swipe, and that swipe starts on a key. The key
+    // correctly does nothing — and used to buzz and click anyway, because the feedback was on
+    // touch-down. It belongs to the press that lands.
+    final calls = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+      call,
+    ) async {
+      if (call.method == 'HapticFeedback.vibrate' || call.method == 'SystemSound.play') {
+        calls.add(call.method);
+      }
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    final key = DeckKey.fromLayoutJson({'pos': 0, 'label': 'Copy', 'kind': 'action'});
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: Center(child: KeyWidget(keyData: key, size: 80))),
+      ),
+    );
+
+    final centre = tester.getCenter(find.byType(KeyWidget));
+    final swipe = await tester.startGesture(centre);
+    await tester.pump(const Duration(milliseconds: 30));
+    await swipe.moveBy(const Offset(80, 0));
+    await tester.pump(const Duration(milliseconds: 30));
+    await swipe.up();
+    await tester.pumpAndSettle();
+    expect(calls, isEmpty, reason: 'a swipe is not a press');
+
+    final tap = await tester.startGesture(centre);
+    await tester.pump(const Duration(milliseconds: 30));
+    await tap.up();
+    await tester.pumpAndSettle();
+    expect(calls, isNotEmpty, reason: 'and a press still answers');
   });
 }
