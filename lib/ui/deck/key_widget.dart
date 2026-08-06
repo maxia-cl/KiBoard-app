@@ -9,11 +9,29 @@ import '../../settings.dart';
 import '../icons.dart';
 import '../tokens.g.dart';
 
-Uint8List? _decodeDataUri(String? uri) {
+/// The same icon, decoded ONCE.
+///
+/// Every rebuild used to call `base64Decode` again, and a fresh `Uint8List` is a fresh
+/// `MemoryImage` as far as Flutter is concerned: different provider, new decode, one frame with
+/// nothing in it. That was invisible while the host only re-sent a layout when the foreground app
+/// changed. Now that it re-sends whenever any app opens or closes, every icon on the page blinked
+/// each time — which is what "parpadean varios iconos cuando la app se abre" was.
+///
+/// Keyed by the data URI itself, so an icon that really changed still gets a new provider.
+///
+/// ponytail: a plain map with a ceiling, cleared wholesale when it is hit. The Launcher is ~60
+/// icons and they are stable; an LRU would be more code than the problem.
+final Map<String, MemoryImage> _iconCache = {};
+const _iconCacheLimit = 160;
+
+MemoryImage? _iconFor(String? uri) {
   if (uri == null || !uri.startsWith('data:')) return null;
+  final cached = _iconCache[uri];
+  if (cached != null) return cached;
   final comma = uri.indexOf(',');
   if (comma == -1) return null;
-  return base64Decode(uri.substring(comma + 1));
+  if (_iconCache.length >= _iconCacheLimit) _iconCache.clear();
+  return _iconCache[uri] = MemoryImage(base64Decode(uri.substring(comma + 1)));
 }
 
 /// A single Stream Deck key (docs/implementation-plan.md §3.0-3.1): 1:1 LCD square, no border or
@@ -106,15 +124,22 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
         : isEmpty
         ? const Color(DeckTokens.keyEmptyBackground)
         : const Color(DeckTokens.keyDefaultBackground);
-    final imageBytes = _decodeDataUri(key.image);
+    final image = _iconFor(key.image);
 
     Widget content = const SizedBox.shrink();
     if (!isEmpty) {
       content = Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (imageBytes != null)
-            Image.memory(imageBytes, width: widget.size * 0.42, height: widget.size * 0.42)
+          if (image != null)
+            Image(
+              image: image,
+              width: widget.size * 0.42,
+              height: widget.size * 0.42,
+              // Holds the last frame while a new provider decodes, so even a genuine icon change
+              // swaps rather than blinks through empty.
+              gaplessPlayback: true,
+            )
           else
             Icon(
               iconFor(key.icon),

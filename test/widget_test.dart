@@ -507,4 +507,28 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     expect(sink(), 0);
   });
+
+  testWidgets('the same icon is decoded once, so a re-sent layout does not blink', (tester) async {
+    // A 1x1 PNG, the smallest thing that is really an image.
+    const uri =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    final key = DeckKey.fromLayoutJson({'pos': 0, 'label': 'App', 'kind': 'action', 'image': uri});
+
+    Future<ImageProvider> provider() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: KeyWidget(keyData: key, size: 80)),
+        ),
+      );
+      await tester.pump();
+      return tester.widget<Image>(find.byType(Image)).image;
+    }
+
+    // The SAME provider instance across rebuilds is the whole fix: a fresh `MemoryImage` is a new
+    // image as far as Flutter is concerned, so it decodes again and shows one empty frame — which
+    // is every icon on the page blinking each time the host re-sends a layout.
+    expect(identical(await provider(), await provider()), isTrue);
+  });
 }
