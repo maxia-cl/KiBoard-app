@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -42,6 +43,37 @@ class KeyWidget extends StatefulWidget {
 class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMixin {
   bool _pressed = false;
 
+  /// A key that opens an app stays DOWN when the finger leaves, instead of springing back and
+  /// being pushed down again a moment later by [KeyWidget.launching].
+  ///
+  /// That moment is not imaginary: with `onDoubleTap` registered, `onTap` only fires once the
+  /// double-press window (§3.1, 300 ms) has passed, so the press is not even sent until then. The
+  /// cap popping up and sinking again inside those 300 ms is the blink.
+  ///
+  /// [_holdLimit] is the way out for a press the host refuses or never answers: without it a key
+  /// whose launch never starts would stay down for good.
+  Timer? _holdTimer;
+  static const _holdLimit = Duration(milliseconds: 1500);
+
+  bool get _opensApp => widget.keyData.running != null;
+
+  void _releaseAfterLimit() {
+    _holdTimer?.cancel();
+    _holdTimer = Timer(_holdLimit, () {
+      if (mounted && !widget.launching) setState(() => _pressed = false);
+    });
+  }
+
+  @override
+  void didUpdateWidget(KeyWidget old) {
+    super.didUpdateWidget(old);
+    // The wait is over — either it is launching now (which holds the cap by itself) or it stopped.
+    if (old.launching != widget.launching) {
+      _holdTimer?.cancel();
+      if (!widget.launching && _pressed) setState(() => _pressed = false);
+    }
+  }
+
   /// How far the cap sinks, in logical pixels. Small on purpose: the travel on a real deck is
   /// about a millimetre, and a millimetre at arm's length is about this.
   static const _travel = 2.0;
@@ -58,6 +90,7 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
 
   @override
   void dispose() {
+    _holdTimer?.cancel();
     _ringController.dispose();
     super.dispose();
   }
@@ -144,31 +177,33 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
     final deaf = isEmpty || widget.launching;
 
     return Listener(
-      onPointerUp: deaf ? null : (_) => setState(() => _pressed = false),
+      // DOWN on the pointer, not on the tap. With `onDoubleTap` registered the tap recognizer
+      // waits for the arena before it says anything — measured at ~100 ms here — and a key pad
+      // that answers a tenth of a second late feels broken even when it works.
+      onPointerDown: deaf
+          ? null
+          : (_) {
+              final prefs = Settings.instance.value;
+              if (prefs.haptics) HapticFeedback.selectionClick();
+              if (prefs.sound) SystemSound.play(SystemSoundType.click);
+              setState(() => _pressed = true);
+            },
+      onPointerUp: deaf
+          ? null
+          : (_) {
+              if (_opensApp) {
+                _releaseAfterLimit(); // stays down until the launch takes over
+              } else {
+                setState(() => _pressed = false);
+              }
+            },
       onPointerCancel: deaf ? null : (_) => setState(() => _pressed = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         // The buzz belongs to the press, not to the release: a real key answers under the finger.
         // This is also what a press that never reaches the PC still gets — the deck feeling dead on
         // a dropped link was the complaint that put the confirmation dot in §3.1.
-        onTapDown: deaf
-            ? null
-            : (_) {
-                // Both belong to the press, not the release: a real key answers under the finger.
-                // The click is the system's own, so it follows the phone's sound settings and
-                // costs no asset — silent when the user has keypress sounds off, which is the
-                // right default for something you might use in a call.
-                final prefs = Settings.instance.value;
-                if (prefs.haptics) HapticFeedback.selectionClick();
-                if (prefs.sound) SystemSound.play(SystemSoundType.click);
-                setState(() => _pressed = true);
-              },
         onTapCancel: deaf ? null : () => setState(() => _pressed = false),
-        onTapUp: deaf
-            ? null
-            : (_) {
-                setState(() => _pressed = false);
-              },
         onTap: deaf ? null : () => widget.onPress?.call('short'),
         onDoubleTap: deaf ? null : () => widget.onPress?.call('double'),
         // Only where there IS a second action. Drawn on every key it promised one that does not

@@ -455,4 +455,56 @@ void main() {
     await tester.pumpAndSettle();
     expect(sink(cap()), 0, reason: 'and springs back');
   });
+
+  testWidgets('a key that opens an app does not spring back between the finger and the launch', (
+    tester,
+  ) async {
+    // The blink: with `onDoubleTap` registered, `onTap` only fires after the 300 ms double-press
+    // window, so the press is not even sent until then. The cap used to come up when the finger
+    // left and go down again when the launch was marked — visible, and exactly what a physical
+    // button never does.
+    final opensApp = DeckKey.fromLayoutJson({
+      'pos': 0,
+      'label': 'Photoshop',
+      'kind': 'action',
+      'state': {'running': false},
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: Center(child: KeyWidget(keyData: opensApp, size: 80))),
+      ),
+    );
+
+    double sink() =>
+        (tester
+                    .widget<AnimatedContainer>(
+                      find
+                          .descendant(
+                            of: find.byType(KeyWidget),
+                            matching: find.byType(AnimatedContainer),
+                          )
+                          .first,
+                    )
+                    .transform ??
+                Matrix4.identity())
+            .getTranslation()
+            .y;
+
+    final gesture = await tester.startGesture(tester.getCenter(find.byType(KeyWidget)));
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(sink(), greaterThan(0));
+
+    await gesture.up();
+    // Every frame of the double-press window: the cap must not come up in any of them.
+    for (var ms = 50; ms <= 400; ms += 50) {
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(sink(), greaterThan(0), reason: 'came back up ${ms}ms after the finger left');
+    }
+
+    // And it does not stay down for ever when no launch ever starts.
+    await tester.pump(const Duration(seconds: 2));
+    expect(sink(), 0);
+  });
 }
