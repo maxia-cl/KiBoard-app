@@ -46,9 +46,11 @@ class _DictationScreenState extends State<DictationScreen> {
   Future<void> _start() async {
     final status = await Permission.microphone.request();
     if (!status.isGranted) {
-      setState(() => _error = status.isPermanentlyDenied
-          ? 'Microphone denied. Enable it in Android settings.'
-          : 'Microphone permission is needed to dictate.');
+      setState(
+        () => _error = status.isPermanentlyDenied
+            ? 'Microphone denied. Enable it in Android settings.'
+            : 'Microphone permission is needed to dictate.',
+      );
       return;
     }
     if (!_ready) {

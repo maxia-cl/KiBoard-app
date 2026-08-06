@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:kiboard_app/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kiboard_app/main.dart';
@@ -58,6 +60,7 @@ class _TenKeys implements LayoutSource {
   Future<void> pressKey({required int pos, required String press}) async {
     pressed.add(pos);
   }
+
   @override
   Future<void> setMode(String mode, {String? deckId}) async {}
   @override
@@ -185,7 +188,10 @@ void main() {
 
     test('a pasted URL is read, not rejected', () {
       expect(parseHostAddress('ws://192.168.1.11:8770'), (host: '192.168.1.11', port: 8770));
-      expect(parseHostAddress('http://desktop.local/'), (host: 'desktop.local', port: defaultHostPort));
+      expect(parseHostAddress('http://desktop.local/'), (
+        host: 'desktop.local',
+        port: defaultHostPort,
+      ));
     });
 
     test('IPv6 keeps its colons', () {
@@ -194,10 +200,10 @@ void main() {
       expect(parseHostAddress('[fe80::1]'), (host: 'fe80::1', port: defaultHostPort));
       // Bare: every colon belongs to the address. Reading the last group as a port would dial
       // somewhere else entirely — the same trap `wsUri` exists for.
-      expect(
-        parseHostAddress('2803:c600:5108:844a:80a9:4d6f:5152:153b'),
-        (host: '2803:c600:5108:844a:80a9:4d6f:5152:153b', port: defaultHostPort),
-      );
+      expect(parseHostAddress('2803:c600:5108:844a:80a9:4d6f:5152:153b'), (
+        host: '2803:c600:5108:844a:80a9:4d6f:5152:153b',
+        port: defaultHostPort,
+      ));
     });
 
     test('what it cannot read comes back null', () {
@@ -237,6 +243,8 @@ void main() {
         MediaQuery(
           data: MediaQueryData(size: screen),
           child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: DeckScreen(layoutSource: source, hostName: "M3X's PC"),
           ),
         ),
@@ -255,8 +263,11 @@ void main() {
     // so one size cannot serve both. What replaced it is a floor — upright the key must still be
     // in the same class as before the third column (114.1 then, ~112.5 now), because the whole
     // point of trimming the bezel was that the extra column would NOT be paid for in key size.
-    expect(upright, greaterThan(105),
-        reason: 'the third column was supposed to come out of the bezel, not out of the key');
+    expect(
+      upright,
+      greaterThan(105),
+      reason: 'the third column was supposed to come out of the bezel, not out of the key',
+    );
     expect(sideways, greaterThan(60), reason: 'and sideways still has to be pressable');
   });
 
@@ -268,7 +279,11 @@ void main() {
       final source = _TenKeys(danger: true);
       addTearDown(source.dispose);
       await tester.pumpWidget(
-        MaterialApp(home: DeckScreen(layoutSource: source, hostName: 'PC')),
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -306,7 +321,13 @@ void main() {
     testWidgets('while an ordinary key still goes straight through', (tester) async {
       final source = _TenKeys();
       addTearDown(source.dispose);
-      await tester.pumpWidget(MaterialApp(home: DeckScreen(layoutSource: source, hostName: 'PC')));
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -365,6 +386,8 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(body: KeyWidget(keyData: waiting, size: 80, launching: true)),
       ),
     );
@@ -394,7 +417,13 @@ void main() {
     // frame late, and it is exactly the kind of detail a later refactor flattens.
     final key = DeckKey.fromLayoutJson({'pos': 0, 'label': 'Copy', 'kind': 'action'});
     await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: Center(child: KeyWidget(keyData: key, size: 80)))),
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Center(child: KeyWidget(keyData: key, size: 80)),
+        ),
+      ),
     );
 
     AnimatedContainer cap() => tester.widget<AnimatedContainer>(
@@ -411,8 +440,11 @@ void main() {
     final held = cap();
 
     expect(sink(held), greaterThan(0), reason: 'the cap goes down, it does not just darken');
-    expect(shadow(held).blurRadius, lessThan(shadow(atRest).blurRadius),
-        reason: 'and lands in its own shadow');
+    expect(
+      shadow(held).blurRadius,
+      lessThan(shadow(atRest).blurRadius),
+      reason: 'and lands in its own shadow',
+    );
     expect(
       ((held.decoration! as BoxDecoration).gradient! as LinearGradient).begin,
       Alignment.topCenter,

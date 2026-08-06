@@ -24,7 +24,9 @@ class MockLayoutSource implements LayoutSource {
   Future<void> _ensureLoaded() async {
     if (_loaded) return;
     const fixtures = 'KiBoard-protocol/protocol/fixtures';
-    final autoJson = jsonDecode(await rootBundle.loadString('$fixtures/layout-auto-photoshop.json'));
+    final autoJson = jsonDecode(
+      await rootBundle.loadString('$fixtures/layout-auto-photoshop.json'),
+    );
     final launcherJson = jsonDecode(
       await rootBundle.loadString('$fixtures/layout-manual-launcher.json'),
     );

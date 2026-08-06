@@ -8,6 +8,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:kiboard_app/l10n/app_localizations.dart';
+
 import 'package:kiboard_app/mock/mock_layout_source.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/discovery.dart';
@@ -62,7 +64,13 @@ void main() {
   // `UnsupportedError: Mocked response`, which is not a failure the app could meet in the field.
   testWidgets('DiscoverScreen lists hosts and navigates to pairing on tap', (tester) async {
     await withRealSockets(() async {
-      await tester.pumpWidget(MaterialApp(home: DiscoverScreen(discovery: FakeDiscovery([_host]))));
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DiscoverScreen(discovery: FakeDiscovery([_host])),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text("M3X's PC"), findsOneWidget);
@@ -84,7 +92,13 @@ void main() {
   testWidgets('DiscoverScreen explains an empty list instead of leaving it blank (R1)', (
     tester,
   ) async {
-    await tester.pumpWidget(MaterialApp(home: DiscoverScreen(discovery: FakeDiscovery(const []))));
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: DiscoverScreen(discovery: FakeDiscovery(const [])),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('No PCs found on this network yet.'), findsOneWidget);
@@ -99,7 +113,11 @@ void main() {
   ) async {
     await withRealSockets(() async {
       await tester.pumpWidget(
-        MaterialApp(home: DiscoverScreen(discovery: FakeDiscovery(const []))),
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DiscoverScreen(discovery: FakeDiscovery(const [])),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -131,6 +149,8 @@ void main() {
     final fake = FakePairing();
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: PairingCodeScreen.withClient(
           host: _host,
           client: fake,
@@ -161,6 +181,8 @@ void main() {
     final fake = FakePairing();
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: PairingCodeScreen.withClient(host: _host, client: fake),
       ),
     );

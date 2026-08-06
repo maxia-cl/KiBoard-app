@@ -9,8 +9,11 @@ import '../../model/deck.dart';
 import '../../net/layout_source.dart';
 import '../../net/saved_session.dart';
 import '../../net/trace.dart';
+import '../../settings.dart';
 import '../../net/ws_layout_source.dart';
+import '../../l10n/app_localizations.dart';
 import '../icons.dart';
+import '../settings_sheet.dart';
 import '../pair/discover_screen.dart';
 import '../tokens.g.dart';
 import '../input/dictation_screen.dart';
@@ -149,7 +152,7 @@ class _DeckScreenState extends State<DeckScreen> {
     if (velocity == 0 || layout.pages < 2) return;
     final next = (layout.page + (velocity < 0 ? 1 : -1)).clamp(0, layout.pages - 1);
     if (next == layout.page) return;
-    HapticFeedback.selectionClick();
+    if (Settings.instance.value.haptics) HapticFeedback.selectionClick();
     trace('swipe -> page $next of ${layout.pages}');
     widget.session?.setPage(next);
   }
@@ -160,20 +163,18 @@ class _DeckScreenState extends State<DeckScreen> {
   ///
   /// Long and double presses ask too: the gesture does not change what the key does.
   Future<bool> _confirmDanger(DeckKey key) async {
+    final t = AppLocalizations.of(context)!;
     final label = (key.label ?? '').isEmpty ? 'This key' : key.label!;
     final answer = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E20),
         title: Text('$label?', style: const TextStyle(color: Color(DeckTokens.textPrimary))),
-        content: const Text(
-          'This one cannot be undone from here.',
-          style: TextStyle(color: Color(DeckTokens.textSecondary)),
-        ),
+        content: Text(t.cannotUndo, style: TextStyle(color: Color(DeckTokens.textSecondary))),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: Color(DeckTokens.textSecondary))),
+            child: Text(t.cancel, style: TextStyle(color: Color(DeckTokens.textSecondary))),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: const Color(DeckTokens.accent)),
@@ -224,26 +225,29 @@ class _DeckScreenState extends State<DeckScreen> {
       return;
     }
 
-    // §3.1: the key lights green ONLY when `key_result` arrives. Everything before that is the
-    // phone talking to itself — this is the one signal that says the PC did it.
+    // Marked BEFORE the round trip, not after it. `state.running` is present only on keys that
+    // open an app — null on every other key (§4.2: the phone never sees the action) — so the phone
+    // already knows this press starts something slow, and waiting for `key_result` to say so let
+    // the cap spring back up for the ~20 ms in between. That blink was the whole complaint.
+    //
+    // If the host then REFUSES the press, the catch below puts the key back up.
+    if (key.running != null) {
+      trace('key pos=$pos opens an app — holding it down while it comes up');
+      _markLaunching(pos);
+    }
+
     try {
       final result = await session.pressResult(pos: pos, press: press);
       if (!mounted) return;
       if (result['type'] == 'key_result' && result['ok'] != true) {
         trace('key pos=$pos REFUSED: ${result['error']}');
+        _stopLaunching(pos);
         _showKeyError(result['error'] as String? ?? 'internal');
         return;
       }
-      // `state.running` is present only on keys that open an app — null on every other key — so
-      // it is what tells the phone this press starts something slow. The phone never sees the
-      // action itself (§4.2). The VALUE does not gate the tint: an app already up gets focused
-      // rather than launched, which is quick, and the grace timer ends that case anyway.
-      if (key.running != null) {
-        trace('key pos=$pos opens an app — tinting it while it comes up');
-        _markLaunching(pos);
-      }
       trace('key pos=$pos confirmed');
     } on TimeoutException {
+      _stopLaunching(pos);
       if (mounted) _showKeyError('no answer from the PC');
     }
   }
@@ -500,6 +504,7 @@ class _LinkBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return StreamBuilder<SessionStatus>(
       stream: session.status,
       initialData: session.currentStatus,
@@ -511,7 +516,7 @@ class _LinkBanner extends StatelessWidget {
         if (status == SessionStatus.dead) {
           return _Banner(
             colour: const Color(DeckTokens.accent),
-            text: 'This PC revoked access.',
+            text: t.revoked,
             action: TextButton(
               onPressed: () async {
                 await SavedSession.clear();
@@ -520,13 +525,13 @@ class _LinkBanner extends StatelessWidget {
                   context,
                 ).pushReplacement(MaterialPageRoute(builder: (_) => DiscoverScreen()));
               },
-              child: const Text('Pair again'),
+              child: Text(t.pairAgain),
             ),
           );
         }
         return _Banner(
           colour: const Color(0xFF3A3A3C),
-          text: status == SessionStatus.connecting ? 'Connecting…' : 'Offline — retrying…',
+          text: status == SessionStatus.connecting ? 'Connecting…' : t.offlineRetrying,
         );
       },
     );
@@ -583,7 +588,8 @@ class _TopBar extends StatelessWidget {
 
   /// What the deck control says: the deck on screen, or an invitation when auto mode means there
   /// is none.
-  String get _deckLabel => layout.mode == 'manual' ? (layout.source.name ?? 'Decks') : 'Decks';
+  String _deckLabel(AppLocalizations t) =>
+      layout.mode == 'manual' ? (layout.source.name ?? t.decks) : t.decks;
 
   /// The deck list, and a way to ask for one (F7). Before this the phone could only reach the deck
   /// the host happened to put first, or one that another deck had a `deck:` key pointing at — a
@@ -630,6 +636,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final title = layout.mode == 'auto'
         ? (layout.source.appName ?? 'Auto')
         : (layout.source.name ?? 'Manual');
@@ -666,12 +673,24 @@ class _TopBar extends StatelessWidget {
           // the phone the other way makes a small target easier to hit. One widget for both, so
           // the two orientations cannot drift apart on two numbers nobody remembers to sync.
           if (session != null && session!.decks.isNotEmpty)
-            _StripButton(icon: Icons.dashboard, label: _deckLabel, onTap: () => _pickDeck(context)),
+            _StripButton(
+              icon: Icons.dashboard,
+              label: _deckLabel(t),
+              onTap: () => _pickDeck(context),
+            ),
           const SizedBox(width: 6),
           _StripButton(
             icon: layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
-            label: layout.mode == 'auto' ? 'Auto' : 'Manual',
+            label: layout.mode == 'auto' ? t.auto : t.manual,
             onTap: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
+          ),
+          const SizedBox(width: 6),
+          // The cog is back, and this time it opens something. It was removed in F7 precisely
+          // because it did not: a control that cannot be pressed is worse than no control.
+          _StripButton(
+            icon: Icons.settings,
+            label: t.settings,
+            onTap: () => showSettingsSheet(context),
           ),
           // The settings cog that used to sit here was a bare `Icon` with no handler in either
           // orientation — it has done nothing since F3. Removed rather than enlarged: there is no
@@ -687,6 +706,7 @@ class _TopBar extends StatelessWidget {
   /// dropped: in auto mode it names the app the pad is following, which is the one thing on this
   /// screen that answers "why are these keys the keys?".
   Widget _vertical(BuildContext context, String title) {
+    final t = AppLocalizations.of(context)!;
     return SizedBox(
       width: _verticalWidth,
       child: Padding(
@@ -696,7 +716,7 @@ class _TopBar extends StatelessWidget {
             if (session != null && session!.decks.isNotEmpty)
               _StripButton(
                 icon: Icons.dashboard,
-                label: _deckLabel,
+                label: _deckLabel(t),
                 onTap: () => _pickDeck(context),
               ),
             Expanded(
@@ -722,8 +742,13 @@ class _TopBar extends StatelessWidget {
             // 56x56: above Material's 48 minimum, and it says which mode is on instead of hiding
             // it behind the menu.
             _StripButton(
+              icon: Icons.settings,
+              label: t.settings,
+              onTap: () => showSettingsSheet(context),
+            ),
+            _StripButton(
               icon: layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
-              label: layout.mode == 'auto' ? 'Auto' : 'Manual',
+              label: layout.mode == 'auto' ? t.auto : t.manual,
               onTap: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
             ),
           ],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../model/deck.dart';
+import '../../settings.dart';
 import '../icons.dart';
 import '../tokens.g.dart';
 
@@ -157,8 +158,9 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                 // The click is the system's own, so it follows the phone's sound settings and
                 // costs no asset — silent when the user has keypress sounds off, which is the
                 // right default for something you might use in a call.
-                HapticFeedback.selectionClick();
-                SystemSound.play(SystemSoundType.click);
+                final prefs = Settings.instance.value;
+                if (prefs.haptics) HapticFeedback.selectionClick();
+                if (prefs.sound) SystemSound.play(SystemSoundType.click);
                 setState(() => _pressed = true);
               },
         onTapCancel: deaf ? null : () => setState(() => _pressed = false),

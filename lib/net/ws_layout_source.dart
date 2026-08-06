@@ -41,8 +41,8 @@ class WsLayoutSource implements LayoutSource {
     this.certificate,
     this.silenceLimit = const Duration(seconds: 40),
     // ignore: prefer_initializing_formals -- `grid` is public and mutable behind a getter
-  })  : _grid = grid,
-        locale = locale ?? deviceLocale();
+  }) : _grid = grid,
+       locale = locale ?? deviceLocale();
 
   final String ip;
   final int port;
@@ -154,7 +154,12 @@ class WsLayoutSource implements LayoutSource {
     _setStatus(SessionStatus.connecting);
     final PinnedSocket pinned;
     try {
-      pinned = await PinnedSocket.connect(ip, port, expected: certificate, timeout: handshakeTimeout);
+      pinned = await PinnedSocket.connect(
+        ip,
+        port,
+        expected: certificate,
+        timeout: handshakeTimeout,
+      );
     } on TimeoutException {
       throw const HelloException('connect_timeout');
     } catch (e) {
@@ -311,12 +316,7 @@ class WsLayoutSource implements LayoutSource {
     _wantManual = mode == 'manual';
     _manualDeckId = deckId ?? _manualDeckId;
     final replied = _replyTo();
-    _send({
-      'v': 2,
-      'type': 'set_mode',
-      'mode': mode,
-      'deckId': ?deckId,
-    });
+    _send({'v': 2, 'type': 'set_mode', 'mode': mode, 'deckId': ?deckId});
     await _sessionRequest(replied);
   }
 

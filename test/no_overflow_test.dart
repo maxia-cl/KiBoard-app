@@ -12,6 +12,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:kiboard_app/l10n/app_localizations.dart';
+
 import 'package:kiboard_app/mock/mock_layout_source.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/discovery.dart';
@@ -75,7 +77,11 @@ void main() {
         await tester.pumpWidget(
           MediaQuery(
             data: MediaQueryData(size: entry.value, textScaler: TextScaler.linear(scale)),
-            child: MaterialApp(home: build()),
+            child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: build(),
+            ),
           ),
         );
         if (settle) {
@@ -95,12 +101,21 @@ void main() {
   }
 
   testWidgets('discovery, while it is still looking', (tester) async {
-    await fitsEverywhere(tester, 'the discovery screen', () => DiscoverScreen(discovery: _Discovery(const [])), settle: false);
+    await fitsEverywhere(
+      tester,
+      'the discovery screen',
+      () => DiscoverScreen(discovery: _Discovery(const [])),
+      settle: false,
+    );
   });
 
   testWidgets('discovery, with nothing found — the screen that must never break', (tester) async {
     // A user only reads this one when everything else has already failed them.
-    await fitsEverywhere(tester, 'the empty discovery state', () => DiscoverScreen(discovery: _Discovery(const [])));
+    await fitsEverywhere(
+      tester,
+      'the empty discovery state',
+      () => DiscoverScreen(discovery: _Discovery(const [])),
+    );
   });
 
   testWidgets('discovery, with hosts listed', (tester) async {
@@ -149,7 +164,11 @@ void main() {
       await tester.pumpWidget(
         MediaQuery(
           data: MediaQueryData(size: entry.value),
-          child: MaterialApp(home: DiscoverScreen(discovery: _Discovery(const []))),
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: DiscoverScreen(discovery: _Discovery(const [])),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -161,8 +180,16 @@ void main() {
       await tester.tap(find.text('Enter its address'));
       await tester.pumpAndSettle();
 
-      expect(find.text("Your PC's address"), findsOneWidget, reason: 'the sheet should be open on a ${entry.key}');
-      expect(tester.takeException(), isNull, reason: 'the address sheet does not fit a ${entry.key}');
+      expect(
+        find.text("Your PC's address"),
+        findsOneWidget,
+        reason: 'the sheet should be open on a ${entry.key}',
+      );
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'the address sheet does not fit a ${entry.key}',
+      );
 
       // Close it, so the next size starts from the same place.
       Navigator.of(tester.element(find.text("Your PC's address"))).pop();

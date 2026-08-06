@@ -40,13 +40,15 @@ class _Host {
         received.add(msg);
         if (!answer) return; // gone quiet: the frames arrive and nothing comes back
         if (msg['type'] == 'hello') {
-          ws.add(jsonEncode({
-            'v': 2,
-            'type': 'hello_ack',
-            'ok': true,
-            'name': 'Test PC',
-            'decks': decks,
-          }));
+          ws.add(
+            jsonEncode({
+              'v': 2,
+              'type': 'hello_ack',
+              'ok': true,
+              'name': 'Test PC',
+              'decks': decks,
+            }),
+          );
         }
         if (msg['type'] == 'set_mode') {
           ws.add(jsonEncode({'v': 2, 'type': 'command_result', 'ok': true}));
@@ -81,7 +83,12 @@ void main() {
       {'id': 'f6', 'name': 'F6 bench', 'icon': 'work'},
     ];
 
-    final session = WsLayoutSource(ip: '127.0.0.1', port: host.server.port, token: 't', deviceId: 'd');
+    final session = WsLayoutSource(
+      ip: '127.0.0.1',
+      port: host.server.port,
+      token: 't',
+      deviceId: 'd',
+    );
     addTearDown(session.dispose);
     await session.connect();
 
@@ -98,7 +105,12 @@ void main() {
     final host = await _Host.start();
     addTearDown(host.stop);
 
-    final session = WsLayoutSource(ip: '127.0.0.1', port: host.server.port, token: 't', deviceId: 'd');
+    final session = WsLayoutSource(
+      ip: '127.0.0.1',
+      port: host.server.port,
+      token: 't',
+      deviceId: 'd',
+    );
     addTearDown(session.dispose);
     await session.connect();
 
@@ -152,26 +164,30 @@ void main() {
     expect(session.currentStatus, SessionStatus.online);
   });
 
-  test('a session request that goes unanswered marks the link down instead of throwing', () async {
-    final host = await _Host.start();
-    addTearDown(host.stop);
+  test(
+    'a session request that goes unanswered marks the link down instead of throwing',
+    () async {
+      final host = await _Host.start();
+      addTearDown(host.stop);
 
-    final session = WsLayoutSource(
-      ip: '127.0.0.1',
-      port: host.server.port,
-      token: 't',
-      deviceId: 'd',
-      // Long, so this test is about the request timeout and not about the watchdog beating it.
-      silenceLimit: const Duration(seconds: 30),
-    );
-    addTearDown(session.dispose);
+      final session = WsLayoutSource(
+        ip: '127.0.0.1',
+        port: host.server.port,
+        token: 't',
+        deviceId: 'd',
+        // Long, so this test is about the request timeout and not about the watchdog beating it.
+        silenceLimit: const Duration(seconds: 30),
+      );
+      addTearDown(session.dispose);
 
-    await session.connect();
-    host.answer = false;
+      await session.connect();
+      host.answer = false;
 
-    // The mode toggle calls this from a tap and does not catch — an 8 s TimeoutException escaping
-    // here is an unhandled error in the widget tree, and the user sees a button that does nothing.
-    await expectLater(session.setMode('manual'), completes);
-    expect(session.currentStatus, isNot(SessionStatus.online));
-  }, timeout: const Timeout(Duration(seconds: 30)));
+      // The mode toggle calls this from a tap and does not catch — an 8 s TimeoutException escaping
+      // here is an unhandled error in the widget tree, and the user sees a button that does nothing.
+      await expectLater(session.setMode('manual'), completes);
+      expect(session.currentStatus, isNot(SessionStatus.online));
+    },
+    timeout: const Timeout(Duration(seconds: 30)),
+  );
 }

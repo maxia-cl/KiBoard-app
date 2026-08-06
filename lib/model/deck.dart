@@ -137,7 +137,13 @@ class LayoutSourceInfo {
   final String? name;
   final String? appName;
   final String? appIcon;
-  const LayoutSourceInfo({required this.kind, required this.id, this.name, this.appName, this.appIcon});
+  const LayoutSourceInfo({
+    required this.kind,
+    required this.id,
+    this.name,
+    this.appName,
+    this.appIcon,
+  });
 
   factory LayoutSourceInfo.fromJson(Map<String, dynamic> json) => LayoutSourceInfo(
     kind: json['kind'] as String,
@@ -225,7 +231,12 @@ class WindowsPage {
   final int pages;
   final List<DeckKey> keys;
 
-  const WindowsPage({required this.grid, required this.page, required this.pages, required this.keys});
+  const WindowsPage({
+    required this.grid,
+    required this.page,
+    required this.pages,
+    required this.keys,
+  });
 
   factory WindowsPage.fromJson(Map<String, dynamic> json) {
     final grid = Grid.fromJson(json['grid'] as Map<String, dynamic>);
@@ -236,6 +247,11 @@ class WindowsPage {
     for (final key in sparse) {
       if (key.pos < dense.length) dense[key.pos] = key;
     }
-    return WindowsPage(grid: grid, page: json['page'] as int, pages: json['pages'] as int, keys: dense);
+    return WindowsPage(
+      grid: grid,
+      page: json['page'] as int,
+      pages: json['pages'] as int,
+      keys: dense,
+    );
   }
 }

@@ -199,11 +199,7 @@ class _TrackpadScreenState extends State<TrackpadScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: _PadButton(
-                      label: 'Drag',
-                      active: _dragging,
-                      onTap: _toggleDrag,
-                    ),
+                    child: _PadButton(label: 'Drag', active: _dragging, onTap: _toggleDrag),
                   ),
                   const SizedBox(width: 8),
                   Expanded(

@@ -59,7 +59,10 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
                   const Expanded(
                     child: Text(
                       'Open windows',
-                      style: TextStyle(color: Color(DeckTokens.textPrimary), fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: Color(DeckTokens.textPrimary),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -81,7 +84,8 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
                           final keySize = KeyGrid.sizeToFit(
                             first.grid,
                             constraints.maxWidth - DeviceBezel.chromeWidth(),
-                            constraints.maxHeight - DeviceBezel.chromeHeightFor(first.pages, constraints.maxHeight),
+                            constraints.maxHeight -
+                                DeviceBezel.chromeHeightFor(first.pages, constraints.maxHeight),
                           );
                           return DeviceBezel(
                             gridWidth: KeyGrid.widthFor(first.grid, keySize),

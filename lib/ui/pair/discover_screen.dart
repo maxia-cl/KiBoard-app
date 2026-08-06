@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
+
 import '../wordmark.dart';
 
 import '../../net/discovered_host.dart';
@@ -53,6 +55,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             Navigator.of(sheetContext).pop(parsed);
           }
 
+          final t = AppLocalizations.of(sheetContext)!;
           return SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
               24,
@@ -64,8 +67,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Your PC's address",
+                Text(
+                  t.yourPcsAddress,
                   style: TextStyle(
                     color: Color(DeckTokens.textPrimary),
                     fontSize: 18,
@@ -108,7 +111,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       padding: const EdgeInsets.all(14),
                     ),
                     onPressed: submit,
-                    child: const Text('Connect'),
+                    child: Text(t.connect),
                   ),
                 ),
               ],
@@ -123,6 +126,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F10),
       body: SafeArea(
@@ -136,10 +140,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               // drawn mark in the other.
               const Wordmark(markHeight: 34),
               const SizedBox(height: 4),
-              const Text(
-                'Looking for PCs on your network…',
-                style: TextStyle(color: Color(DeckTokens.textSecondary)),
-              ),
+              Text(t.lookingForPcs, style: TextStyle(color: Color(DeckTokens.textSecondary))),
               const SizedBox(height: 24),
               Expanded(
                 child: FutureBuilder<List<DiscoveredHost>>(
@@ -169,8 +170,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Text(
-                                  'No PCs found on this network yet.',
+                                Text(
+                                  t.noPcsFound,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: Color(DeckTokens.textPrimary),
@@ -199,13 +200,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                   spacing: 8,
                                   runSpacing: 8,
                                   children: [
-                                    TextButton(onPressed: _rescan, child: const Text('Scan again')),
+                                    TextButton(onPressed: _rescan, child: Text(t.scanAgain)),
                                     FilledButton(
                                       style: FilledButton.styleFrom(
                                         backgroundColor: const Color(DeckTokens.accent),
                                       ),
                                       onPressed: _enterAddress,
-                                      child: const Text('Enter its address'),
+                                      child: Text(t.enterAddress),
                                     ),
                                   ],
                                 ),
@@ -247,8 +248,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                           ),
                                         ),
                                         if (!host.pairingOpen)
-                                          const Text(
-                                            'Not accepting new pairings right now',
+                                          Text(
+                                            t.pairingClosed,
                                             style: TextStyle(
                                               color: Color(DeckTokens.textSecondary),
                                               fontSize: 12,
@@ -285,8 +286,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     color: Color(DeckTokens.textSecondary),
                     size: 18,
                   ),
-                  label: const Text(
-                    "Don't see your PC? Enter its address",
+                  label: Text(
+                    t.dontSeeYourPc,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Color(DeckTokens.textSecondary)),
                   ),

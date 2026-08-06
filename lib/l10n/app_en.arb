@@ -1,0 +1,78 @@
+{
+  "@@locale": "en",
+  "appName": "KiBoard",
+  "lookingForPcs": "Looking for PCs on your network…",
+  "noPcsFound": "No PCs found on this network yet.",
+  "noPcsWhy": "Some networks — guest WiFi, plenty of ISP routers — never pass on the messages KiBoard listens for. Typing the address works anyway.",
+  "scanAgain": "Scan again",
+  "enterAddress": "Enter its address",
+  "dontSeeYourPc": "Don't see your PC? Enter its address",
+  "yourPcsAddress": "Your PC's address",
+  "addressHint": "KiBoard shows it on the PC, under the pairing code. The port is only needed if it is not the usual one.",
+  "notAnAddress": "That doesn't look like an address. It should be like 192.168.1.20 or 192.168.1.20:8770.",
+  "connect": "Connect",
+  "cancel": "Cancel",
+  "connecting": "Connecting…",
+  "couldNotReach": "Could not reach that PC.",
+  "wantsToConnect": "\"{host}\" wants to connect",
+  "@wantsToConnect": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "enterCode": "Enter the 6-digit code shown on that PC. It expires in 120 s.",
+  "wrongCode": "Wrong code — check the PC screen and try again.",
+  "tooManyAttempts": "Too many wrong attempts. Wait a few minutes and try again.",
+  "pairingClosed": "Not accepting new pairings right now",
+  "connectionDropped": "The connection dropped. Getting a new code — check the PC screen.",
+  "pairFailed": "Paired, but the session could not start: {error}",
+  "@pairFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "confirm": "Confirm",
+  "offlineRetrying": "Offline — retrying…",
+  "revoked": "This PC revoked access.",
+  "pairAgain": "Pair again",
+  "waitingForHost": "Waiting for \"{host}\".",
+  "@waitingForHost": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "waitingForHostHint": "It will appear here as soon as the PC is awake and on this network.",
+  "decks": "Decks",
+  "auto": "Auto",
+  "manual": "Manual",
+  "settings": "Settings",
+  "openWindows": "Open windows",
+  "rightClick": "Right click",
+  "listening": "Listening…",
+  "holdAndSpeak": "Hold the button and speak.\nThe text is typed on the PC when you let go.",
+  "micNeeded": "Microphone permission is needed to dictate.",
+  "micDenied": "Microphone denied. Enable it in Android settings.",
+  "noSpeech": "Speech recognition is not available on this phone.",
+  "cannotUndo": "This one cannot be undone from here.",
+  "keyRefused": "That key was refused: {error}",
+  "@keyRefused": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noAnswer": "no answer from the PC",
+  "vibration": "Vibration",
+  "sound": "Sound",
+  "language": "Language",
+  "languageSystem": "Phone's language",
+  "manualTitle": "How KiBoard works",
+  "openManual": "Manual"
+}
