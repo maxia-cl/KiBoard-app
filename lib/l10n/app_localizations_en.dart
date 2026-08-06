@@ -164,4 +164,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openManual => 'Manual';
+
+  @override
+  String get buyCoffee => 'Buy me a coffee';
+
+  @override
+  String get coffeeHint =>
+      'KiBoard is free. If it saves you time, this keeps it going.';
 }

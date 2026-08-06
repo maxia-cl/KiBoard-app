@@ -74,5 +74,7 @@
   "language": "Language",
   "languageSystem": "Phone's language",
   "manualTitle": "How KiBoard works",
-  "openManual": "Manual"
+  "openManual": "Manual",
+  "buyCoffee": "Buy me a coffee",
+  "coffeeHint": "KiBoard is free. If it saves you time, this keeps it going."
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localizations.dart';
 import '../settings.dart';
@@ -63,6 +64,22 @@ Future<void> showSettingsSheet(BuildContext context) => showModalBottomSheet<voi
                   context,
                 ).push(MaterialPageRoute<void>(builder: (_) => const ManualScreen()));
               },
+            ),
+            const Divider(height: 1, color: Color(0xFF2C2C2E)),
+            // The same Ko-fi link KiBoard v1 and KiMouse carry. It is a link out, never an
+            // in-app purchase: the moment this ships through Play it has to become Billing or
+            // leave, which is why it is one ListTile and not a screen.
+            ListTile(
+              leading: const Icon(Icons.coffee, color: Color(DeckTokens.accent)),
+              title: Text(t.buyCoffee, style: _title),
+              subtitle: Text(
+                t.coffeeHint,
+                style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 12),
+              ),
+              onTap: () => launchUrl(
+                Uri.parse('https://ko-fi.com/kiboard'),
+                mode: LaunchMode.externalApplication,
+              ),
             ),
             const SizedBox(height: 8),
           ],

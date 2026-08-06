@@ -46,5 +46,7 @@
   "language": "Idioma",
   "languageSystem": "El idioma del teléfono",
   "manualTitle": "Cómo funciona KiBoard",
-  "openManual": "Manual"
+  "openManual": "Manual",
+  "buyCoffee": "Regálame un café",
+  "coffeeHint": "KiBoard es gratis. Si te ahorra tiempo, esto lo mantiene en marcha."
 }

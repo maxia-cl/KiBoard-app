@@ -379,6 +379,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Manual'**
   String get openManual;
+
+  /// No description provided for @buyCoffee.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy me a coffee'**
+  String get buyCoffee;
+
+  /// No description provided for @coffeeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'KiBoard is free. If it saves you time, this keeps it going.'**
+  String get coffeeHint;
 }
 
 class _AppLocalizationsDelegate
