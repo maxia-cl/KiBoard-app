@@ -136,6 +136,9 @@ class _DeckScreenState extends State<DeckScreen> {
   void _trackPage(Layout layout) {
     final source = '${layout.mode}/${layout.source.id}';
     if (source != _lastSource) {
+      // A different deck entirely. Its pages are not this one's, and keeping them would grow the
+      // cache by every deck ever opened for the sake of pages nothing can swipe to.
+      _seen.clear();
       // A different deck, or auto mode following a different app. Not a swipe, so there is no
       // direction to infer; leave the last one alone.
       _lastSource = source;
@@ -154,6 +157,12 @@ class _DeckScreenState extends State<DeckScreen> {
     }
   }
 
+  /// Remembers a page so the next swipe towards it has something to draw. Called from `build`,
+  /// where the grid it was paginated for is known.
+  void _remember(Layout layout, Grid grid) {
+    _seen[_seenKey(layout, grid, layout.page)] = layout;
+  }
+
   // --- the page swipe (§4.4 `set_page`) -------------------------------------
   //
   // The host owns the page and answers with the `layout` for it, so there is no local page state
@@ -167,7 +176,38 @@ class _DeckScreenState extends State<DeckScreen> {
 
   /// Where the page sits relative to home, in pixels. Positive is dragged right (going back).
   double _dragDx = 0;
+
+  /// Finger down: the page tracks it with no animation at all.
   bool _dragging = false;
+
+  /// Finger down OR still settling. What it gates is drawing the neighbouring pages — they are
+  /// off-screen and clipped at rest, so building them on every layout push would be work for
+  /// nothing, but they have to stay up for the whole spring-back and not blink out on release.
+  bool _swiping = false;
+
+  /// Pages this phone has already been sent, so the one you are dragging towards can be drawn
+  /// coming in behind instead of a black gap.
+  ///
+  /// The host sends ONE page — the one the session's cursor is on — and rendering another would
+  /// mean asking for it, which moves that cursor and would make the next push render the wrong
+  /// page. So the phone keeps what it has already been given. **The first swipe onto a page this
+  /// phone has not seen this session still shows the bezel**; closing that needs the host to send
+  /// the neighbours unasked, which is a protocol change.
+  final Map<String, Layout> _seen = {};
+
+  /// Identity of one page of one surface, for [_seen]. The grid is in it because a layout is
+  /// paginated FOR a grid — the page cached in portrait holds keys that a landscape grid splits
+  /// differently, so rotating has to miss rather than draw the wrong keys.
+  String _seenKey(Layout l, Grid grid, int page) =>
+      '${l.mode}/${l.source.id}/${grid.rows}x${grid.cols}#$page';
+
+  /// The page on one side of this one, if it has been seen. Null is the honest answer, and the
+  /// caller draws nothing.
+  Layout? _neighbour(Layout layout, Grid grid, int delta) {
+    final page = layout.page + delta;
+    if (page < 0 || page >= layout.pages) return null;
+    return _seen[_seenKey(layout, grid, page)];
+  }
 
   /// Set while a committed swipe waits for the host's answer, so a page that is on its way out
   /// cannot be left out there by a host that never replies. See [_swipeTimeout].
@@ -188,6 +228,7 @@ class _DeckScreenState extends State<DeckScreen> {
         (delta < 0 && layout.page >= layout.pages - 1) || (delta > 0 && layout.page <= 0);
     setState(() {
       _dragging = true;
+      _swiping = true;
       _dragDx += pushingPastEnd ? delta * 0.25 : delta;
     });
   }
@@ -430,6 +471,9 @@ class _DeckScreenState extends State<DeckScreen> {
                         // room around a real one.
                         final keySize = math.min(byDevice, byBox) * 0.98;
                         _traceSize(byDevice, byBox, keySize, w, h);
+                        // Here, not in `_trackPage`: this is where the grid it was paginated for
+                        // is known, and the grid is half of what makes a cached page valid.
+                        _remember(layout, grid);
                         return SizedBox.expand(
                           // §4.4 `set_page`. The dots were drawn from the start but nothing ever
                           // moved between pages, so anything past the first screenful of a deck was
@@ -500,15 +544,52 @@ class _DeckScreenState extends State<DeckScreen> {
                                       tween: Tween<double>(end: _dragDx),
                                       duration: _dragging ? Duration.zero : _settle,
                                       curve: Curves.easeOut,
+                                      onEnd: () {
+                                        if (mounted && _dragDx == 0 && _swiping) {
+                                          setState(() => _swiping = false);
+                                        }
+                                      },
                                       builder: (context, dx, child) =>
                                           Transform.translate(offset: Offset(dx, 0), child: child),
-                                      child: KeyGrid(
-                                        grid: grid,
-                                        keys: layout.keys,
-                                        keySize: keySize,
-                                        launching: _launching,
-                                        onKeyPress: (pos, press) =>
-                                            _handlePress(layout, pos, press),
+                                      // The neighbours ride INSIDE the same transform, one page
+                                      // plus a gap out on either side, so they come in behind the
+                                      // finger without any second animation to keep in step.
+                                      // `Positioned` keeps them out of the Stack's sizing and the
+                                      // ClipRect above cuts them at the edge of the device.
+                                      child: Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          KeyGrid(
+                                            grid: grid,
+                                            keys: layout.keys,
+                                            keySize: keySize,
+                                            launching: _launching,
+                                            onKeyPress: (pos, press) =>
+                                                _handlePress(layout, pos, press),
+                                          ),
+                                          if (_swiping)
+                                            for (final side in const [-1, 1])
+                                              if (_neighbour(layout, grid, side) case final near?)
+                                                Positioned(
+                                                  left:
+                                                      side *
+                                                      (KeyGrid.widthFor(grid, keySize) +
+                                                          KeyGrid.gapFor(keySize)),
+                                                  top: 0,
+                                                  // Not pressable: it is a page you have not
+                                                  // arrived at, and a key half off the screen is
+                                                  // not something anyone means to hit.
+                                                  child: IgnorePointer(
+                                                    child: KeyGrid(
+                                                      grid: grid,
+                                                      keys: near.keys,
+                                                      keySize: keySize,
+                                                      launching: const {},
+                                                      onKeyPress: (_, _) {},
+                                                    ),
+                                                  ),
+                                                ),
+                                        ],
                                       ),
                                     ),
                                   ),

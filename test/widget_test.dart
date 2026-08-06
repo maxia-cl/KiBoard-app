@@ -36,16 +36,29 @@ class _TenKeys implements LayoutSource {
 
   _TenKeys({this.danger = false, this.paginated = false});
 
+  int _page = 0;
+
+  /// Pushes another page, the way a host answers `set_page`. Key 0 is labelled with the page, so a
+  /// test can tell which page it is looking at — including one drawn as a neighbour.
+  void goTo(int page) {
+    _page = page;
+    _controller.add(_layout);
+  }
+
   Layout get _layout => Layout(
     mode: 'auto',
     source: const LayoutSourceInfo(kind: 'profile', id: 'test', appName: 'Test'),
     grid: const Grid(rows: 5, cols: 2),
-    page: paginated ? 1 : 0,
+    page: paginated ? _page : 0,
     pages: paginated ? 3 : 1,
     keys: [
       DeckKey(
         pos: 0,
-        label: danger ? 'Close app' : 'Copy',
+        label: danger
+            ? 'Close app'
+            : paginated
+            ? 'page $_page'
+            : 'Copy',
         action: 'ctrl+c',
         danger: danger,
         kind: KeyKind.action,
@@ -424,6 +437,44 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pumpAndSettle();
       expect(gridX(tester), closeTo(home, 1));
+    });
+
+    testWidgets('a page already seen comes in behind the finger', (tester) async {
+      final source = await pumpDeck(tester);
+      expect(find.text('page 0'), findsOneWidget);
+      expect(find.byType(KeyGrid), findsOneWidget, reason: 'nothing extra is drawn at rest');
+
+      // Swipe through the deck once, the way using it does, and come back.
+      source.goTo(1);
+      await tester.pumpAndSettle();
+      source.goTo(0);
+      await tester.pumpAndSettle();
+
+      // Slow and short on purpose: this is about what is DRAWN mid-gesture, so it must not commit
+      // and swap the page out from under the assertion.
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      await finger.moveBy(const Offset(-20, 0));
+      await tester.pump(const Duration(milliseconds: 120));
+
+      expect(find.text('page 1'), findsOneWidget, reason: 'the next page, not a black gap');
+      expect(find.byType(KeyGrid), findsNWidgets(2));
+
+      await finger.up();
+      await tester.pumpAndSettle();
+      // And it goes away again, rather than being built on every layout push for nothing.
+      expect(find.byType(KeyGrid), findsOneWidget);
+    });
+
+    testWidgets('a page it has never been sent draws nothing rather than guessing', (tester) async {
+      await pumpDeck(tester); // page 0, and nothing else has arrived
+
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      await finger.moveBy(const Offset(-20, 0));
+      await tester.pump(const Duration(milliseconds: 120));
+
+      expect(find.byType(KeyGrid), findsOneWidget);
+      await finger.up();
+      await tester.pumpAndSettle();
     });
   });
 
