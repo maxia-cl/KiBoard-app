@@ -445,6 +445,26 @@ void main() {
       expect(find.text('Photoshop'), findsOneWidget);
     });
 
+    testWidgets('swallows a trailing unlit cell instead of leaving it stranded', (tester) async {
+      // The fixture's page stops one short of the reserved pair, so without this there is a lone
+      // empty cap wedged between the last key and the panel — one gap in an otherwise solid row,
+      // which reads as a drawing fault rather than as a key nobody has used.
+      final source = _TenKeys(manual: true, foreground: 'Photoshop');
+      addTearDown(source.dispose);
+      await pump(tester, source);
+
+      final panel = tester.getSize(find.ancestor(
+        of: find.text('Photoshop'),
+        matching: find.byType(IgnorePointer),
+      ).first);
+      final key = tester.getSize(find.byType(KeyWidget).first);
+      expect(
+        panel.width,
+        greaterThan(2 * key.width),
+        reason: 'it took the stranded cell as well as its own two',
+      );
+    });
+
     testWidgets('and in auto mode too, not just the title', (tester) async {
       // A line of 14 pt text in the chrome is not what a glance from across a desk reads.
       final source = _TenKeys(foreground: 'Photoshop');

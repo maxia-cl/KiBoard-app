@@ -208,6 +208,35 @@ class _DeckScreenState extends State<DeckScreen> {
     return (name == null || name.isEmpty) ? null : name;
   }
 
+  /// How many cells wide the panel is: the two reserved ones, plus any UNLIT cells trailing them
+  /// on the same row.
+  ///
+  /// A page whose keys stop short left one lonely unlit cap wedged between the last key and the
+  /// panel, and one gap in an otherwise solid row reads as a drawing fault rather than as a key
+  /// nobody has used. Absorbing it can never hide anything: it only ever takes cells the host left
+  /// empty, and it stops at the row's edge.
+  int _panelCells(Layout layout, Grid grid) {
+    var cells = reservedCells;
+    // Walk back from the last key the host sent, while it is empty and still on the bottom row.
+    var i = layout.keys.length - 1;
+    while (i >= 0 &&
+        layout.keys[i].kind == KeyKind.empty &&
+        cells < grid.cols &&
+        (i % grid.cols) != grid.cols - 1) {
+      cells++;
+      i--;
+    }
+    return cells;
+  }
+
+  /// The keys the grid actually draws: everything the host sent, minus the unlit cells the panel
+  /// has swallowed. See [_panelCells].
+  List<DeckKey> _keysUnder(Layout layout, Grid grid) {
+    final absorbed = _panelCells(layout, grid) - reservedCells;
+    if (absorbed <= 0) return layout.keys;
+    return layout.keys.sublist(0, layout.keys.length - absorbed);
+  }
+
   /// Remembers a page so a swipe towards it has something to draw.
   void _remember(Layout layout) {
     _seen[_seenKey(layout, layout.page)] = layout;
@@ -704,7 +733,10 @@ class _DeckScreenState extends State<DeckScreen> {
                                           children: [
                                             KeyGrid(
                                               grid: grid,
-                                              keys: layout.keys,
+                                              // Stops where the panel starts. Absorbing a cell and
+                                              // then still drawing its cap underneath is the very
+                                              // fault this was meant to remove.
+                                              keys: _keysUnder(layout, grid),
                                               keySize: keySize,
                                               launching: _launching,
                                               onKeyPress: (pos, press) =>
@@ -720,7 +752,10 @@ class _DeckScreenState extends State<DeckScreen> {
                                               Positioned(
                                                 right: 0,
                                                 bottom: 0,
-                                                width: 2 * keySize + KeyGrid.gapFor(keySize),
+                                                width:
+                                                    _panelCells(layout, grid) * keySize +
+                                                    (_panelCells(layout, grid) - 1) *
+                                                        KeyGrid.gapFor(keySize),
                                                 height: keySize,
                                                 child: _ForegroundApp(
                                                   name: app,
