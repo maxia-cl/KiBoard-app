@@ -98,6 +98,20 @@ class _DeckScreenState extends State<DeckScreen> {
     );
   }
 
+  String? _lastShape;
+
+  /// What actually arrived, versus the grid being drawn. The two disagreeing is invisible on
+  /// screen — a short page and a padded one look identical — and it is the first thing to check
+  /// when the pad has a hole in it or a cell too many.
+  void _traceShape(Layout layout, Grid grid) {
+    final shape =
+        '${layout.mode}/${layout.source.id} keys=${layout.keys.length} '
+        'grid=${grid.rows}x${grid.cols} page=${layout.page}/${layout.pages}';
+    if (_lastShape == shape) return;
+    _lastShape = shape;
+    trace(shape);
+  }
+
   /// Positions tinted with the brand colour because a press asked an app to come up.
   ///
   /// Two things end it, whichever lands first: the host reporting `state.running` for that key, or
@@ -577,6 +591,7 @@ class _DeckScreenState extends State<DeckScreen> {
                         // room around a real one.
                         final keySize = math.min(byDevice, byBox) * 0.98;
                         _traceSize(byDevice, byBox, keySize, w, h);
+                        _traceShape(layout, grid);
                         _remember(layout);
                         return SizedBox.expand(
                           // §4.4 `set_page`. The dots were drawn from the start but nothing ever

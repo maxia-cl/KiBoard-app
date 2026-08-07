@@ -154,6 +154,25 @@ class LayoutSourceInfo {
   );
 }
 
+/// Fills the holes in a page WITHOUT inventing cells the host chose not to fill.
+///
+/// The host sends exactly the cells it may use: the whole grid, minus whatever the client reserved
+/// for itself (§4.1 `grid.reserve`). Padding to `grid.capacity` regardless put empty keys back into
+/// the reserved cells — so the panel drawn over them had key caps underneath, which is precisely
+/// what "funciona muy mal" looked like.
+///
+/// Holes in the middle are still filled: a deck with a gap at position 3 must draw an empty cell
+/// there, not shift everything left.
+List<DeckKey> _densify(List<DeckKey> sparse, Grid grid) {
+  if (sparse.isEmpty) return List<DeckKey>.generate(grid.capacity, DeckKey.empty);
+  final filled = sparse.map((k) => k.pos).reduce((a, b) => a > b ? a : b) + 1;
+  final dense = List<DeckKey>.generate(filled.clamp(1, grid.capacity), DeckKey.empty);
+  for (final key in sparse) {
+    if (key.pos < dense.length) dense[key.pos] = key;
+  }
+  return dense;
+}
+
 class Layout {
   final String mode; // "auto" | "manual"
   final LayoutSourceInfo source;
@@ -180,10 +199,7 @@ class Layout {
     final sparse = (json['keys'] as List)
         .map((k) => DeckKey.fromLayoutJson(k as Map<String, dynamic>))
         .toList();
-    final dense = List<DeckKey>.generate(grid.capacity, (i) => DeckKey.empty(i));
-    for (final key in sparse) {
-      if (key.pos < dense.length) dense[key.pos] = key;
-    }
+    final dense = _densify(sparse, grid);
     final sys = json['sys'] as Map<String, dynamic>?;
     return Layout(
       mode: json['mode'] as String,
@@ -243,10 +259,7 @@ class WindowsPage {
     final sparse = (json['keys'] as List)
         .map((k) => DeckKey.fromWindowJson(k as Map<String, dynamic>))
         .toList();
-    final dense = List<DeckKey>.generate(grid.capacity, (i) => DeckKey.empty(i));
-    for (final key in sparse) {
-      if (key.pos < dense.length) dense[key.pos] = key;
-    }
+    final dense = _densify(sparse, grid);
     return WindowsPage(
       grid: grid,
       page: json['page'] as int,
