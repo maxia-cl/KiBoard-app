@@ -104,6 +104,72 @@ abstract class AppLocalizations {
   /// **'Press back again to leave KiBoard'**
   String get backAgainToLeave;
 
+  /// No description provided for @forgetPc.
+  ///
+  /// In en, this message translates to:
+  /// **'Forget this PC'**
+  String get forgetPc;
+
+  /// No description provided for @forgetPcHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Pair again from scratch. Use this if the PC changed address or was reinstalled.'**
+  String get forgetPcHint;
+
+  /// No description provided for @forgetPcAsk.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone will stop being paired with this PC. You can pair again right away.'**
+  String get forgetPcAsk;
+
+  /// No description provided for @forget.
+  ///
+  /// In en, this message translates to:
+  /// **'Forget'**
+  String get forget;
+
+  /// No description provided for @identityChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'This PC\'s identity changed. Waiting will not fix it.'**
+  String get identityChanged;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get retry;
+
+  /// No description provided for @windowsFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach your PC to list its windows.'**
+  String get windowsFailed;
+
+  /// No description provided for @noOpenWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'No open windows on your PC.'**
+  String get noOpenWindows;
+
+  /// No description provided for @isKiboardRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Is KiBoard running on the PC? It sits in the tray, next to the clock.'**
+  String get isKiboardRunning;
+
+  /// No description provided for @readTheManual.
+  ///
+  /// In en, this message translates to:
+  /// **'How this works'**
+  String get readTheManual;
+
   /// No description provided for @appName.
   ///
   /// In en, this message translates to:

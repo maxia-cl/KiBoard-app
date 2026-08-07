@@ -7,6 +7,7 @@ import '../wordmark.dart';
 import '../../net/discovered_host.dart';
 import '../../net/discovery.dart';
 import '../../net/mdns_discovery.dart';
+import '../manual_screen.dart';
 import '../nav.dart';
 import '../tokens.g.dart';
 import 'pairing_code_screen.dart';
@@ -180,15 +181,28 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
+                                // The host check comes FIRST. The screen used to open with the
+                                // multicast explanation, which is true for the networks that hit
+                                // it — but somebody who found the phone app before the PC one has
+                                // nothing running to be found, and every route offered here was a
+                                // dead end for them: rescanning finds nothing and a typed address
+                                // connects to nothing.
+                                Text(
+                                  t.isKiboardRunning,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Color(DeckTokens.textPrimary),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
                                 // Two lines, not four. The long version fitted upright and had to
                                 // be scrolled sideways, which left the buttons sliced in half
                                 // below the fold — it looked broken even though nothing was.
-                                const Text(
-                                  'Some networks — guest WiFi, plenty of ISP routers — never pass '
-                                  'on the messages KiBoard listens for. Typing the address works '
-                                  'anyway.',
+                                Text(
+                                  t.noPcsWhy,
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     color: Color(DeckTokens.textSecondary),
                                     fontSize: 13,
                                   ),
@@ -208,6 +222,15 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                       ),
                                       onPressed: _enterAddress,
                                       child: Text(t.enterAddress),
+                                    ),
+                                    // The manual answers this screen's question better than this
+                                    // screen can, and it was three levels away behind a cog
+                                    // nobody stuck here has ever opened.
+                                    TextButton(
+                                      onPressed: () => Navigator.of(
+                                        context,
+                                      ).push(screenRoute<void>(const ManualScreen())),
+                                      child: Text(t.readTheManual),
                                     ),
                                   ],
                                 ),

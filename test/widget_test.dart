@@ -18,6 +18,7 @@ import 'package:kiboard_app/ui/deck/adaptive_grid.dart';
 import 'package:kiboard_app/ui/deck/deck_screen.dart';
 import 'package:kiboard_app/ui/deck/key_grid.dart';
 import 'package:kiboard_app/ui/deck/key_widget.dart';
+import 'package:kiboard_app/ui/windows/window_switcher_screen.dart';
 
 /// Ten keys on the phone's own grid — what a real host sends once it has repaginated for the grid
 /// the client declared in `hello`. DeckScreen reshapes it to the orientation itself as long as the
@@ -370,6 +371,26 @@ void main() {
       expect(find.byType(AlertDialog), findsNothing);
       expect(source.pressed, [0]);
     });
+  });
+
+  /// `listWindows` gives up by throwing, and nothing caught it: the screen waited eight seconds
+  /// and then span for ever, with an unhandled async error behind it.
+  testWidgets('the window switcher says it failed instead of spinning for ever', (tester) async {
+    final source = _TenKeys(); // its listWindows throws, like a host that never answers
+    addTearDown(source.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: WindowSwitcherScreen(layoutSource: source),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('Could not reach your PC to list its windows.'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget, reason: 'and a way forward, not just a dead end');
   });
 
   /// Back used to do one of two things depending on how you got to the deck, and neither was

@@ -12,6 +12,44 @@ class AppLocalizationsEs extends AppLocalizations {
   String get backAgainToLeave => 'Pulsa atrás otra vez para salir de KiBoard';
 
   @override
+  String get forgetPc => 'Olvidar este PC';
+
+  @override
+  String get forgetPcHint =>
+      'Vuelve a vincular desde cero. Úsalo si el PC cambió de dirección o se reinstaló.';
+
+  @override
+  String get forgetPcAsk =>
+      'Este teléfono dejará de estar vinculado a este PC. Puedes vincularlo de nuevo enseguida.';
+
+  @override
+  String get forget => 'Olvidar';
+
+  @override
+  String get identityChanged =>
+      'La identidad de este PC cambió. Esperar no lo va a arreglar.';
+
+  @override
+  String get close => 'Cerrar';
+
+  @override
+  String get retry => 'Reintentar';
+
+  @override
+  String get windowsFailed =>
+      'No se pudo llegar a tu PC para listar sus ventanas.';
+
+  @override
+  String get noOpenWindows => 'No hay ventanas abiertas en tu PC.';
+
+  @override
+  String get isKiboardRunning =>
+      '¿Está KiBoard corriendo en el PC? Vive en la bandeja, al lado del reloj.';
+
+  @override
+  String get readTheManual => 'Cómo funciona esto';
+
+  @override
   String get appName => 'KiBoard';
 
   @override

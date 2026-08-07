@@ -162,10 +162,13 @@ class WsLayoutSource implements LayoutSource {
       );
     } on TimeoutException {
       throw const HelloException('connect_timeout');
+    } on CertificateChanged {
+      // Still not fatal — see `CertificateChanged`. But it is remembered, because the banner has
+      // to stop saying "offline, retrying" for a state that retrying cannot fix.
+      _identityChanged = true;
+      throw const HelloException('certificate_changed');
     } catch (e) {
-      // A refused certificate lands here too, as a handshake failure. It is deliberately NOT
-      // fatal: a host that was reinstalled looks the same from out here, and the reconnect loop
-      // retrying is the same thing it does for a PC that is simply off.
+      _identityChanged = false;
       throw HelloException('connect_failed: $e');
     }
     // First use adopts what it saw (§2.2). Every connection after this compares against it, so
@@ -242,6 +245,15 @@ class WsLayoutSource implements LayoutSource {
     _setStatus(SessionStatus.offline);
     _scheduleReconnect();
   }
+
+  bool _identityChanged = false;
+
+  /// The last connection was refused because the host's certificate is not the pinned one.
+  ///
+  /// Separate from [SessionStatus] on purpose: as far as the link is concerned this is `offline`
+  /// and the retry loop should keep running. What changes is only what the user is told, because
+  /// this is the one offline that waiting does not cure.
+  bool get identityChanged => _identityChanged;
 
   /// Try again NOW, throwing away whatever the backoff had worked its way up to.
   ///

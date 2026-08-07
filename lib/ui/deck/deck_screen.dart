@@ -319,7 +319,15 @@ class _DeckScreenState extends State<DeckScreen> {
     if (!mounted) return;
 
     if (key.action == 'windows') {
-      widget.layoutSource.pressKey(pos: pos, press: press);
+      // The list comes from the PC, so with the link down this pushes a screen that cannot fill
+      // itself — and the un-awaited press below would throw its timeout into nowhere as well.
+      // Saying so here beats an eight-second wait for a message.
+      final live = widget.session;
+      if (live != null && live.currentStatus != SessionStatus.online) {
+        _showKeyError(AppLocalizations.of(context)!.windowsFailed);
+        return;
+      }
+      unawaited(widget.layoutSource.pressKey(pos: pos, press: press));
       Navigator.of(
         context,
       ).push(screenRoute(WindowSwitcherScreen(layoutSource: widget.layoutSource)));
@@ -757,9 +765,23 @@ class _LinkBanner extends StatelessWidget {
             ),
           );
         }
+        // The one offline that waiting does not cure: this PC is serving a different certificate
+        // than the one paired with. Showing the ordinary "retrying" copy for it left the user
+        // waiting on a loop that can never win. The session is deliberately NOT cleared for them —
+        // see `CertificateChanged` — so the way out is theirs to take, in Settings.
+        if (session.identityChanged) {
+          return _Banner(
+            colour: const Color(DeckTokens.accent),
+            text: t.identityChanged,
+            action: TextButton(
+              onPressed: () => showSettingsSheet(context),
+              child: Text(t.settings),
+            ),
+          );
+        }
         return _Banner(
           colour: const Color(0xFF3A3A3C),
-          text: status == SessionStatus.connecting ? 'Connecting…' : t.offlineRetrying,
+          text: status == SessionStatus.connecting ? t.connecting : t.offlineRetrying,
         );
       },
     );

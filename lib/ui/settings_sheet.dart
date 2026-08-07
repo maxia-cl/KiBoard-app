@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localizations.dart';
+import '../net/saved_session.dart';
 import '../settings.dart';
 import 'manual_screen.dart';
 import 'nav.dart';
+import 'pair/discover_screen.dart';
 import 'tokens.g.dart';
 
 /// Vibration, sound, language, and the manual. Everything the app has to ask the user, which is
@@ -64,6 +66,58 @@ Future<void> showSettingsSheet(BuildContext context) => showModalBottomSheet<voi
                 Navigator.of(
                   context,
                 ).push(screenRoute<void>(const ManualScreen()));
+              },
+            ),
+            const Divider(height: 1, color: Color(0xFF2C2C2E)),
+            // The only way out of a PC the app can no longer reach. Everything else that clears a
+            // saved session needs the HOST to act — a revoked token, a rejected hello — so a PC
+            // whose IP changed, or that was reinstalled and now serves a certificate the phone
+            // will never accept, left the app retrying forever with no exit but clearing its
+            // storage from Android settings.
+            ListTile(
+              leading: const Icon(Icons.link_off, color: Color(DeckTokens.textSecondary)),
+              title: Text(t.forgetPc, style: _title),
+              subtitle: Text(
+                t.forgetPcHint,
+                style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 12),
+              ),
+              onTap: () async {
+                final confirmed = await showDialog<bool>(
+                  context: sheetContext,
+                  builder: (dialogContext) => AlertDialog(
+                    backgroundColor: const Color(0xFF1E1E20),
+                    title: Text(t.forgetPc, style: _title),
+                    content: Text(
+                      t.forgetPcAsk,
+                      style: const TextStyle(color: Color(DeckTokens.textSecondary)),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                        child: Text(
+                          t.cancel,
+                          style: const TextStyle(color: Color(DeckTokens.textSecondary)),
+                        ),
+                      ),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(DeckTokens.accent),
+                        ),
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
+                        child: Text(t.forget),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed != true) return;
+                await SavedSession.clear();
+                if (!context.mounted) return;
+                // The whole stack goes: what is underneath is a deck for a PC this phone is no
+                // longer paired to, and back must not reach it.
+                Navigator.of(context).pushAndRemoveUntil(
+                  fadeRoute(DiscoverScreen()),
+                  (route) => false,
+                );
               },
             ),
             const Divider(height: 1, color: Color(0xFF2C2C2E)),

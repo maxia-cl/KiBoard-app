@@ -12,6 +12,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backAgainToLeave => 'Press back again to leave KiBoard';
 
   @override
+  String get forgetPc => 'Forget this PC';
+
+  @override
+  String get forgetPcHint =>
+      'Pair again from scratch. Use this if the PC changed address or was reinstalled.';
+
+  @override
+  String get forgetPcAsk =>
+      'This phone will stop being paired with this PC. You can pair again right away.';
+
+  @override
+  String get forget => 'Forget';
+
+  @override
+  String get identityChanged =>
+      'This PC\'s identity changed. Waiting will not fix it.';
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String get retry => 'Try again';
+
+  @override
+  String get windowsFailed => 'Could not reach your PC to list its windows.';
+
+  @override
+  String get noOpenWindows => 'No open windows on your PC.';
+
+  @override
+  String get isKiboardRunning =>
+      'Is KiBoard running on the PC? It sits in the tray, next to the clock.';
+
+  @override
+  String get readTheManual => 'How this works';
+
+  @override
   String get appName => 'KiBoard';
 
   @override
