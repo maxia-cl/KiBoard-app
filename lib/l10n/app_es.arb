@@ -19,6 +19,15 @@
   "yourPc": "tu PC",
   "dictate": "Dictar",
   "launching": "abriendo…",
+  "inFront": "Al frente",
+  "inFrontOnPc": "{app} está al frente en el PC",
+  "@inFrontOnPc": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
   "appName": "KiBoard",
   "lookingForPcs": "Buscando PCs en tu red…",
   "noPcsFound": "Todavía no hay ningún PC en esta red.",

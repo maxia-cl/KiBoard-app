@@ -26,7 +26,9 @@ import '../tokens.g.dart';
 final Map<String, MemoryImage> _iconCache = {};
 const _iconCacheLimit = 160;
 
-MemoryImage? _iconFor(String? uri) {
+/// Shared, so anything drawing a host-sent icon goes through the same cache — the foreground-app
+/// label redraws on every layout push, and a second decoder would blink exactly like the keys did.
+MemoryImage? decodedIcon(String? uri) {
   if (uri == null || !uri.startsWith('data:')) return null;
   final cached = _iconCache[uri];
   if (cached != null) return cached;
@@ -134,7 +136,7 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
         : isEmpty
         ? const Color(DeckTokens.keyEmptyBackground)
         : const Color(DeckTokens.keyDefaultBackground);
-    final image = _iconFor(key.image);
+    final image = decodedIcon(key.image);
 
     Widget content = const SizedBox.shrink();
     if (!isEmpty) {

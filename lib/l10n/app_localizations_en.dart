@@ -70,6 +70,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get launching => 'opening…';
 
   @override
+  String get inFront => 'In front';
+
+  @override
+  String inFrontOnPc(String app) {
+    return '$app is in front on the PC';
+  }
+
+  @override
   String get appName => 'KiBoard';
 
   @override

@@ -36,7 +36,18 @@ class _TenKeys extends LayoutSource {
   /// A deck with somewhere to swipe to, sitting on the middle page so both directions are open.
   final bool paginated;
 
-  _TenKeys({this.danger = false, this.paginated = false});
+  /// A manual deck (not auto), the app the PC has in front, and whether the last slot is used.
+  final bool manual;
+  final String? foreground;
+  final bool full;
+
+  _TenKeys({
+    this.danger = false,
+    this.paginated = false,
+    this.manual = false,
+    this.foreground,
+    this.full = false,
+  });
 
   int _page = 0;
 
@@ -55,8 +66,10 @@ class _TenKeys extends LayoutSource {
   Layout get _layout => _layoutFor(paginated ? _page : 0);
 
   Layout _layoutFor(int page) => Layout(
-    mode: 'auto',
-    source: const LayoutSourceInfo(kind: 'profile', id: 'test', appName: 'Test'),
+    mode: manual ? 'manual' : 'auto',
+    source: manual
+        ? LayoutSourceInfo(kind: 'deck', id: 'test', name: 'Work', appName: foreground)
+        : LayoutSourceInfo(kind: 'profile', id: 'test', appName: foreground ?? 'Test'),
     grid: const Grid(rows: 5, cols: 2),
     page: page,
     pages: paginated ? 3 : 1,
@@ -72,7 +85,13 @@ class _TenKeys extends LayoutSource {
         danger: danger,
         kind: KeyKind.action,
       ),
-      ...List.generate(9, (i) => DeckKey.empty(i + 1)),
+      ...List.generate(9, (i) {
+        // The LAST slot decides whether there is room for the foreground label.
+        if (full && i == 8) {
+          return DeckKey(pos: 9, label: 'Last', action: 'ctrl+v', kind: KeyKind.action);
+        }
+        return DeckKey.empty(i + 1);
+      }),
     ],
   );
 
@@ -393,6 +412,45 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
       expect(source.pressed, [0]);
+    });
+  });
+
+  /// §4.1: a manual deck follows nothing, so the phone was pressing keys at a PC without being
+  /// able to name what was in front of it. Auto mode says it in the title; manual had nowhere.
+  group('the foreground app in manual mode', () {
+    Future<void> pump(WidgetTester tester, _TenKeys source) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    testWidgets('is shown over the last two cells when they are free', (tester) async {
+      final source = _TenKeys(manual: true, foreground: 'Photoshop');
+      addTearDown(source.dispose);
+      await pump(tester, source);
+      expect(find.text('Photoshop'), findsOneWidget);
+    });
+
+    testWidgets('gives way to keys rather than covering them', (tester) async {
+      // The same deck with its last slot used. The keys are the product; this is context.
+      final source = _TenKeys(manual: true, foreground: 'Photoshop', full: true);
+      addTearDown(source.dispose);
+      await pump(tester, source);
+      expect(find.text('Photoshop'), findsNothing);
+    });
+
+    testWidgets('and auto mode does not draw it in the grid', (tester) async {
+      // Auto already names the app in the title — a second copy in the grid would be noise.
+      final source = _TenKeys(foreground: 'Photoshop');
+      addTearDown(source.dispose);
+      await pump(tester, source);
+      expect(find.text('Photoshop'), findsOneWidget, reason: 'the title, and only the title');
     });
   });
 

@@ -23,6 +23,7 @@ import '../windows/window_switcher_screen.dart';
 import 'adaptive_grid.dart';
 import 'device_bezel.dart';
 import 'key_grid.dart';
+import 'key_widget.dart';
 
 class DeckScreen extends StatefulWidget {
   final LayoutSource layoutSource;
@@ -177,6 +178,22 @@ class _DeckScreenState extends State<DeckScreen> {
       _swipeGuard?.cancel();
       _dragDx = 0;
     }
+  }
+
+  /// The app in the foreground on the PC, when there is room to say so.
+  ///
+  /// Manual mode only — auto mode already names it in the title, and there the app is the reason
+  /// the keys are what they are. Drawn over the last two cells, so it needs both of them EMPTY: a
+  /// deck the user has filled to the last slot keeps its keys, and says nothing. That is the
+  /// bargain — the keys are the product, and this is context.
+  String? _foregroundApp(Layout layout) {
+    if (layout.mode != 'manual') return null;
+    final name = layout.source.appName;
+    if (name == null || name.isEmpty) return null;
+    if (layout.keys.length < 2) return null;
+    final last = layout.keys.sublist(layout.keys.length - 2);
+    if (last.any((k) => k.kind != KeyKind.empty)) return null;
+    return name;
   }
 
   /// Remembers a page so a swipe towards it has something to draw.
@@ -680,6 +697,24 @@ class _DeckScreenState extends State<DeckScreen> {
                                               onKeyPress: (pos, press) =>
                                                   _handlePress(layout, pos, press),
                                             ),
+                                            // What the PC has in front, in MANUAL mode. Auto mode
+                                            // says it in the title, because there the app is why
+                                            // these keys are on screen at all; a deck follows
+                                            // nothing, so the phone was pressing keys at something
+                                            // it could not name. Two cells wide, because an icon
+                                            // and an app name at key size need the width.
+                                            if (_foregroundApp(layout) case final name?)
+                                              Positioned(
+                                                right: 0,
+                                                bottom: 0,
+                                                width: 2 * keySize + KeyGrid.gapFor(keySize),
+                                                height: keySize,
+                                                child: _ForegroundApp(
+                                                  name: name,
+                                                  icon: layout.source.appIcon,
+                                                  keySize: keySize,
+                                                ),
+                                              ),
                                             if (_swiping)
                                               for (final side in const [-1, 1])
                                                 if (_neighbour(layout, side) case final near?)
@@ -1093,6 +1128,66 @@ class _StripButton extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The PC's foreground app, drawn over two empty cells of a manual deck.
+///
+/// Deliberately NOT a key: no cap, no shadow, no press. It is a label that happens to live in the
+/// grid, and anything that looks pressable on a surface where everything else is would be a lie.
+class _ForegroundApp extends StatelessWidget {
+  final String name;
+  final String? icon;
+  final double keySize;
+  const _ForegroundApp({required this.name, required this.icon, required this.keySize});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
+    final image = decodedIcon(icon);
+    return IgnorePointer(
+      child: Semantics(
+        label: t.inFrontOnPc(name),
+        excludeSemantics: true,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (image != null)
+              Image(
+                image: image,
+                width: keySize * 0.34,
+                height: keySize * 0.34,
+                gaplessPlayback: true,
+              )
+            else
+              Icon(
+                Icons.desktop_windows,
+                size: keySize * 0.28,
+                color: const Color(DeckTokens.textSecondary),
+              ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t.inFront,
+                    style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 9),
+                  ),
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
