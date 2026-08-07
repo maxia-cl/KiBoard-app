@@ -68,6 +68,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dictate => 'Dictar';
 
   @override
+  String get launching => 'abriendo…';
+
+  @override
   String get appName => 'KiBoard';
 
   @override

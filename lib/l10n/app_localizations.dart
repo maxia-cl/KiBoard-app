@@ -206,6 +206,12 @@ abstract class AppLocalizations {
   /// **'Dictate'**
   String get dictate;
 
+  /// No description provided for @launching.
+  ///
+  /// In en, this message translates to:
+  /// **'opening…'**
+  String get launching;
+
   /// No description provided for @appName.
   ///
   /// In en, this message translates to:

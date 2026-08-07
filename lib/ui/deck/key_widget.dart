@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../model/deck.dart';
 import '../../settings.dart';
 import '../icons.dart';
@@ -210,6 +211,42 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
     // that says it is busy.
     final deaf = isEmpty || widget.launching;
 
+    // A screen reader ACTIVATES with a double tap, which is also this key's `double` binding.
+    // Registering both means every attempt to press a key fires the second action instead. The
+    // gesture is the one that gives way: a two-state key is a convenience, and being unable to
+    // press anything is not.
+    final screenReader = MediaQuery.accessibleNavigationOf(context);
+
+    return Semantics(
+      // An icon-only key announced nothing at all: the label lives in a `Text` that such a key
+      // does not draw. This is the whole reason a deck was unusable with TalkBack.
+      label: (key.label ?? '').isEmpty ? null : key.label,
+      value: (key.sub ?? '').isEmpty ? null : key.sub,
+      button: !isEmpty,
+      enabled: !deaf,
+      // The green dot and the launching spinner are pure paint. Said out loud, they are the two
+      // things the key knows that the label does not.
+      toggled: key.stateOn ? true : null,
+      hint: widget.launching ? AppLocalizations.of(context)!.launching : null,
+      onTap: deaf ? null : () => widget.onPress?.call('short'),
+      onLongPress: deaf || key.hold == null ? null : () => widget.onPress?.call('long'),
+      // The cap's own text and icon say nothing: this node already carries the label, and without
+      // this a screen reader reads every key twice.
+      child: ExcludeSemantics(
+        child: _cap(key, isEmpty, deaf, down, face, content, screenReader),
+      ),
+    );
+  }
+
+  Widget _cap(
+    DeckKey key,
+    bool isEmpty,
+    bool deaf,
+    bool down,
+    Color face,
+    Widget content,
+    bool screenReader,
+  ) {
     return Listener(
       // DOWN on the pointer, not on the tap. With `onDoubleTap` registered the tap recognizer
       // waits for the arena before it says anything — measured at ~100 ms here — and a key pad
@@ -256,7 +293,9 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
         // a dropped link was the complaint that put the confirmation dot in §3.1.
         onTapCancel: deaf ? null : () => setState(() => _pressed = false),
         onTap: deaf ? null : () => widget.onPress?.call('short'),
-        onDoubleTap: deaf ? null : () => widget.onPress?.call('double'),
+        // Dropped while a screen reader is on: its activation gesture IS a double tap, so keeping
+        // this would turn every press into the key's second action. See `screenReader` above.
+        onDoubleTap: deaf || screenReader ? null : () => widget.onPress?.call('double'),
         // Only where there IS a second action. Drawn on every key it promised one that does not
         // exist — "¿qué significa el círculo rojo?" is what a control saying nothing looks like.
         onLongPressStart: deaf || key.hold == null ? null : (_) => _ringController.forward(from: 0),

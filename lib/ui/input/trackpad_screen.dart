@@ -188,6 +188,7 @@ class _TrackpadScreenState extends State<TrackpadScreen> {
                   ),
                   TextButton(onPressed: _cycleDpi, child: Text(_dpiName[_dpi])),
                   IconButton(
+                    tooltip: AppLocalizations.of(context)!.close,
                     icon: const Icon(Icons.close, color: Color(DeckTokens.textSecondary), size: 18),
                     onPressed: () => Navigator.of(context).pop(),
                   ),

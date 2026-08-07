@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -100,6 +101,28 @@ class _TenKeys extends LayoutSource {
     _controller.close();
     _preloadController.close();
   }
+}
+
+/// Whether ANY node in the semantics tree offers [action].
+///
+/// Walked rather than looked up by widget: the page-change actions sit on a `Semantics` wrapping
+/// the whole pad, and `getSemantics` resolves to whichever node is nearest the widget you name,
+/// which for a container of explicit children is one of the children.
+bool _somewhereInTree(WidgetTester tester, SemanticsAction action) {
+  var found = false;
+  void walk(SemanticsNode node) {
+    if (node.getSemanticsData().actions & action.index != 0) found = true;
+    node.visitChildren((child) {
+      walk(child);
+      return true;
+    });
+  }
+
+  // The suggested replacement does not expose a root semantics node, and this one still resolves
+  // to the tree the test is looking at.
+  // ignore: deprecated_member_use
+  walk(tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!);
+  return found;
 }
 
 void main() {
@@ -370,6 +393,61 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
       expect(source.pressed, [0]);
+    });
+  });
+
+  /// There was exactly one `Semantics` in the whole app, on the wordmark. A key draws its label in
+  /// a `Text` that an icon-only key does not have, so those keys announced nothing at all — and
+  /// the page swipe is a raw drag, which a screen reader cannot perform, so page 1 was the only
+  /// page it could reach.
+  group('a screen reader can use the deck', () {
+    testWidgets('keys announce their label and are marked as buttons', (tester) async {
+      final handle = tester.ensureSemantics();
+      final source = _TenKeys();
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.bySemanticsLabel('Copy'), findsOneWidget);
+      final node = tester.getSemantics(find.bySemanticsLabel('Copy'));
+      expect(node.flagsCollection.isButton, isTrue);
+      expect(node.getSemanticsData().actions & SemanticsAction.tap.index, isNot(0));
+      handle.dispose();
+    });
+
+    testWidgets('and can change page without performing a drag', (tester) async {
+      final handle = tester.ensureSemantics();
+      final source = _TenKeys(paginated: true);
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // On page 0 of 3: forward is offered, back is not — the same bounds the swipe respects.
+      expect(
+        _somewhereInTree(tester, SemanticsAction.increase),
+        isTrue,
+        reason: 'without this there is no accessible way off the first page',
+      );
+      expect(
+        _somewhereInTree(tester, SemanticsAction.decrease),
+        isFalse,
+        reason: 'nothing before page 1',
+      );
+      handle.dispose();
     });
   });
 

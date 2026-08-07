@@ -568,117 +568,142 @@ class _DeckScreenState extends State<DeckScreen> {
                           // moved between pages, so anything past the first screenful of a deck was
                           // unreachable. A key's tap recognizer loses the arena as soon as the
                           // pointer travels horizontally, so this does not swallow presses.
-                          child: GestureDetector(
-                            onHorizontalDragUpdate: (d) => _dragUpdate(layout, d.delta.dx),
-                            onHorizontalDragEnd: (d) => _dragEnd(
-                              layout,
-                              d.primaryVelocity ?? 0,
-                              KeyGrid.widthFor(grid, keySize),
-                            ),
-                            onHorizontalDragCancel: () => setState(() {
-                              _dragging = false;
-                              _dragDx = 0;
-                            }),
-                            child: DeviceBezel(
-                              gridWidth: KeyGrid.widthFor(grid, keySize),
-                              gridHeight: KeyGrid.heightFor(grid, keySize),
-                              pageCount: layout.pages,
-                              currentPage: layout.page,
-                              // Under the keys in BOTH orientations. Sideways they used to live
-                              // in the side strip, to keep their 18 px off the height that caps
-                              // the key size — but the measured landscape box allows 94.2 px per
-                              // key against the 79.1 the device asks for, so the reserve comes out
-                              // of slack and the keys do not move. `CAPPED BY BOX` in the trace is
-                              // what shouts if that stops being true on some other screen.
-                              dotsInside: true,
-                              // The page used to be REPLACED, which read as a cut rather than as
-                              // a move. It travels now, in the direction the swipe went, clipped
-                              // to the bezel so a page leaves through the edge of the device
-                              // instead of over it.
-                              child: ClipRect(
-                                child: AnimatedSwitcher(
-                                  duration: _pageSlide,
-                                  switchInCurve: Curves.easeOutCubic,
-                                  switchOutCurve: Curves.easeInCubic,
-                                  // Stacked rather than the default cross-fade-in-place: the two
-                                  // pages have to pass each other, so both must be laid out.
-                                  layoutBuilder: (current, previous) => Stack(
-                                    alignment: Alignment.center,
-                                    children: [...previous, ?current],
-                                  ),
-                                  transitionBuilder: (child, animation) {
-                                    // The outgoing child runs this same animation in REVERSE, so
-                                    // giving it the opposite start sends it out the far side while
-                                    // the new one comes in from the near one.
-                                    final incoming =
-                                        (child.key as ValueKey<String>).value == _pageKey(layout);
-                                    final from = Offset(incoming ? _pageDir : -_pageDir, 0);
-                                    return SlideTransition(
-                                      position: Tween(
-                                        begin: from,
-                                        end: Offset.zero,
-                                      ).animate(animation),
-                                      child: FadeTransition(opacity: animation, child: child),
-                                    );
-                                  },
-                                  // The key is on the wrapper, not on the grid: the offset has to
-                                  // belong to the page, so that the outgoing one keeps it.
-                                  child: KeyedSubtree(
-                                    key: ValueKey(_pageKey(layout)),
-                                    // Zero duration while the finger is down, so the page IS the
-                                    // finger; `_settle` once it lifts, to spring home or to carry
-                                    // a committed page the rest of the way out. No controller and
-                                    // nothing to dispose.
-                                    child: TweenAnimationBuilder<double>(
-                                      tween: Tween<double>(end: _dragDx),
-                                      duration: _dragging ? Duration.zero : _settle,
-                                      curve: Curves.easeOut,
-                                      onEnd: () {
-                                        if (mounted && _dragDx == 0 && _swiping) {
-                                          setState(() => _swiping = false);
-                                        }
-                                      },
-                                      builder: (context, dx, child) =>
-                                          Transform.translate(offset: Offset(dx, 0), child: child),
-                                      // The neighbours ride INSIDE the same transform, one page
-                                      // plus a gap out on either side, so they come in behind the
-                                      // finger without any second animation to keep in step.
-                                      // `Positioned` keeps them out of the Stack's sizing and the
-                                      // ClipRect above cuts them at the edge of the device.
-                                      child: Stack(
-                                        clipBehavior: Clip.none,
-                                        children: [
-                                          KeyGrid(
-                                            grid: grid,
-                                            keys: layout.keys,
-                                            keySize: keySize,
-                                            launching: _launching,
-                                            onKeyPress: (pos, press) =>
-                                                _handlePress(layout, pos, press),
-                                          ),
-                                          if (_swiping)
-                                            for (final side in const [-1, 1])
-                                              if (_neighbour(layout, side) case final near?)
-                                                Positioned(
-                                                  left:
-                                                      side *
-                                                      (KeyGrid.widthFor(grid, keySize) +
-                                                          KeyGrid.gapFor(keySize)),
-                                                  top: 0,
-                                                  // Not pressable: it is a page you have not
-                                                  // arrived at, and a key half off the screen is
-                                                  // not something anyone means to hit.
-                                                  child: IgnorePointer(
-                                                    child: KeyGrid(
-                                                      grid: grid,
-                                                      keys: near.keys,
-                                                      keySize: keySize,
-                                                      launching: const {},
-                                                      onKeyPress: (_, _) {},
+                          // The page swipe is a raw drag, which a screen reader cannot perform —
+                          // so without this there is no accessible way to leave page 1 at all.
+                          // `explicitChildNodes` keeps the keys as their own nodes rather than
+                          // merging the whole pad into one announcement.
+                          child: Semantics(
+                            container: layout.pages > 1,
+                            explicitChildNodes: true,
+                            // All three, not just `value`: Flutter asserts that a node offering
+                            // increase/decrease says what the value would become.
+                            value: layout.pages > 1 ? '${layout.page + 1}/${layout.pages}' : null,
+                            increasedValue: layout.pages > 1
+                                ? '${(layout.page + 2).clamp(1, layout.pages)}/${layout.pages}'
+                                : null,
+                            decreasedValue: layout.pages > 1
+                                ? '${layout.page.clamp(1, layout.pages)}/${layout.pages}'
+                                : null,
+                            onIncrease: layout.page + 1 < layout.pages
+                                ? () => widget.session?.setPage(layout.page + 1)
+                                : null,
+                            onDecrease: layout.page > 0
+                                ? () => widget.session?.setPage(layout.page - 1)
+                                : null,
+                            child: GestureDetector(
+                              onHorizontalDragUpdate: (d) => _dragUpdate(layout, d.delta.dx),
+                              onHorizontalDragEnd: (d) => _dragEnd(
+                                layout,
+                                d.primaryVelocity ?? 0,
+                                KeyGrid.widthFor(grid, keySize),
+                              ),
+                              onHorizontalDragCancel: () => setState(() {
+                                _dragging = false;
+                                _dragDx = 0;
+                              }),
+                              child: DeviceBezel(
+                                gridWidth: KeyGrid.widthFor(grid, keySize),
+                                gridHeight: KeyGrid.heightFor(grid, keySize),
+                                pageCount: layout.pages,
+                                currentPage: layout.page,
+                                // Under the keys in BOTH orientations. Sideways they used to live
+                                // in the side strip, to keep their 18 px off the height that caps
+                                // the key size — but the measured landscape box allows 94.2 px per
+                                // key against the 79.1 the device asks for, so the reserve comes out
+                                // of slack and the keys do not move. `CAPPED BY BOX` in the trace is
+                                // what shouts if that stops being true on some other screen.
+                                dotsInside: true,
+                                // The page used to be REPLACED, which read as a cut rather than as
+                                // a move. It travels now, in the direction the swipe went, clipped
+                                // to the bezel so a page leaves through the edge of the device
+                                // instead of over it.
+                                child: ClipRect(
+                                  child: AnimatedSwitcher(
+                                    duration: _pageSlide,
+                                    switchInCurve: Curves.easeOutCubic,
+                                    switchOutCurve: Curves.easeInCubic,
+                                    // Stacked rather than the default cross-fade-in-place: the two
+                                    // pages have to pass each other, so both must be laid out.
+                                    layoutBuilder: (current, previous) => Stack(
+                                      alignment: Alignment.center,
+                                      children: [...previous, ?current],
+                                    ),
+                                    transitionBuilder: (child, animation) {
+                                      // The outgoing child runs this same animation in REVERSE, so
+                                      // giving it the opposite start sends it out the far side while
+                                      // the new one comes in from the near one.
+                                      final incoming =
+                                          (child.key as ValueKey<String>).value == _pageKey(layout);
+                                      final from = Offset(incoming ? _pageDir : -_pageDir, 0);
+                                      return SlideTransition(
+                                        position: Tween(
+                                          begin: from,
+                                          end: Offset.zero,
+                                        ).animate(animation),
+                                        child: FadeTransition(opacity: animation, child: child),
+                                      );
+                                    },
+                                    // The key is on the wrapper, not on the grid: the offset has to
+                                    // belong to the page, so that the outgoing one keeps it.
+                                    child: KeyedSubtree(
+                                      key: ValueKey(_pageKey(layout)),
+                                      // Zero duration while the finger is down, so the page IS the
+                                      // finger; `_settle` once it lifts, to spring home or to carry
+                                      // a committed page the rest of the way out. No controller and
+                                      // nothing to dispose.
+                                      child: TweenAnimationBuilder<double>(
+                                        tween: Tween<double>(end: _dragDx),
+                                        duration: _dragging ? Duration.zero : _settle,
+                                        curve: Curves.easeOut,
+                                        onEnd: () {
+                                          if (mounted && _dragDx == 0 && _swiping) {
+                                            setState(() => _swiping = false);
+                                          }
+                                        },
+                                        builder: (context, dx, child) => Transform.translate(
+                                          offset: Offset(dx, 0),
+                                          child: child,
+                                        ),
+                                        // The neighbours ride INSIDE the same transform, one page
+                                        // plus a gap out on either side, so they come in behind the
+                                        // finger without any second animation to keep in step.
+                                        // `Positioned` keeps them out of the Stack's sizing and the
+                                        // ClipRect above cuts them at the edge of the device.
+                                        child: Stack(
+                                          clipBehavior: Clip.none,
+                                          children: [
+                                            KeyGrid(
+                                              grid: grid,
+                                              keys: layout.keys,
+                                              keySize: keySize,
+                                              launching: _launching,
+                                              onKeyPress: (pos, press) =>
+                                                  _handlePress(layout, pos, press),
+                                            ),
+                                            if (_swiping)
+                                              for (final side in const [-1, 1])
+                                                if (_neighbour(layout, side) case final near?)
+                                                  Positioned(
+                                                    left:
+                                                        side *
+                                                        (KeyGrid.widthFor(grid, keySize) +
+                                                            KeyGrid.gapFor(keySize)),
+                                                    top: 0,
+                                                    // Not pressable: it is a page you have not
+                                                    // arrived at, and a key half off the screen is
+                                                    // not something anyone means to hit.
+                                                    child: IgnorePointer(
+                                                      child: KeyGrid(
+                                                        grid: grid,
+                                                        keys: near.keys,
+                                                        keySize: keySize,
+                                                        launching: const {},
+                                                        onKeyPress: (_, _) {},
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),

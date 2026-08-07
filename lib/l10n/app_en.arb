@@ -18,6 +18,7 @@
   "keyRefusedGeneric": "The PC refused that key.",
   "yourPc": "your PC",
   "dictate": "Dictate",
+  "launching": "opening…",
   "appName": "KiBoard",
   "lookingForPcs": "Looking for PCs on your network…",
   "noPcsFound": "No PCs found on this network yet.",
