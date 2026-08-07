@@ -48,16 +48,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       backgroundColor: const Color(0xFF1E1E20),
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) {
+          final t = AppLocalizations.of(sheetContext)!;
           void submit() {
             final parsed = parseHostAddress(text);
             if (parsed == null) {
-              setSheetState(() => error = "That doesn't look like an address.");
+              setSheetState(() => error = t.notAnAddress);
               return;
             }
             Navigator.of(sheetContext).pop(parsed);
           }
 
-          final t = AppLocalizations.of(sheetContext)!;
           return SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
               24,
@@ -78,10 +78,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'KiBoard shows it on the PC, under the pairing code. The port is '
-                  '$defaultHostPort unless you changed it.',
-                  style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 13),
+                Text(
+                  t.addressHint,
+                  style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 13),
                 ),
                 const SizedBox(height: 16),
                 TextField(

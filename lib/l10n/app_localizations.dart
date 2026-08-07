@@ -170,6 +170,42 @@ abstract class AppLocalizations {
   /// **'How this works'**
   String get readTheManual;
 
+  /// No description provided for @noSuchKey.
+  ///
+  /// In en, this message translates to:
+  /// **'That key is not on the PC anymore.'**
+  String get noSuchKey;
+
+  /// No description provided for @unknownAction.
+  ///
+  /// In en, this message translates to:
+  /// **'The PC did not recognise that key\'s action.'**
+  String get unknownAction;
+
+  /// No description provided for @blockedAction.
+  ///
+  /// In en, this message translates to:
+  /// **'The PC refused that action.'**
+  String get blockedAction;
+
+  /// No description provided for @keyRefusedGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'The PC refused that key.'**
+  String get keyRefusedGeneric;
+
+  /// No description provided for @yourPc.
+  ///
+  /// In en, this message translates to:
+  /// **'your PC'**
+  String get yourPc;
+
+  /// No description provided for @dictate.
+  ///
+  /// In en, this message translates to:
+  /// **'Dictate'**
+  String get dictate;
+
   /// No description provided for @appName.
   ///
   /// In en, this message translates to:
@@ -403,12 +439,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This one cannot be undone from here.'**
   String get cannotUndo;
-
-  /// No description provided for @keyRefused.
-  ///
-  /// In en, this message translates to:
-  /// **'That key was refused: {error}'**
-  String keyRefused(String error);
 
   /// No description provided for @noAnswer.
   ///

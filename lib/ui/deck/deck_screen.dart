@@ -48,10 +48,17 @@ class _DeckScreenState extends State<DeckScreen> {
     onResume: () => widget.session?.reconnectNow(),
   );
 
+  StreamSubscription<String>? _toasts;
+
   @override
   void initState() {
     super.initState();
     _lifecycle; // created lazily; touch it so it is listening from the first frame
+    // §4.4. The host was talking and nothing was listening: every `toast` it sent was filtered
+    // out and dropped, which is why "Profile imported" never appeared anywhere.
+    _toasts = widget.layoutSource.toasts().listen((text) {
+      if (mounted) _showKeyError(text);
+    });
     // A key pad you have to wake up first is not a key pad. Android's screen timeout is ~30s, and
     // the deck's whole point is being glanceable and pressable without ceremony while you work on
     // the PC. Released in dispose, so it only applies while the deck is actually on screen.
@@ -68,6 +75,7 @@ class _DeckScreenState extends State<DeckScreen> {
     }
     _swipeGuard?.cancel();
     _preloads?.cancel();
+    _toasts?.cancel();
     _exitArmed?.cancel();
     _lifecycle.dispose();
     WakelockPlus.disable();
@@ -371,14 +379,27 @@ class _DeckScreenState extends State<DeckScreen> {
       if (result['type'] == 'key_result' && result['ok'] != true) {
         trace('key pos=$pos REFUSED: ${result['error']}');
         _stopLaunching(pos);
-        _showKeyError(result['error'] as String? ?? 'internal');
+        _showKeyError(_pressError(result['error'] as String? ?? 'internal'));
         return;
       }
       trace('key pos=$pos confirmed');
     } on TimeoutException {
       _stopLaunching(pos);
-      if (mounted) _showKeyError('no answer from the PC');
+      if (mounted) _showKeyError(AppLocalizations.of(context)!.noAnswer);
     }
+  }
+
+  /// A §5 error code turned into a sentence. The code went straight into the snackbar, so a
+  /// refused press read `unknown_action` — a protocol identifier, in English, to somebody who
+  /// pressed a key. The pairing screen has done this properly with its own codes all along.
+  String _pressError(String code) {
+    final t = AppLocalizations.of(context)!;
+    return switch (code) {
+      'no_such_key' => t.noSuchKey,
+      'unknown_action' => t.unknownAction,
+      'blocked_action' => t.blockedAction,
+      _ => t.keyRefusedGeneric,
+    };
   }
 
   /// A key that failed has to say so. Silence reads as "it worked" — and the actions most likely
@@ -704,7 +725,8 @@ class _NoLayoutYet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final host = hostName.isEmpty ? 'your PC' : '"$hostName"';
+    final t = AppLocalizations.of(context)!;
+    final host = hostName.isEmpty ? t.yourPc : '"$hostName"';
     if (session == null) {
       return const Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent)));
     }
@@ -722,8 +744,7 @@ class _NoLayoutYet extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(32),
             child: Text(
-              "Waiting for $host.\nIt will appear here as soon as the PC is awake and on this "
-              "network.",
+              '${t.waitingForHost(host)}\n${t.waitingForHostHint}',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Color(DeckTokens.textSecondary), height: 1.5),
             ),
@@ -884,6 +905,30 @@ class _TopBar extends StatelessWidget {
     if (chosen != null) await live.setMode('manual', deckId: chosen);
   }
 
+  /// The deck picker, when there is a host with decks to pick from.
+  Widget? _deckButton(BuildContext context, AppLocalizations t) =>
+      (session != null && session!.decks.isNotEmpty)
+      ? _StripButton(icon: Icons.dashboard, label: _deckLabel(t), onTap: () => _pickDeck(context))
+      : null;
+
+  /// Mode, then Settings — built ONCE and laid out by whichever orientation is asking.
+  ///
+  /// These were written out twice and had drifted: upright read Decks / Mode / Settings and
+  /// sideways read Decks / Settings / Mode. Two 56×56 tiles with an icon and a word look
+  /// interchangeable at a glance, so reaching for the mode toggle after rotating opened a modal
+  /// sheet over the deck instead — on a pad whose whole value is muscle memory. One list means
+  /// they cannot drift again.
+  List<Widget> _modeAndSettings(BuildContext context, AppLocalizations t) => [
+    _StripButton(
+      icon: layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
+      label: layout.mode == 'auto' ? t.auto : t.manual,
+      onTap: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
+    ),
+    // The cog is back, and this time it opens something. It was removed in F7 precisely because it
+    // did not: a control that cannot be pressed is worse than no control.
+    _StripButton(icon: Icons.settings, label: t.settings, onTap: () => showSettingsSheet(context)),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
@@ -896,6 +941,7 @@ class _TopBar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 2, 8, 2),
       child: Row(
+        spacing: 6,
         children: [
           // 20/15 across the row: the scale the mode dropdown used to draw itself at, which is
           // the one that reads at arm's length. Only upright — sideways the height it costs comes
@@ -922,31 +968,8 @@ class _TopBar extends StatelessWidget {
           // a hit area of about 18x28 — "casi no se pueden presionar" — and nothing about holding
           // the phone the other way makes a small target easier to hit. One widget for both, so
           // the two orientations cannot drift apart on two numbers nobody remembers to sync.
-          if (session != null && session!.decks.isNotEmpty)
-            _StripButton(
-              icon: Icons.dashboard,
-              label: _deckLabel(t),
-              onTap: () => _pickDeck(context),
-            ),
-          const SizedBox(width: 6),
-          _StripButton(
-            icon: layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
-            label: layout.mode == 'auto' ? t.auto : t.manual,
-            onTap: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
-          ),
-          const SizedBox(width: 6),
-          // The cog is back, and this time it opens something. It was removed in F7 precisely
-          // because it did not: a control that cannot be pressed is worse than no control.
-          _StripButton(
-            icon: Icons.settings,
-            label: t.settings,
-            onTap: () => showSettingsSheet(context),
-          ),
-          // The settings cog that used to sit here was a bare `Icon` with no handler in either
-          // orientation — it has done nothing since F3. Removed rather than enlarged: there is no
-          // settings screen to open yet, and a control that cannot be pressed is worse than no
-          // control, especially on a screen where the complaint is that things cannot be pressed.
-          // One line to put back when F7 gives it somewhere to go.
+          ?_deckButton(context, t),
+          ..._modeAndSettings(context, t),
         ],
       ),
     );
@@ -963,12 +986,7 @@ class _TopBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
         child: Column(
           children: [
-            if (session != null && session!.decks.isNotEmpty)
-              _StripButton(
-                icon: Icons.dashboard,
-                label: _deckLabel(t),
-                onTap: () => _pickDeck(context),
-              ),
+            ?_deckButton(context, t),
             Expanded(
               child: RotatedBox(
                 quarterTurns: 3,
@@ -991,16 +1009,7 @@ class _TopBar extends StatelessWidget {
             // 18x28 in a 40-wide strip, which is what "casi no se pueden presionar" was. This is
             // 56x56: above Material's 48 minimum, and it says which mode is on instead of hiding
             // it behind the menu.
-            _StripButton(
-              icon: Icons.settings,
-              label: t.settings,
-              onTap: () => showSettingsSheet(context),
-            ),
-            _StripButton(
-              icon: layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
-              label: layout.mode == 'auto' ? t.auto : t.manual,
-              onTap: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
-            ),
+            ..._modeAndSettings(context, t),
           ],
         ),
       ),

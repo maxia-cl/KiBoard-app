@@ -14,6 +14,13 @@ abstract class LayoutSource {
   /// know which kind it is holding.
   Stream<Layout> preloads() => const Stream.empty();
 
+  /// Protocol §4.4 `toast`: something the HOST wants said. It is the host's only channel for
+  /// narrating what it did, which matters precisely because §4.2 means the phone cannot know —
+  /// it sent a position, and only the PC knows what that turned into.
+  ///
+  /// Already translated by the host, in this session's language.
+  Stream<String> toasts() => const Stream.empty();
+
   /// Protocol §4.2: the phone sends the key it pressed, never the action.
   Future<void> pressKey({required int pos, required String press});
 

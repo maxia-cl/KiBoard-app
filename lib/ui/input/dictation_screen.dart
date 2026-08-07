@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
+import '../../l10n/app_localizations.dart';
 import '../../net/ws_layout_source.dart';
 import '../tokens.g.dart';
 
@@ -48,8 +49,8 @@ class _DictationScreenState extends State<DictationScreen> {
     if (!status.isGranted) {
       setState(
         () => _error = status.isPermanentlyDenied
-            ? 'Microphone denied. Enable it in Android settings.'
-            : 'Microphone permission is needed to dictate.',
+            ? AppLocalizations.of(context)!.micDenied
+            : AppLocalizations.of(context)!.micNeeded,
       );
       return;
     }
@@ -62,7 +63,7 @@ class _DictationScreenState extends State<DictationScreen> {
         },
       );
       if (!_ready) {
-        setState(() => _error = 'Speech recognition is not available on this phone.');
+        setState(() => _error = AppLocalizations.of(context)!.noSpeech);
         return;
       }
     }
@@ -114,6 +115,7 @@ class _DictationScreenState extends State<DictationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F10),
       body: SafeArea(
@@ -125,10 +127,10 @@ class _DictationScreenState extends State<DictationScreen> {
                 children: [
                   const Icon(Icons.mic, color: Color(DeckTokens.textSecondary), size: 16),
                   const SizedBox(width: 6),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Dictate',
-                      style: TextStyle(
+                      t.dictate,
+                      style: const TextStyle(
                         color: Color(DeckTokens.textPrimary),
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
@@ -136,6 +138,7 @@ class _DictationScreenState extends State<DictationScreen> {
                     ),
                   ),
                   IconButton(
+                    tooltip: t.close,
                     icon: const Icon(Icons.close, color: Color(DeckTokens.textSecondary), size: 18),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -153,9 +156,8 @@ class _DictationScreenState extends State<DictationScreen> {
                         (_partial.isNotEmpty
                             ? _partial
                             : _listening
-                            ? 'Listening…'
-                            : 'Hold the button and speak.\nThe text is typed on the PC when you '
-                                  'let go.'),
+                            ? t.listening
+                            : t.holdAndSpeak),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(_error != null ? DeckTokens.accent : DeckTokens.textPrimary),

@@ -56,7 +56,12 @@ class DeviceBezel extends StatelessWidget {
     final compact = isCompact(availableHeight);
     return _padTop(compact) +
         _padBottom(compact) +
-        (dotsInside && pageCount > 1 ? 18 : 0) + // 10 gap + 8 dot
+        // 10 gap + the row. The `2/4` label is 12 where a dot is 8, and sideways those 4 pixels
+        // come straight off the key: measured 110.2 -> 109.6 and `CAPPED BY BOX` where nothing
+        // had been capped before. So the label is portrait-only, where height is not what binds.
+        // This number is the one thing that trace cannot catch — both sides of its comparison
+        // derive from it, so they agree while being wrong together. `no_overflow_test` catches it.
+        (dotsInside && pageCount > 1 ? (compact ? 18 : 22) : 0) +
         (compact ? 0 : 8 + _logoLineHeight);
   }
 
@@ -65,17 +70,38 @@ class DeviceBezel extends StatelessWidget {
   /// The margin goes on the axis the dots are laid out along, never both: in the bezel they sit in
   /// a Row whose height `chromeHeightFor` has already budgeted at 8, so a vertical margin here is
   /// height nobody reserved — which is precisely how this overflowed the deck by 4.4 pixels.
+  ///
+  /// **The active one is LONGER, not just redder.** The two token colours are dark brand red and
+  /// dark grey on a near-black bezel: about 1.7:1 and 2.1:1, and barely 1.2:1 apart in luminance —
+  /// so the only thing separating them was hue, which is nothing at all to the ~8% of men who
+  /// cannot tell those two apart. Length reads in greyscale, at arm's length, and next to a
+  /// monitor. The pale ring is what lifts the mark off the bezel.
   static Widget dot(bool active, {bool stacked = false}) => Container(
     margin: stacked
         ? const EdgeInsets.symmetric(vertical: 3)
         : const EdgeInsets.symmetric(horizontal: 3),
-    width: 8,
-    height: 8,
+    width: stacked ? 8 : (active ? 18 : 8),
+    height: stacked ? (active ? 18 : 8) : 8,
     decoration: BoxDecoration(
-      shape: BoxShape.circle,
+      borderRadius: BorderRadius.circular(4),
       color: active
           ? const Color(DeckTokens.pageDotActive)
           : const Color(DeckTokens.pageDotInactive),
+      border: active
+          ? Border.all(color: const Color(0x66FFFFFF), width: 1)
+          : null,
+    ),
+  );
+
+  /// `2/4`, for when eight-pixel marks are not enough — which is most of the time on a surface
+  /// read at arm's length. Costs no colour, so it is the one page cue that works for everybody.
+  static Widget pageLabel(int currentPage, int pageCount) => Text(
+    '${currentPage + 1}/$pageCount',
+    style: const TextStyle(
+      color: Color(DeckTokens.textSecondary),
+      fontSize: 11,
+      height: 1.0,
+      fontFeatures: [FontFeature.tabularFigures()],
     ),
   );
 
@@ -128,7 +154,17 @@ class DeviceBezel extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               mainAxisSize: MainAxisSize.min,
-              children: [for (var i = 0; i < pageCount; i++) dot(i == currentPage)],
+              spacing: 6,
+              children: [
+                // ponytail: deliberately NOT tappable. A target worth tapping is ~48 high, and
+                // sideways every pixel of height comes straight off the key — which is the one
+                // thing on this screen that is not allowed to shrink. The swipe already goes to
+                // any page, and it follows the finger now.
+                for (var i = 0; i < pageCount; i++) dot(i == currentPage),
+                // Portrait only: sideways it costs key size, and the longer active mark already
+                // carries the cue that does not depend on telling two dark colours apart.
+                if (!compact) pageLabel(currentPage, pageCount),
+              ],
             ),
           ],
           // Dropped on a short screen: see [_compactBelow]. Every pixel it takes is a pixel off

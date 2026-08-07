@@ -21,6 +21,10 @@ String _errorMessage(AppLocalizations t, String code) => switch (code) {
   'rate_limited' => t.tooManyAttempts,
   'unreachable' => t.couldNotReach,
   'dropped' => t.connectionDropped,
+  // Paired, and then the session would not open — a different failure from any of the above, and
+  // the one where the detail is worth showing, because it is the only clue there is.
+  _ when code.startsWith('session_failed:') =>
+    t.pairFailed(code.substring('session_failed:'.length).trim()),
   _ => code,
 };
 
@@ -220,7 +224,7 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '"${widget.host.name}" wants to connect',
+              t.wantsToConnect(widget.host.name),
               style: const TextStyle(
                 color: Color(DeckTokens.textPrimary),
                 fontSize: 20,
@@ -228,9 +232,9 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Enter the 6-digit code shown on that PC. It expires in 120 s.',
-              style: TextStyle(color: Color(DeckTokens.textSecondary)),
+            Text(
+              t.enterCode,
+              style: const TextStyle(color: Color(DeckTokens.textSecondary)),
             ),
             const SizedBox(height: 24),
             if (!_ready && _error == null)

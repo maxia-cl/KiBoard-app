@@ -311,6 +311,12 @@ class WsLayoutSource implements LayoutSource {
   }
 
   @override
+  Stream<String> toasts() => _messages
+      .where((m) => m['type'] == 'toast')
+      .map((m) => m['text'] as String? ?? '')
+      .where((text) => text.isNotEmpty);
+
+  @override
   Stream<Layout> preloads() =>
       // The same body as a `layout`, so the same parser. Deliberately NOT merged into `layouts()`:
       // everything downstream of that stream draws what it is given, and a preload must not.

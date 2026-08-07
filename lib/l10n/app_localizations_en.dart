@@ -49,6 +49,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get readTheManual => 'How this works';
 
   @override
+  String get noSuchKey => 'That key is not on the PC anymore.';
+
+  @override
+  String get unknownAction => 'The PC did not recognise that key\'s action.';
+
+  @override
+  String get blockedAction => 'The PC refused that action.';
+
+  @override
+  String get keyRefusedGeneric => 'The PC refused that key.';
+
+  @override
+  String get yourPc => 'your PC';
+
+  @override
+  String get dictate => 'Dictate';
+
+  @override
   String get appName => 'KiBoard';
 
   @override
@@ -178,11 +196,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cannotUndo => 'This one cannot be undone from here.';
-
-  @override
-  String keyRefused(String error) {
-    return 'That key was refused: $error';
-  }
 
   @override
   String get noAnswer => 'no answer from the PC';

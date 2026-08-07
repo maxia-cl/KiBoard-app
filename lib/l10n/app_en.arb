@@ -12,6 +12,12 @@
   "noOpenWindows": "No open windows on your PC.",
   "isKiboardRunning": "Is KiBoard running on the PC? It sits in the tray, next to the clock.",
   "readTheManual": "How this works",
+  "noSuchKey": "That key is not on the PC anymore.",
+  "unknownAction": "The PC did not recognise that key's action.",
+  "blockedAction": "The PC refused that action.",
+  "keyRefusedGeneric": "The PC refused that key.",
+  "yourPc": "your PC",
+  "dictate": "Dictate",
   "appName": "KiBoard",
   "lookingForPcs": "Looking for PCs on your network…",
   "noPcsFound": "No PCs found on this network yet.",
@@ -72,14 +78,6 @@
   "micDenied": "Microphone denied. Enable it in Android settings.",
   "noSpeech": "Speech recognition is not available on this phone.",
   "cannotUndo": "This one cannot be undone from here.",
-  "keyRefused": "That key was refused: {error}",
-  "@keyRefused": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
   "noAnswer": "no answer from the PC",
   "vibration": "Vibration",
   "sound": "Sound",

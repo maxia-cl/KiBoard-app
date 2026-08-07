@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../net/ws_layout_source.dart';
 import '../tokens.g.dart';
 
@@ -204,7 +205,7 @@ class _TrackpadScreenState extends State<TrackpadScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _PadButton(
-                      label: 'Right click',
+                      label: AppLocalizations.of(context)!.rightClick,
                       onTap: () {
                         HapticFeedback.mediumImpact();
                         widget.session.sendInput({'kind': 'click', 'button': 'right'});

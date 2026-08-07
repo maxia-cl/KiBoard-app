@@ -50,6 +50,24 @@ class AppLocalizationsEs extends AppLocalizations {
   String get readTheManual => 'Cómo funciona esto';
 
   @override
+  String get noSuchKey => 'Esa tecla ya no está en el PC.';
+
+  @override
+  String get unknownAction => 'El PC no reconoció la acción de esa tecla.';
+
+  @override
+  String get blockedAction => 'El PC rechazó esa acción.';
+
+  @override
+  String get keyRefusedGeneric => 'El PC rechazó esa tecla.';
+
+  @override
+  String get yourPc => 'tu PC';
+
+  @override
+  String get dictate => 'Dictar';
+
+  @override
   String get appName => 'KiBoard';
 
   @override
@@ -182,11 +200,6 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get cannotUndo => 'Esta no se puede deshacer desde aquí.';
-
-  @override
-  String keyRefused(String error) {
-    return 'Esa tecla fue rechazada: $error';
-  }
 
   @override
   String get noAnswer => 'el PC no respondió';
