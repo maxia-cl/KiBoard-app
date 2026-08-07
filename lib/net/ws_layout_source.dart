@@ -9,6 +9,13 @@ import 'layout_source.dart';
 import 'pinned_socket.dart';
 import 'trace.dart';
 
+/// Cells at the end of every page the phone keeps for itself (§4.1 `grid.reserve`).
+///
+/// Two, for the foreground-app panel in the bottom-right corner. It is not free: the host
+/// paginates around them, so the same deck holds two fewer keys per page and gains pages. That is
+/// the price of the panel being on EVERY page instead of only the ones that happened to have room.
+const reservedCells = 2;
+
 /// Thrown when `hello` is rejected: revoked, invalid_token, protocol_too_old (protocol §5).
 class HelloException implements Exception {
   final String code;
@@ -204,7 +211,7 @@ class WsLayoutSource implements LayoutSource {
       'token': token,
       'deviceId': deviceId,
       'locale': locale,
-      'grid': {'rows': _grid.rows, 'cols': _grid.cols},
+      'grid': {'rows': _grid.rows, 'cols': _grid.cols, 'reserve': reservedCells},
     });
     final Map<String, dynamic> ack;
     try {
@@ -369,7 +376,7 @@ class WsLayoutSource implements LayoutSource {
     _send({
       'v': 2,
       'type': 'set_grid',
-      'grid': {'rows': next.rows, 'cols': next.cols},
+      'grid': {'rows': next.rows, 'cols': next.cols, 'reserve': reservedCells},
     });
     await _sessionRequest(replied);
   }

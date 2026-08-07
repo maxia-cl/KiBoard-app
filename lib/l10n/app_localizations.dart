@@ -212,12 +212,6 @@ abstract class AppLocalizations {
   /// **'opening…'**
   String get launching;
 
-  /// No description provided for @inFront.
-  ///
-  /// In en, this message translates to:
-  /// **'In front'**
-  String get inFront;
-
   /// No description provided for @inFrontOnPc.
   ///
   /// In en, this message translates to:

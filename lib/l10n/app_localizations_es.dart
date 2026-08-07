@@ -71,9 +71,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get launching => 'abriendo…';
 
   @override
-  String get inFront => 'Al frente';
-
-  @override
   String inFrontOnPc(String app) {
     return '$app está al frente en el PC';
   }

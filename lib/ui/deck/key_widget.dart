@@ -44,6 +44,10 @@ MemoryImage? decodedIcon(String? uri) {
 class KeyWidget extends StatefulWidget {
   final DeckKey keyData;
   final double size;
+
+  /// Wider than it is tall, for a cap that spans more than one cell. Only the foreground-app tile
+  /// uses it: everything else on a key pad is square, and stays square.
+  final double? width;
   final void Function(String press)? onPress;
 
   /// Pressed, and the app it opens is not up yet — see the spinner below. Launching takes seconds,
@@ -54,6 +58,7 @@ class KeyWidget extends StatefulWidget {
     super.key,
     required this.keyData,
     required this.size,
+    this.width,
     this.onPress,
     this.launching = false,
   });
@@ -325,7 +330,7 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                 curve: down ? Curves.easeOut : Curves.easeOutBack,
                 transform: Matrix4.translationValues(0, down ? _travel : 0, 0),
                 transformAlignment: Alignment.center,
-                width: widget.size,
+                width: widget.width ?? widget.size,
                 height: widget.size,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
@@ -379,7 +384,7 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                 ),
               if (key.minimized)
                 Container(
-                  width: widget.size,
+                  width: widget.width ?? widget.size,
                   height: widget.size,
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.45),

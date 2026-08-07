@@ -19,7 +19,6 @@
   "yourPc": "tu PC",
   "dictate": "Dictar",
   "launching": "abriendo…",
-  "inFront": "Al frente",
   "inFrontOnPc": "{app} está al frente en el PC",
   "@inFrontOnPc": {
     "placeholders": {

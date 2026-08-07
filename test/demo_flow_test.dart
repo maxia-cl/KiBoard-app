@@ -172,7 +172,8 @@ void main() {
 
     expect(fake.confirmedWith, '418203');
     // Successful pairing navigates to the deck screen (auto-mode Photoshop layout from fixtures).
-    expect(find.text('Adobe Photoshop'), findsOneWidget);
+    // Twice on purpose: the chrome's title, and the foreground-app panel in the reserved cells.
+    expect(find.text('Adobe Photoshop'), findsNWidgets(2));
   });
 
   testWidgets('PairingCodeScreen: a wrong code shows the host error, not a mock string', (

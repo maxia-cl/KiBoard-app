@@ -415,9 +415,10 @@ void main() {
     });
   });
 
-  /// §4.1: a manual deck follows nothing, so the phone was pressing keys at a PC without being
-  /// able to name what was in front of it. Auto mode says it in the title; manual had nowhere.
-  group('the foreground app in manual mode', () {
+  /// §4.1: what the PC has in front, in the two cells the phone RESERVES at the end of every page
+  /// (`grid.reserve`). It used to appear only where the deck happened to have room, which on a
+  /// full page — the Launcher's, for one — was nowhere.
+  group('the foreground app on the deck', () {
     Future<void> pump(WidgetTester tester, _TenKeys source) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -430,27 +431,33 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
     }
 
-    testWidgets('is shown over the last two cells when they are free', (tester) async {
+    testWidgets('is shown on a manual deck', (tester) async {
       final source = _TenKeys(manual: true, foreground: 'Photoshop');
       addTearDown(source.dispose);
       await pump(tester, source);
       expect(find.text('Photoshop'), findsOneWidget);
     });
 
-    testWidgets('gives way to keys rather than covering them', (tester) async {
-      // The same deck with its last slot used. The keys are the product; this is context.
+    testWidgets('and on a page whose keys fill it, because the cells are reserved', (tester) async {
       final source = _TenKeys(manual: true, foreground: 'Photoshop', full: true);
       addTearDown(source.dispose);
       await pump(tester, source);
-      expect(find.text('Photoshop'), findsNothing);
+      expect(find.text('Photoshop'), findsOneWidget);
     });
 
-    testWidgets('and auto mode does not draw it in the grid', (tester) async {
-      // Auto already names the app in the title — a second copy in the grid would be noise.
+    testWidgets('and in auto mode too, not just the title', (tester) async {
+      // A line of 14 pt text in the chrome is not what a glance from across a desk reads.
       final source = _TenKeys(foreground: 'Photoshop');
       addTearDown(source.dispose);
       await pump(tester, source);
-      expect(find.text('Photoshop'), findsOneWidget, reason: 'the title, and only the title');
+      expect(find.text('Photoshop'), findsNWidgets(2), reason: 'the title AND the panel');
+    });
+
+    testWidgets('and says nothing when the host has not resolved an app', (tester) async {
+      final source = _TenKeys(manual: true);
+      addTearDown(source.dispose);
+      await pump(tester, source);
+      expect(find.byType(Image), findsNothing);
     });
   });
 
