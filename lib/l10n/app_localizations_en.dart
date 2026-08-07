@@ -9,6 +9,9 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get backAgainToLeave => 'Press back again to leave KiBoard';
+
+  @override
   String get appName => 'KiBoard';
 
   @override

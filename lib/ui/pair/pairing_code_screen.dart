@@ -131,8 +131,15 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
       trace('session ready, opening the deck');
       if (!mounted) return;
       // Fade-through, not a push: the deck is not "deeper" than the pairing screen, it replaces it.
-      Navigator.of(context).pushReplacement(
+      //
+      // And `pushAndRemoveUntil`, not `pushReplacement`: the discovery screen underneath is a
+      // finished flow with no route forward, so leaving it in the stack meant back on the deck
+      // popped to a host list the user had already used — and the only way out of that was killing
+      // the app. Clearing the stack makes the deck the root here, exactly as it is on a relaunch,
+      // so back means one thing in both cases.
+      Navigator.of(context).pushAndRemoveUntil(
         fadeRoute(DeckScreen(layoutSource: source, hostName: result.hostName, session: _session)),
+        (route) => false,
       );
     } on PairingException catch (e) {
       if (!mounted) return;

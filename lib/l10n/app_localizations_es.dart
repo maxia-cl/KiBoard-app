@@ -9,6 +9,9 @@ class AppLocalizationsEs extends AppLocalizations {
   AppLocalizationsEs([String locale = 'es']) : super(locale);
 
   @override
+  String get backAgainToLeave => 'Pulsa atrás otra vez para salir de KiBoard';
+
+  @override
   String get appName => 'KiBoard';
 
   @override

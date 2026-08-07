@@ -372,6 +372,89 @@ void main() {
     });
   });
 
+  /// Back used to do one of two things depending on how you got to the deck, and neither was
+  /// intended: on a relaunch it closed the app outright, and in the session where you paired it
+  /// popped to the discovery list you had already finished, with no route forward.
+  group('back on the deck', () {
+    testWidgets('asks once, and the second press leaves', (tester) async {
+      final platformCalls = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+        call,
+      ) async {
+        platformCalls.add(call.method);
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+
+      final source = _TenKeys();
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.text('Press back again to leave KiBoard'), findsOneWidget);
+      expect(
+        platformCalls,
+        isNot(contains('SystemNavigator.pop')),
+        reason: 'one back press must not close a keypad somebody is looking at',
+      );
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(platformCalls, contains('SystemNavigator.pop'));
+    });
+
+    testWidgets('and the warning expires, so it cannot leave much later', (tester) async {
+      final platformCalls = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+        call,
+      ) async {
+        platformCalls.add(call.method);
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+
+      final source = _TenKeys();
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3)); // the snackbar and the window both go
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(platformCalls, isNot(contains('SystemNavigator.pop')));
+      expect(find.text('Press back again to leave KiBoard'), findsOneWidget);
+    });
+  });
+
   /// §4.4 `set_page`. The swipe used to read only `primaryVelocity` on RELEASE: nothing moved
   /// while the finger did, and a slow, deliberate drag across the whole pad ended at zero velocity
   /// and changed nothing at all. Both halves of "se queda pegado".

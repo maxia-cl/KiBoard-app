@@ -41,9 +41,17 @@ class DeckScreen extends StatefulWidget {
 class _DeckScreenState extends State<DeckScreen> {
   late final Stream<Layout> _layouts = widget.layoutSource.layouts();
 
+  /// Watches for the app coming back to the foreground. The phone spends most of its life in a
+  /// pocket while the PC sleeps, so `resumed` is the single most frequent transition in the
+  /// product — and the moment the user has just woken the PC and wants to press a key.
+  late final AppLifecycleListener _lifecycle = AppLifecycleListener(
+    onResume: () => widget.session?.reconnectNow(),
+  );
+
   @override
   void initState() {
     super.initState();
+    _lifecycle; // created lazily; touch it so it is listening from the first frame
     // A key pad you have to wake up first is not a key pad. Android's screen timeout is ~30s, and
     // the deck's whole point is being glanceable and pressable without ceremony while you work on
     // the PC. Released in dispose, so it only applies while the deck is actually on screen.
@@ -60,6 +68,8 @@ class _DeckScreenState extends State<DeckScreen> {
     }
     _swipeGuard?.cancel();
     _preloads?.cancel();
+    _exitArmed?.cancel();
+    _lifecycle.dispose();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -379,8 +389,54 @@ class _DeckScreenState extends State<DeckScreen> {
       );
   }
 
+  /// Armed by one back press and disarmed by [_exitWindow]. A timer rather than a stored timestamp
+  /// so the state clears ITSELF — a timestamp compared against `DateTime.now()` leaves the deck
+  /// permanently one press from closing once the user has ever pressed back, and is invisible to a
+  /// test's clock.
+  Timer? _exitArmed;
+  static const _exitWindow = Duration(seconds: 2);
+
+  /// Back on the deck used to do one of two things depending on how you got here, and neither was
+  /// intended: on a relaunch the deck is the root route, so back closed the app outright; in the
+  /// session where you paired it popped to the discovery list you had already finished, with no
+  /// route forward. The route stack is now the same either way (see `pairing_code_screen`), and
+  /// this makes leaving deliberate.
+  ///
+  /// Two seconds, and the confirmation is a snackbar rather than a dialog: the deck is poked at
+  /// while looking at a monitor, and a modal there would be worse than the accident it prevents.
+  void _confirmExit() {
+    if (_exitArmed?.isActive ?? false) {
+      _exitArmed?.cancel();
+      SystemNavigator.pop();
+      return;
+    }
+    _exitArmed = Timer(_exitWindow, () {});
+    if (Settings.instance.value.haptics) HapticFeedback.selectionClick();
+    final t = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(t.backAgainToLeave),
+          duration: const Duration(seconds: 2),
+          backgroundColor: const Color(0xFF2C2C2E),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmExit();
+      },
+      child: _buildDeck(context),
+    );
+  }
+
+  Widget _buildDeck(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F10),
       body: SafeArea(

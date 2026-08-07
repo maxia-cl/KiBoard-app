@@ -1,5 +1,6 @@
 {
   "@@locale": "es",
+  "backAgainToLeave": "Pulsa atrás otra vez para salir de KiBoard",
   "appName": "KiBoard",
   "lookingForPcs": "Buscando PCs en tu red…",
   "noPcsFound": "Todavía no hay ningún PC en esta red.",

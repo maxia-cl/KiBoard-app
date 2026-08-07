@@ -243,6 +243,21 @@ class WsLayoutSource implements LayoutSource {
     _scheduleReconnect();
   }
 
+  /// Try again NOW, throwing away whatever the backoff had worked its way up to.
+  ///
+  /// The backoff only resets on a successful connect, so after the PC has been off for an hour it
+  /// sits at its 15 s ceiling — and unlocking the phone then showed a stale deck and "offline" for
+  /// up to a quarter of a minute before the app so much as attempted a connection. That is not
+  /// "being offline", which is a normal state for this screen; it is not trying. Called when the
+  /// app comes back to the foreground, which is exactly the moment the user has just woken the PC.
+  void reconnectNow() {
+    if (_closed || currentStatus == SessionStatus.online) return;
+    _retry?.cancel();
+    _retry = null;
+    _attempt = 0;
+    _scheduleReconnect();
+  }
+
   /// Exponential backoff capped at 15 s: a host that is simply off should not be hammered, but a
   /// Wi-Fi blip should recover in about a second.
   void _scheduleReconnect() {

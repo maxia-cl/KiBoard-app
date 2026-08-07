@@ -98,6 +98,12 @@ abstract class AppLocalizations {
     Locale('es'),
   ];
 
+  /// No description provided for @backAgainToLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'Press back again to leave KiBoard'**
+  String get backAgainToLeave;
+
   /// No description provided for @appName.
   ///
   /// In en, this message translates to:
