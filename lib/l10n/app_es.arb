@@ -27,6 +27,10 @@
       }
     }
   },
+  "appPanel": "Panel de la app",
+  "appPanelHint": "Sólo en vertical. Arriba, las teclas se quedan con la fila que alcanza el pulgar.",
+  "panelTop": "Arriba",
+  "panelBottom": "Abajo",
   "appName": "KiBoard",
   "lookingForPcs": "Buscando PCs en tu red…",
   "noPcsFound": "Todavía no hay ningún PC en esta red.",

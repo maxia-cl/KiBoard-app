@@ -215,7 +215,9 @@ class _DeckScreenState extends State<DeckScreen> {
   /// panel, and one gap in an otherwise solid row reads as a drawing fault rather than as a key
   /// nobody has used. Absorbing it can never hide anything: it only ever takes cells the host left
   /// empty, and it stops at the row's edge.
-  int _panelCells(Layout layout, Grid grid) {
+  int _panelCells(Layout layout, Grid grid, {required bool onTop}) {
+    // On the first row the keys start immediately after the panel, so nothing can be stranded.
+    if (onTop) return reservedCells;
     var cells = reservedCells;
     // Walk back from the last key the host sent, while it is empty and still on the bottom row.
     var i = layout.keys.length - 1;
@@ -229,10 +231,18 @@ class _DeckScreenState extends State<DeckScreen> {
     return cells;
   }
 
+  /// Whether the foreground-app panel sits on the FIRST row instead of the last.
+  ///
+  /// Upright only, and off by default. Held one-handed, the bottom of a phone is the only part a
+  /// thumb reaches — so moving the panel up hands that row back to the keys. Sideways the whole pad
+  /// is within reach and the panel stays where it is, which also keeps the reserved cells in the
+  /// corner the eye already goes to.
+  bool _panelOnTop(bool sideways) => !sideways && Settings.instance.value.appPanelAtTop;
+
   /// The keys the grid actually draws: everything the host sent, minus the unlit cells the panel
   /// has swallowed. See [_panelCells].
-  List<DeckKey> _keysUnder(Layout layout, Grid grid) {
-    final absorbed = _panelCells(layout, grid) - reservedCells;
+  List<DeckKey> _keysUnder(Layout layout, Grid grid, {required bool onTop}) {
+    final absorbed = _panelCells(layout, grid, onTop: onTop) - reservedCells;
     if (absorbed <= 0) return layout.keys;
     return layout.keys.sublist(0, layout.keys.length - absorbed);
   }
@@ -519,7 +529,13 @@ class _DeckScreenState extends State<DeckScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _confirmExit();
       },
-      child: _buildDeck(context),
+      // Rebuilds when Settings change, which no other screen needs: haptics and sound are read at
+      // the moment of a press, but the panel's position is LAYOUT — chosen in a sheet over this
+      // very deck, so it has to be true the moment the sheet closes.
+      child: ValueListenableBuilder<SettingsData>(
+        valueListenable: Settings.instance,
+        builder: (context, _, _) => _buildDeck(context),
+      ),
     );
   }
 
@@ -621,6 +637,8 @@ class _DeckScreenState extends State<DeckScreen> {
                         final keySize = math.min(byDevice, byBox) * 0.98;
                         _traceSize(byDevice, byBox, keySize, w, h);
                         _traceShape(layout, grid);
+                        final panelOnTop = _panelOnTop(sideways);
+                        final panelCells = _panelCells(layout, grid, onTop: panelOnTop);
                         _remember(layout);
                         return SizedBox.expand(
                           // §4.4 `set_page`. The dots were drawn from the start but nothing ever
@@ -736,26 +754,28 @@ class _DeckScreenState extends State<DeckScreen> {
                                               // Stops where the panel starts. Absorbing a cell and
                                               // then still drawing its cap underneath is the very
                                               // fault this was meant to remove.
-                                              keys: _keysUnder(layout, grid),
+                                              keys: _keysUnder(layout, grid, onTop: panelOnTop),
                                               keySize: keySize,
                                               launching: _launching,
+                                              // Panel on the first row: the keys start after it,
+                                              // so the grid opens with that many blank cells.
+                                              leadingBlanks: panelOnTop ? reservedCells : 0,
                                               onKeyPress: (pos, press) =>
                                                   _handlePress(layout, pos, press),
                                             ),
-                                            // What the PC has in front, in MANUAL mode. Auto mode
-                                            // says it in the title, because there the app is why
-                                            // these keys are on screen at all; a deck follows
-                                            // nothing, so the phone was pressing keys at something
-                                            // it could not name. Two cells wide, because an icon
-                                            // and an app name at key size need the width.
+                                            // What the PC has in front. The cells are reserved
+                                            // (§4.1), so this never fights a key for them — and
+                                            // upright the user can move it to the first row, which
+                                            // hands the thumb's row back to the keys.
                                             if (_foregroundApp(layout) case final app?)
                                               Positioned(
-                                                right: 0,
-                                                bottom: 0,
+                                                left: panelOnTop ? 0 : null,
+                                                right: panelOnTop ? null : 0,
+                                                top: panelOnTop ? 0 : null,
+                                                bottom: panelOnTop ? null : 0,
                                                 width:
-                                                    _panelCells(layout, grid) * keySize +
-                                                    (_panelCells(layout, grid) - 1) *
-                                                        KeyGrid.gapFor(keySize),
+                                                    panelCells * keySize +
+                                                    (panelCells - 1) * KeyGrid.gapFor(keySize),
                                                 height: keySize,
                                                 child: _ForegroundApp(
                                                   name: app,

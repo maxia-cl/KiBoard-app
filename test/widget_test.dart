@@ -12,6 +12,7 @@ import 'package:kiboard_app/main.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/layout_source.dart';
 import 'package:kiboard_app/net/saved_session.dart';
+import 'package:kiboard_app/settings.dart';
 import 'package:kiboard_app/ui/splash.dart';
 import 'package:kiboard_app/ui/wordmark.dart';
 import 'package:kiboard_app/model/deck.dart';
@@ -463,6 +464,31 @@ void main() {
         greaterThan(2 * key.width),
         reason: 'it took the stranded cell as well as its own two',
       );
+    });
+
+    testWidgets('moves to the first row when the setting says so, upright', (tester) async {
+      // Held one-handed the bottom row is the only one a thumb reaches, so somebody who works that
+      // way wants it to be keys. Upright only — sideways the whole pad is within reach.
+      SharedPreferences.setMockInitialValues({'panelTop': true});
+      await Settings.instance.load();
+      addTearDown(() async {
+        SharedPreferences.setMockInitialValues({});
+        await Settings.instance.load();
+      });
+
+      tester.view.physicalSize = const Size(393, 873);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final source = _TenKeys(manual: true, foreground: 'Photoshop');
+      addTearDown(source.dispose);
+      await pump(tester, source);
+
+      final panel = tester
+          .getTopLeft(find.ancestor(of: find.text('Photoshop'), matching: find.byType(IgnorePointer)).first)
+          .dy;
+      final firstKey = tester.getTopLeft(find.byType(KeyWidget).first).dy;
+      expect(panel, lessThan(firstKey), reason: 'above every key, not below them');
     });
 
     testWidgets('and in auto mode too, not just the title', (tester) async {

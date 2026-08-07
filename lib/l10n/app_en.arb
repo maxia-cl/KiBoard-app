@@ -27,6 +27,10 @@
       }
     }
   },
+  "appPanel": "App panel",
+  "appPanelHint": "Upright only. At the top, the keys keep the row your thumb reaches.",
+  "panelTop": "Top",
+  "panelBottom": "Bottom",
   "appName": "KiBoard",
   "lookingForPcs": "Looking for PCs on your network…",
   "noPcsFound": "No PCs found on this network yet.",

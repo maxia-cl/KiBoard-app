@@ -218,6 +218,30 @@ abstract class AppLocalizations {
   /// **'{app} is in front on the PC'**
   String inFrontOnPc(String app);
 
+  /// No description provided for @appPanel.
+  ///
+  /// In en, this message translates to:
+  /// **'App panel'**
+  String get appPanel;
+
+  /// No description provided for @appPanelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Upright only. At the top, the keys keep the row your thumb reaches.'**
+  String get appPanelHint;
+
+  /// No description provided for @panelTop.
+  ///
+  /// In en, this message translates to:
+  /// **'Top'**
+  String get panelTop;
+
+  /// No description provided for @panelBottom.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom'**
+  String get panelBottom;
+
   /// No description provided for @appName.
   ///
   /// In en, this message translates to:

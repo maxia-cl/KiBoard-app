@@ -75,6 +75,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get appPanel => 'App panel';
+
+  @override
+  String get appPanelHint =>
+      'Upright only. At the top, the keys keep the row your thumb reaches.';
+
+  @override
+  String get panelTop => 'Top';
+
+  @override
+  String get panelBottom => 'Bottom';
+
+  @override
   String get appName => 'KiBoard';
 
   @override

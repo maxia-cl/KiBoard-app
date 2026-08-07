@@ -61,6 +61,31 @@ Future<void> showSettingsSheet(BuildContext context) => showModalBottomSheet<voi
                   onChanged: (code) => Settings.instance.setLanguage(code ?? ''),
                 ),
               ),
+              // Upright only, and it is the one layout choice worth offering: held one-handed,
+              // the bottom of a phone is the only part a thumb reaches, so somebody who works that
+              // way wants that row to be keys rather than a readout.
+              ListTile(
+                leading: const Icon(
+                  Icons.vertical_align_top,
+                  color: Color(DeckTokens.textSecondary),
+                ),
+                title: Text(t.appPanel, style: _title),
+                subtitle: Text(
+                  t.appPanelHint,
+                  style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 12),
+                ),
+                trailing: DropdownButton<bool>(
+                  value: s.appPanelAtTop,
+                  dropdownColor: const Color(0xFF1E1E20),
+                  underline: const SizedBox.shrink(),
+                  style: const TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 14),
+                  items: [
+                    DropdownMenuItem(value: false, child: Text(t.panelBottom)),
+                    DropdownMenuItem(value: true, child: Text(t.panelTop)),
+                  ],
+                  onChanged: (top) => Settings.instance.setAppPanelAtTop(top ?? false),
+                ),
+              ),
               const Divider(height: 1, color: Color(0xFF2C2C2E)),
               ListTile(
                 leading: const Icon(Icons.menu_book, color: Color(DeckTokens.textSecondary)),

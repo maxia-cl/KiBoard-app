@@ -17,6 +17,9 @@ class KeyGrid extends StatelessWidget {
   /// Positions waiting for the app they opened to appear (see `KeyWidget.launching`).
   final Set<int> launching;
 
+  /// Cells to leave blank BEFORE the first key. See the note in `build`.
+  final int leadingBlanks;
+
   const KeyGrid({
     super.key,
     required this.grid,
@@ -24,6 +27,7 @@ class KeyGrid extends StatelessWidget {
     required this.keySize,
     this.onKeyPress,
     this.launching = const {},
+    this.leadingBlanks = 0,
   });
 
   static double gapFor(double keySize) => keySize * DeckTokens.keyGapRatioOfSide;
@@ -124,6 +128,10 @@ class KeyGrid extends StatelessWidget {
         childAspectRatio: 1,
         physics: const NeverScrollableScrollPhysics(),
         children: [
+          // Cells the caller has taken for something else — the foreground-app panel, when it sits
+          // on the first row. Blank rather than an empty KEY: an unlit cap under the panel is the
+          // double frame this already had to be rid of once.
+          for (var i = 0; i < leadingBlanks; i++) const SizedBox.shrink(),
           for (final key in keys)
             KeyWidget(
               keyData: key,

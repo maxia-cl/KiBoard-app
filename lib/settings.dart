@@ -15,6 +15,7 @@ class Settings extends ValueNotifier<SettingsData> {
   static const _kHaptics = 'haptics';
   static const _kSound = 'sound';
   static const _kLocale = 'locale'; // '' = follow the phone
+  static const _kPanelTop = 'panelTop';
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -22,6 +23,7 @@ class Settings extends ValueNotifier<SettingsData> {
       haptics: prefs.getBool(_kHaptics) ?? true,
       sound: prefs.getBool(_kSound) ?? true,
       languageCode: prefs.getString(_kLocale) ?? '',
+      appPanelAtTop: prefs.getBool(_kPanelTop) ?? false,
     );
   }
 
@@ -33,6 +35,14 @@ class Settings extends ValueNotifier<SettingsData> {
   Future<void> setSound(bool on) async {
     value = value.copyWith(sound: on);
     (await SharedPreferences.getInstance()).setBool(_kSound, on);
+  }
+
+  /// Upright only: puts the foreground-app panel on the FIRST row instead of the last, which hands
+  /// the bottom of the screen — the only part a thumb reaches one-handed — back to the keys.
+  /// Sideways the panel stays where it is: the reachable zone there is the whole pad.
+  Future<void> setAppPanelAtTop(bool top) async {
+    value = value.copyWith(appPanelAtTop: top);
+    (await SharedPreferences.getInstance()).setBool(_kPanelTop, top);
   }
 
   /// '' means follow the phone, which is the default and what most people want: they already told
@@ -49,11 +59,26 @@ class SettingsData {
   final bool sound;
   final String languageCode;
 
-  const SettingsData({this.haptics = true, this.sound = true, this.languageCode = ''});
+  /// Upright: the foreground-app panel on the first row rather than the last. Default false — the
+  /// bottom is where it started, and a setting that moves something on upgrade is a bad default.
+  final bool appPanelAtTop;
 
-  SettingsData copyWith({bool? haptics, bool? sound, String? languageCode}) => SettingsData(
+  const SettingsData({
+    this.haptics = true,
+    this.sound = true,
+    this.languageCode = '',
+    this.appPanelAtTop = false,
+  });
+
+  SettingsData copyWith({
+    bool? haptics,
+    bool? sound,
+    String? languageCode,
+    bool? appPanelAtTop,
+  }) => SettingsData(
     haptics: haptics ?? this.haptics,
     sound: sound ?? this.sound,
     languageCode: languageCode ?? this.languageCode,
+    appPanelAtTop: appPanelAtTop ?? this.appPanelAtTop,
   );
 }

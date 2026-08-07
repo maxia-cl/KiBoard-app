@@ -76,6 +76,19 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get appPanel => 'Panel de la app';
+
+  @override
+  String get appPanelHint =>
+      'Sólo en vertical. Arriba, las teclas se quedan con la fila que alcanza el pulgar.';
+
+  @override
+  String get panelTop => 'Arriba';
+
+  @override
+  String get panelBottom => 'Abajo';
+
+  @override
   String get appName => 'KiBoard';
 
   @override
