@@ -446,24 +446,21 @@ void main() {
       expect(find.text('Photoshop'), findsOneWidget);
     });
 
-    testWidgets('swallows a trailing unlit cell instead of leaving it stranded', (tester) async {
-      // The fixture's page stops one short of the reserved pair, so without this there is a lone
-      // empty cap wedged between the last key and the panel — one gap in an otherwise solid row,
-      // which reads as a drawing fault rather than as a key nobody has used.
-      final source = _TenKeys(manual: true, foreground: 'Photoshop');
-      addTearDown(source.dispose);
-      await pump(tester, source);
+    testWidgets('is always the same width, however full the page is', (tester) async {
+      // It used to grow into whatever unlit cell sat beside it, so a short page got a wide panel
+      // and a full one a narrow panel. A readout that resizes itself page by page is not a readout.
+      Future<double> widthWith({required bool full}) async {
+        final source = _TenKeys(manual: true, foreground: 'Photoshop', full: full);
+        addTearDown(source.dispose);
+        await pump(tester, source);
+        return tester
+            .getSize(
+              find.ancestor(of: find.text('Photoshop'), matching: find.byType(IgnorePointer)).first,
+            )
+            .width;
+      }
 
-      final panel = tester.getSize(find.ancestor(
-        of: find.text('Photoshop'),
-        matching: find.byType(IgnorePointer),
-      ).first);
-      final key = tester.getSize(find.byType(KeyWidget).first);
-      expect(
-        panel.width,
-        greaterThan(2 * key.width),
-        reason: 'it took the stranded cell as well as its own two',
-      );
+      expect(await widthWith(full: false), await widthWith(full: true));
     });
 
     testWidgets('moves to the first row when the setting says so, upright', (tester) async {
@@ -485,7 +482,9 @@ void main() {
       await pump(tester, source);
 
       final panel = tester
-          .getTopLeft(find.ancestor(of: find.text('Photoshop'), matching: find.byType(IgnorePointer)).first)
+          .getTopLeft(
+            find.ancestor(of: find.text('Photoshop'), matching: find.byType(IgnorePointer)).first,
+          )
           .dy;
       final firstKey = tester.getTopLeft(find.byType(KeyWidget).first).dy;
       expect(panel, lessThan(firstKey), reason: 'above every key, not below them');
@@ -579,7 +578,11 @@ void main() {
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('Could not reach your PC to list its windows.'), findsOneWidget);
-    expect(find.text('Try again'), findsOneWidget, reason: 'and a way forward, not just a dead end');
+    expect(
+      find.text('Try again'),
+      findsOneWidget,
+      reason: 'and a way forward, not just a dead end',
+    );
   });
 
   /// Back used to do one of two things depending on how you got to the deck, and neither was
@@ -783,7 +786,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 120));
 
       expect(find.text('page 1'), findsOneWidget, reason: 'never visited, still drawn');
-      expect(find.text('page 0'), findsOneWidget, reason: 'and it did not replace what is on screen');
+      expect(
+        find.text('page 0'),
+        findsOneWidget,
+        reason: 'and it did not replace what is on screen',
+      );
 
       await finger.up();
       await tester.pumpAndSettle();
@@ -933,7 +940,9 @@ void main() {
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(body: Center(child: KeyWidget(keyData: opensApp, size: 80))),
+        home: Scaffold(
+          body: Center(child: KeyWidget(keyData: opensApp, size: 80)),
+        ),
       ),
     );
 
@@ -1017,7 +1026,9 @@ void main() {
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(body: Center(child: KeyWidget(keyData: key, size: 80))),
+        home: Scaffold(
+          body: Center(child: KeyWidget(keyData: key, size: 80)),
+        ),
       ),
     );
 

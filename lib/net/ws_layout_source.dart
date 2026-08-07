@@ -11,10 +11,19 @@ import 'trace.dart';
 
 /// Cells at the end of every page the phone keeps for itself (§4.1 `grid.reserve`).
 ///
-/// Two, for the foreground-app panel in the bottom-right corner. It is not free: the host
-/// paginates around them, so the same deck holds two fewer keys per page and gains pages. That is
-/// the price of the panel being on EVERY page instead of only the ones that happened to have room.
-const reservedCells = 2;
+/// THREE, and the number is the whole design of the foreground-app panel. Upright the grid is three
+/// columns, so three cells is a full row and the panel is always the width of the pad. Sideways it
+/// is three of five, which is the same shape — and, crucially, the SAME COUNT either way, so
+/// rotating does not repaginate.
+///
+/// Two was worse than it looked: the panel then had to grow into whatever unlit cell happened to
+/// sit beside it, so its width changed with how full the page was — three cells on a short page,
+/// two on a full one, two again when it moved to the top. A readout that resizes itself page by
+/// page is not a readout.
+///
+/// It is not free: the host paginates around these, so the same deck holds three fewer keys per
+/// page and gains pages.
+const reservedCells = 3;
 
 /// Thrown when `hello` is rejected: revoked, invalid_token, protocol_too_old (protocol §5).
 class HelloException implements Exception {
