@@ -32,6 +32,11 @@ class _Host {
   /// What `hello_ack` offers (§2). Empty by default; the deck tests set it.
   List<Map<String, dynamic>> decks = const [];
 
+  /// §4.2: a navigating key (`deck:`, `mode:`) is answered with the layout of wherever the session
+  /// landed rather than a `key_result` — the host moving the session's mode with nobody calling
+  /// `set_mode`. Null means this host has no such key.
+  Map<String, dynamic>? answerPressWith;
+
   _Host(this.server) {
     server.transform(WebSocketTransformer()).listen((ws) {
       socket = ws;
@@ -40,16 +45,21 @@ class _Host {
         received.add(msg);
         if (!answer) return; // gone quiet: the frames arrive and nothing comes back
         if (msg['type'] == 'hello') {
-          ws.add(jsonEncode({
-            'v': 2,
-            'type': 'hello_ack',
-            'ok': true,
-            'name': 'Test PC',
-            'decks': decks,
-          }));
+          ws.add(
+            jsonEncode({
+              'v': 2,
+              'type': 'hello_ack',
+              'ok': true,
+              'name': 'Test PC',
+              'decks': decks,
+            }),
+          );
         }
         if (msg['type'] == 'set_mode') {
           ws.add(jsonEncode({'v': 2, 'type': 'command_result', 'ok': true}));
+        }
+        if (msg['type'] == 'key' && answerPressWith != null) {
+          ws.add(jsonEncode(answerPressWith));
         }
       });
     });
@@ -81,7 +91,12 @@ void main() {
       {'id': 'f6', 'name': 'F6 bench', 'icon': 'work'},
     ];
 
-    final session = WsLayoutSource(ip: '127.0.0.1', port: host.server.port, token: 't', deviceId: 'd');
+    final session = WsLayoutSource(
+      ip: '127.0.0.1',
+      port: host.server.port,
+      token: 't',
+      deviceId: 'd',
+    );
     addTearDown(session.dispose);
     await session.connect();
 
@@ -98,7 +113,12 @@ void main() {
     final host = await _Host.start();
     addTearDown(host.stop);
 
-    final session = WsLayoutSource(ip: '127.0.0.1', port: host.server.port, token: 't', deviceId: 'd');
+    final session = WsLayoutSource(
+      ip: '127.0.0.1',
+      port: host.server.port,
+      token: 't',
+      deviceId: 'd',
+    );
     addTearDown(session.dispose);
     await session.connect();
 
@@ -152,7 +172,11 @@ void main() {
     expect(session.currentStatus, SessionStatus.online);
   });
 
-  test('a session request that goes unanswered marks the link down instead of throwing', () async {
+  /// The mode the reconnect restores has to be the mode the session is actually IN. A `mode:` or
+  /// `deck:` key moves it on the host and never went through `setMode`, so the phone kept replaying
+  /// a mode the user had left minutes ago — and a manual session gets no auto pushes at all, so
+  /// auto mode simply stopped updating until the app was restarted.
+  test('the mode a key changed is the mode the reconnect restores', () async {
     final host = await _Host.start();
     addTearDown(host.stop);
 
@@ -161,17 +185,66 @@ void main() {
       port: host.server.port,
       token: 't',
       deviceId: 'd',
-      // Long, so this test is about the request timeout and not about the watchdog beating it.
-      silenceLimit: const Duration(seconds: 30),
+      silenceLimit: const Duration(milliseconds: 300),
     );
     addTearDown(session.dispose);
 
+    // Into a deck with the mode toggle, then back to auto with a `mode:auto` KEY.
     await session.connect();
-    host.answer = false;
+    await session.setMode('manual', deckId: 'launcher');
+    host.answerPressWith = {
+      'v': 2,
+      'type': 'layout',
+      'mode': 'auto',
+      'source': {'kind': 'profile', 'id': 'explorer', 'appName': 'Explorador de Windows'},
+      'grid': {'rows': 5, 'cols': 3},
+      'page': 0,
+      'pages': 1,
+      'keys': <Map<String, dynamic>>[],
+    };
+    await session.pressResult(pos: 0, press: 'short');
 
-    // The mode toggle calls this from a tap and does not catch — an 8 s TimeoutException escaping
-    // here is an unhandled error in the widget tree, and the user sees a button that does nothing.
-    await expectLater(session.setMode('manual'), completes);
-    expect(session.currentStatus, isNot(SessionStatus.online));
-  }, timeout: const Timeout(Duration(seconds: 30)));
+    // The link drops and comes back, which is what a phone in a pocket does all day.
+    host.received.clear();
+    host.answer = false;
+    await session.status.firstWhere((s) => s != SessionStatus.online);
+    host.answer = true;
+    await session.status
+        .firstWhere((s) => s == SessionStatus.online)
+        .timeout(const Duration(seconds: 5));
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(
+      host.received.where((m) => m['type'] == 'set_mode'),
+      isEmpty,
+      reason: 'the session is in auto — putting it back on a deck is what froze it',
+    );
+  }, timeout: const Timeout(Duration(seconds: 20)));
+
+  test(
+    'a session request that goes unanswered marks the link down instead of throwing',
+    () async {
+      final host = await _Host.start();
+      addTearDown(host.stop);
+
+      final session = WsLayoutSource(
+        ip: '127.0.0.1',
+        port: host.server.port,
+        token: 't',
+        deviceId: 'd',
+        // Long, so this test is about the request timeout and not about the watchdog beating it.
+        silenceLimit: const Duration(seconds: 30),
+      );
+      addTearDown(session.dispose);
+
+      await session.connect();
+      host.answer = false;
+
+      // The mode toggle calls this from a tap and does not catch — an 8 s TimeoutException escaping
+      // here is an unhandled error in the widget tree, and the user sees a button that does nothing.
+      await expectLater(session.setMode('manual'), completes);
+      expect(session.currentStatus, isNot(SessionStatus.online));
+    },
+    timeout: const Timeout(Duration(seconds: 30)),
+  );
 }

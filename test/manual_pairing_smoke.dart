@@ -98,8 +98,10 @@ Future<void> main() async {
   print('out-of-range press refused with "${refused['error']}" — correct.');
 
   final windows = await session.listWindows(0).timeout(const Duration(seconds: 5));
-  print('windows: page ${windows.page}/${windows.pages}, grid '
-      '${windows.grid.rows}x${windows.grid.cols}');
+  print(
+    'windows: page ${windows.page}/${windows.pages}, grid '
+    '${windows.grid.rows}x${windows.grid.cols}',
+  );
   for (final k in windows.keys.where((k) => k.windowId != null).take(4)) {
     print('  ${k.current ? "*" : " "} ${k.label} — ${k.sub}');
   }

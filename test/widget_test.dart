@@ -1,13 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:kiboard_app/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:kiboard_app/main.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/layout_source.dart';
 import 'package:kiboard_app/net/saved_session.dart';
+import 'package:kiboard_app/settings.dart';
 import 'package:kiboard_app/ui/splash.dart';
 import 'package:kiboard_app/ui/wordmark.dart';
 import 'package:kiboard_app/model/deck.dart';
@@ -15,11 +20,12 @@ import 'package:kiboard_app/ui/deck/adaptive_grid.dart';
 import 'package:kiboard_app/ui/deck/deck_screen.dart';
 import 'package:kiboard_app/ui/deck/key_grid.dart';
 import 'package:kiboard_app/ui/deck/key_widget.dart';
+import 'package:kiboard_app/ui/windows/window_switcher_screen.dart';
 
 /// Ten keys on the phone's own grid — what a real host sends once it has repaginated for the grid
 /// the client declared in `hello`. DeckScreen reshapes it to the orientation itself as long as the
 /// capacity matches, which is the case this exists to produce.
-class _TenKeys implements LayoutSource {
+class _TenKeys extends LayoutSource {
   final _controller = StreamController<Layout>.broadcast();
 
   /// Makes key 0 a `danger` key, so the confirmation can be driven.
@@ -28,23 +34,81 @@ class _TenKeys implements LayoutSource {
   /// Positions that actually reached the host.
   final pressed = <int>[];
 
-  _TenKeys({this.danger = false});
+  /// A deck with somewhere to swipe to, sitting on the middle page so both directions are open.
+  final bool paginated;
 
-  Layout get _layout => Layout(
-    mode: 'auto',
-    source: const LayoutSourceInfo(kind: 'profile', id: 'test', appName: 'Test'),
+  /// A manual deck (not auto), the app the PC has in front, and whether the last slot is used.
+  final bool manual;
+  final String? foreground;
+  final bool full;
+
+  /// What key 0 does. A `picker:`/`colorpicker:`/`prompt:` here is a key that asks something first
+  /// (§4.2), which is the only kind the phone has to understand the action string of.
+  final String keyAction;
+
+  _TenKeys({
+    this.danger = false,
+    this.paginated = false,
+    this.manual = false,
+    this.foreground,
+    this.full = false,
+    this.keyAction = 'ctrl+c',
+  });
+
+  int _page = 0;
+
+  /// Pushes another page, the way a host answers `set_page`. Key 0 is labelled with the page, so a
+  /// test can tell which page it is looking at — including one drawn as a neighbour.
+  void goTo(int page) {
+    _page = page;
+    _controller.add(_layout);
+  }
+
+  /// Auto mode's `source.id`. It changes when the PC puts another app in front, which is the one
+  /// moment the phone throws its cached pages away.
+  String profile = 'test';
+
+  /// Another app came to the front on the PC.
+  void switchTo(String next) {
+    profile = next;
+    _page = 0;
+    _controller.add(_layout);
+  }
+
+  /// §4.1 `page_preload`: a page the client is NOT on, as the host sends it unasked. Separate
+  /// stream, because nothing that reaches `layouts()` may change what is on screen.
+  final _preloadController = StreamController<Layout>.broadcast();
+  void preload(int page) => _preloadController.add(_layoutFor(page));
+
+  Layout get _layout => _layoutFor(paginated ? _page : 0);
+
+  Layout _layoutFor(int page) => Layout(
+    mode: manual ? 'manual' : 'auto',
+    source: manual
+        ? LayoutSourceInfo(kind: 'deck', id: profile, name: 'Work', appName: foreground)
+        : LayoutSourceInfo(kind: 'profile', id: profile, appName: foreground ?? 'Test'),
     grid: const Grid(rows: 5, cols: 2),
-    page: 0,
-    pages: 1,
+    page: page,
+    pages: paginated ? 3 : 1,
     keys: [
       DeckKey(
         pos: 0,
-        label: danger ? 'Close app' : 'Copy',
-        action: 'ctrl+c',
+        label: danger
+            ? 'Close app'
+            : paginated
+            ? 'page $page'
+            : 'Copy',
+        action: keyAction,
         danger: danger,
         kind: KeyKind.action,
       ),
-      ...List.generate(9, (i) => DeckKey.empty(i + 1)),
+      ...List.generate(9, (i) {
+        // The LAST slot decides whether there is room for the foreground label.
+        if (full && i == 8) {
+          return DeckKey(pos: 9, label: 'Last', action: 'ctrl+v', kind: KeyKind.action);
+        }
+        return DeckKey.empty(i + 1);
+      }),
     ],
   );
 
@@ -55,9 +119,25 @@ class _TenKeys implements LayoutSource {
   }
 
   @override
-  Future<void> pressKey({required int pos, required String press}) async {
+  Stream<Layout> preloads() => _preloadController.stream;
+
+  @override
+  Future<void> pressKey({
+    required int pos,
+    required String press,
+    int? option,
+    String? text,
+  }) async {
     pressed.add(pos);
+    chose = option;
+    typed = text;
   }
+
+  /// The answer to a key that asked something first (§4.2), so a test can assert on what the phone
+  /// sent rather than on what it drew.
+  int? chose;
+  String? typed;
+
   @override
   Future<void> setMode(String mode, {String? deckId}) async {}
   @override
@@ -65,7 +145,32 @@ class _TenKeys implements LayoutSource {
   @override
   Future<void> focusWindow(int windowId) async {}
 
-  void dispose() => _controller.close();
+  void dispose() {
+    _controller.close();
+    _preloadController.close();
+  }
+}
+
+/// Whether ANY node in the semantics tree offers [action].
+///
+/// Walked rather than looked up by widget: the page-change actions sit on a `Semantics` wrapping
+/// the whole pad, and `getSemantics` resolves to whichever node is nearest the widget you name,
+/// which for a container of explicit children is one of the children.
+bool _somewhereInTree(WidgetTester tester, SemanticsAction action) {
+  var found = false;
+  void walk(SemanticsNode node) {
+    if (node.getSemanticsData().actions & action.index != 0) found = true;
+    node.visitChildren((child) {
+      walk(child);
+      return true;
+    });
+  }
+
+  // The suggested replacement does not expose a root semantics node, and this one still resolves
+  // to the tree the test is looking at.
+  // ignore: deprecated_member_use
+  walk(tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!);
+  return found;
 }
 
 void main() {
@@ -185,7 +290,10 @@ void main() {
 
     test('a pasted URL is read, not rejected', () {
       expect(parseHostAddress('ws://192.168.1.11:8770'), (host: '192.168.1.11', port: 8770));
-      expect(parseHostAddress('http://desktop.local/'), (host: 'desktop.local', port: defaultHostPort));
+      expect(parseHostAddress('http://desktop.local/'), (
+        host: 'desktop.local',
+        port: defaultHostPort,
+      ));
     });
 
     test('IPv6 keeps its colons', () {
@@ -194,10 +302,10 @@ void main() {
       expect(parseHostAddress('[fe80::1]'), (host: 'fe80::1', port: defaultHostPort));
       // Bare: every colon belongs to the address. Reading the last group as a port would dial
       // somewhere else entirely — the same trap `wsUri` exists for.
-      expect(
-        parseHostAddress('2803:c600:5108:844a:80a9:4d6f:5152:153b'),
-        (host: '2803:c600:5108:844a:80a9:4d6f:5152:153b', port: defaultHostPort),
-      );
+      expect(parseHostAddress('2803:c600:5108:844a:80a9:4d6f:5152:153b'), (
+        host: '2803:c600:5108:844a:80a9:4d6f:5152:153b',
+        port: defaultHostPort,
+      ));
     });
 
     test('what it cannot read comes back null', () {
@@ -237,6 +345,8 @@ void main() {
         MediaQuery(
           data: MediaQueryData(size: screen),
           child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: DeckScreen(layoutSource: source, hostName: "M3X's PC"),
           ),
         ),
@@ -250,9 +360,17 @@ void main() {
     final upright = await keySizeAt(const Size(393, 873));
     final sideways = await keySizeAt(const Size(873, 393));
 
-    expect(sideways, moreOrLessEquals(upright, epsilon: 0.5),
-        reason: 'the side strip is eating enough width to shrink the keys — check _verticalWidth '
-            'against the slack described on KeyGrid._reserveLong');
+    // The old rule was that these two matched, which is what `sizeForDevice` enforced. Three
+    // columns upright against five sideways ends it: the shapes hold different numbers of keys,
+    // so one size cannot serve both. What replaced it is a floor — upright the key must still be
+    // in the same class as before the third column (114.1 then, ~112.5 now), because the whole
+    // point of trimming the bezel was that the extra column would NOT be paid for in key size.
+    expect(
+      upright,
+      greaterThan(105),
+      reason: 'the third column was supposed to come out of the bezel, not out of the key',
+    );
+    expect(sideways, greaterThan(60), reason: 'and sideways still has to be pressable');
   });
 
   /// §3 says a `danger` key is painted red AND asks before it acts. Only the paint was built, so
@@ -263,7 +381,11 @@ void main() {
       final source = _TenKeys(danger: true);
       addTearDown(source.dispose);
       await tester.pumpWidget(
-        MaterialApp(home: DeckScreen(layoutSource: source, hostName: 'PC')),
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -301,7 +423,13 @@ void main() {
     testWidgets('while an ordinary key still goes straight through', (tester) async {
       final source = _TenKeys();
       addTearDown(source.dispose);
-      await tester.pumpWidget(MaterialApp(home: DeckScreen(layoutSource: source, hostName: 'PC')));
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -313,6 +441,419 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
       expect(source.pressed, [0]);
+    });
+  });
+
+  /// §4.1: what the PC has in front, in the two cells the phone RESERVES at the end of every page
+  /// (`grid.reserve`). It used to appear only where the deck happened to have room, which on a
+  /// full page — the Launcher's, for one — was nowhere.
+  group('the foreground app on the deck', () {
+    Future<void> pump(WidgetTester tester, _TenKeys source) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    testWidgets('is shown on a manual deck', (tester) async {
+      final source = _TenKeys(manual: true, foreground: 'Photoshop');
+      addTearDown(source.dispose);
+      await pump(tester, source);
+      expect(find.text('Photoshop'), findsOneWidget);
+    });
+
+    testWidgets('and on a page whose keys fill it, because the cells are reserved', (tester) async {
+      final source = _TenKeys(manual: true, foreground: 'Photoshop', full: true);
+      addTearDown(source.dispose);
+      await pump(tester, source);
+      expect(find.text('Photoshop'), findsOneWidget);
+    });
+
+    testWidgets('is always the same width, however full the page is', (tester) async {
+      // It used to grow into whatever unlit cell sat beside it, so a short page got a wide panel
+      // and a full one a narrow panel. A readout that resizes itself page by page is not a readout.
+      Future<double> widthWith({required bool full}) async {
+        final source = _TenKeys(manual: true, foreground: 'Photoshop', full: full);
+        addTearDown(source.dispose);
+        await pump(tester, source);
+        return tester
+            .getSize(
+              find.ancestor(of: find.text('Photoshop'), matching: find.byType(IgnorePointer)).first,
+            )
+            .width;
+      }
+
+      expect(await widthWith(full: false), await widthWith(full: true));
+    });
+
+    testWidgets('moves to the first row when the setting says so, upright', (tester) async {
+      // Held one-handed the bottom row is the only one a thumb reaches, so somebody who works that
+      // way wants it to be keys. Upright only — sideways the whole pad is within reach.
+      SharedPreferences.setMockInitialValues({'panelTop': true});
+      await Settings.instance.load();
+      addTearDown(() async {
+        SharedPreferences.setMockInitialValues({});
+        await Settings.instance.load();
+      });
+
+      tester.view.physicalSize = const Size(393, 873);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final source = _TenKeys(manual: true, foreground: 'Photoshop');
+      addTearDown(source.dispose);
+      await pump(tester, source);
+
+      final panel = tester
+          .getTopLeft(
+            find.ancestor(of: find.text('Photoshop'), matching: find.byType(IgnorePointer)).first,
+          )
+          .dy;
+      final firstKey = tester.getTopLeft(find.byType(KeyWidget).first).dy;
+      expect(panel, lessThan(firstKey), reason: 'above every key, not below them');
+    });
+
+    testWidgets('and in auto mode too, not just the title', (tester) async {
+      // A line of 14 pt text in the chrome is not what a glance from across a desk reads.
+      final source = _TenKeys(foreground: 'Photoshop');
+      addTearDown(source.dispose);
+      await pump(tester, source);
+      expect(find.text('Photoshop'), findsNWidgets(2), reason: 'the title AND the panel');
+    });
+
+    testWidgets('and says nothing when the host has not resolved an app', (tester) async {
+      final source = _TenKeys(manual: true);
+      addTearDown(source.dispose);
+      await pump(tester, source);
+      expect(find.byType(Image), findsNothing);
+    });
+  });
+
+  /// There was exactly one `Semantics` in the whole app, on the wordmark. A key draws its label in
+  /// a `Text` that an icon-only key does not have, so those keys announced nothing at all — and
+  /// the page swipe is a raw drag, which a screen reader cannot perform, so page 1 was the only
+  /// page it could reach.
+  group('a screen reader can use the deck', () {
+    testWidgets('keys announce their label and are marked as buttons', (tester) async {
+      final handle = tester.ensureSemantics();
+      final source = _TenKeys();
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.bySemanticsLabel('Copy'), findsOneWidget);
+      final node = tester.getSemantics(find.bySemanticsLabel('Copy'));
+      expect(node.flagsCollection.isButton, isTrue);
+      expect(node.getSemanticsData().actions & SemanticsAction.tap.index, isNot(0));
+      handle.dispose();
+    });
+
+    testWidgets('and can change page without performing a drag', (tester) async {
+      final handle = tester.ensureSemantics();
+      final source = _TenKeys(paginated: true);
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // On page 0 of 3: forward is offered, back is not — the same bounds the swipe respects.
+      expect(
+        _somewhereInTree(tester, SemanticsAction.increase),
+        isTrue,
+        reason: 'without this there is no accessible way off the first page',
+      );
+      expect(
+        _somewhereInTree(tester, SemanticsAction.decrease),
+        isFalse,
+        reason: 'nothing before page 1',
+      );
+      handle.dispose();
+    });
+  });
+
+  /// `listWindows` gives up by throwing, and nothing caught it: the screen waited eight seconds
+  /// and then span for ever, with an unhandled async error behind it.
+  testWidgets('the window switcher says it failed instead of spinning for ever', (tester) async {
+    final source = _TenKeys(); // its listWindows throws, like a host that never answers
+    addTearDown(source.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: WindowSwitcherScreen(layoutSource: source),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('Could not reach your PC to list its windows.'), findsOneWidget);
+    expect(
+      find.text('Try again'),
+      findsOneWidget,
+      reason: 'and a way forward, not just a dead end',
+    );
+  });
+
+  /// Back used to do one of two things depending on how you got to the deck, and neither was
+  /// intended: on a relaunch it closed the app outright, and in the session where you paired it
+  /// popped to the discovery list you had already finished, with no route forward.
+  group('back on the deck', () {
+    testWidgets('asks once, and the second press leaves', (tester) async {
+      final platformCalls = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+        call,
+      ) async {
+        platformCalls.add(call.method);
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+
+      final source = _TenKeys();
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(find.text('Press back again to leave KiBoard'), findsOneWidget);
+      expect(
+        platformCalls,
+        isNot(contains('SystemNavigator.pop')),
+        reason: 'one back press must not close a keypad somebody is looking at',
+      );
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(platformCalls, contains('SystemNavigator.pop'));
+    });
+
+    testWidgets('and the warning expires, so it cannot leave much later', (tester) async {
+      final platformCalls = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+        call,
+      ) async {
+        platformCalls.add(call.method);
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+
+      final source = _TenKeys();
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3)); // the snackbar and the window both go
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      expect(platformCalls, isNot(contains('SystemNavigator.pop')));
+      expect(find.text('Press back again to leave KiBoard'), findsOneWidget);
+    });
+  });
+
+  /// §4.4 `set_page`. The swipe used to read only `primaryVelocity` on RELEASE: nothing moved
+  /// while the finger did, and a slow, deliberate drag across the whole pad ended at zero velocity
+  /// and changed nothing at all. Both halves of "se queda pegado".
+  group('the page swipe follows the finger', () {
+    Future<_TenKeys> pumpDeck(WidgetTester tester) async {
+      final source = _TenKeys(paginated: true);
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      return source;
+    }
+
+    double gridX(WidgetTester tester) => tester.getTopLeft(find.byType(KeyGrid)).dx;
+
+    testWidgets('the page moves under the finger, before it is lifted', (tester) async {
+      await pumpDeck(tester);
+      final home = gridX(tester);
+
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      await finger.moveBy(const Offset(-80, 0));
+      await tester.pump();
+
+      expect(
+        gridX(tester),
+        closeTo(home - 80, 1),
+        reason: 'the page has to be where the finger is, not waiting for it to lift',
+      );
+      await finger.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a short drag springs home', (tester) async {
+      await pumpDeck(tester);
+      final home = gridX(tester);
+
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      await finger.moveBy(const Offset(-20, 0));
+      await tester.pump(const Duration(milliseconds: 120)); // slow: no velocity to commit on
+      await finger.up();
+      await tester.pumpAndSettle();
+
+      expect(gridX(tester), closeTo(home, 1));
+    });
+
+    testWidgets('a slow drag past a quarter of the pad still commits', (tester) async {
+      await pumpDeck(tester);
+      final home = gridX(tester);
+      final width = tester.getSize(find.byType(KeyGrid)).width;
+
+      // Deliberately slow — each move is a frame apart, so the release velocity is ~0. This is the
+      // exact gesture the old velocity-only rule threw away.
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      for (var moved = 0.0; moved < width * 0.4; moved += width * 0.1) {
+        await finger.moveBy(Offset(-width * 0.1, 0));
+        await tester.pump(const Duration(milliseconds: 120));
+      }
+      await finger.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(
+        gridX(tester),
+        lessThan(home - width * 0.5),
+        reason: 'a committed page carries on out instead of snapping back',
+      );
+
+      // ...and with no session to answer it, the guard puts the page back rather than leaving the
+      // deck blank. Being offline is a normal state for this screen.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(gridX(tester), closeTo(home, 1));
+    });
+
+    testWidgets('a page already seen comes in behind the finger', (tester) async {
+      final source = await pumpDeck(tester);
+      expect(find.text('page 0'), findsOneWidget);
+      expect(find.byType(KeyGrid), findsOneWidget, reason: 'nothing extra is drawn at rest');
+
+      // Swipe through the deck once, the way using it does, and come back.
+      source.goTo(1);
+      await tester.pumpAndSettle();
+      source.goTo(0);
+      await tester.pumpAndSettle();
+
+      // Slow and short on purpose: this is about what is DRAWN mid-gesture, so it must not commit
+      // and swap the page out from under the assertion.
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      await finger.moveBy(const Offset(-20, 0));
+      await tester.pump(const Duration(milliseconds: 120));
+
+      expect(find.text('page 1'), findsOneWidget, reason: 'the next page, not a black gap');
+      expect(find.byType(KeyGrid), findsNWidgets(2));
+
+      await finger.up();
+      await tester.pumpAndSettle();
+      // And it goes away again, rather than being built on every layout push for nothing.
+      expect(find.byType(KeyGrid), findsOneWidget);
+    });
+
+    // §4.1 `page_preload`: the host sends the neighbours unasked, so the FIRST swipe onto a page
+    // works too — without it the phone only ever holds pages it has already been on.
+    testWidgets('a preloaded page is drawn without ever having been visited', (tester) async {
+      final source = await pumpDeck(tester);
+      source.preload(1);
+      await tester.pump();
+
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      await finger.moveBy(const Offset(-20, 0));
+      await tester.pump(const Duration(milliseconds: 120));
+
+      expect(find.text('page 1'), findsOneWidget, reason: 'never visited, still drawn');
+      expect(
+        find.text('page 0'),
+        findsOneWidget,
+        reason: 'and it did not replace what is on screen',
+      );
+
+      await finger.up();
+      await tester.pumpAndSettle();
+    });
+
+    // The app on the PC changes, and the host sends the new layout AND its neighbours back to back
+    // — all of it before the phone builds a frame. The cached pages are dropped on the build that
+    // notices the new app, so the drop landed on preloads that had ALREADY arrived for it: the
+    // first swipe after every app change had nothing to draw and the pad emptied out.
+    testWidgets('the pages that arrive with a new app are not thrown away', (tester) async {
+      final source = await pumpDeck(tester);
+      source.switchTo('explorer');
+      source.preload(1);
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      await finger.moveBy(const Offset(-20, 0));
+      await tester.pump(const Duration(milliseconds: 120));
+
+      expect(find.text('page 1'), findsOneWidget, reason: 'the preload for the new app survived');
+      await finger.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a page it has never been sent draws nothing rather than guessing', (tester) async {
+      await pumpDeck(tester); // page 0, and nothing else has arrived
+
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      await finger.moveBy(const Offset(-20, 0));
+      await tester.pump(const Duration(milliseconds: 120));
+
+      expect(find.byType(KeyGrid), findsOneWidget);
+      await finger.up();
+      await tester.pumpAndSettle();
     });
   });
 
@@ -343,5 +884,301 @@ void main() {
     // strand the user on a spinner (the bug seen on the phone after an app restart).
     await tester.pump(const Duration(seconds: 5));
     expect(find.textContaining('No PCs found'), findsOneWidget);
+  });
+
+  testWidgets('a key waiting for its app shows a spinner, and does not go red', (tester) async {
+    // `state.running` is the only thing on the wire that marks a key as one that opens an app —
+    // the phone never sees the action (§4.2) — so parsing it is half the feature.
+    final waiting = DeckKey.fromLayoutJson({
+      'pos': 0,
+      'label': 'Photoshop',
+      'kind': 'action',
+      'state': {'running': false},
+    });
+    final ordinary = DeckKey.fromLayoutJson({'pos': 1, 'label': 'Copy', 'kind': 'action'});
+    expect(waiting.running, isFalse, reason: 'false is "not open yet", and it drives the wait');
+    expect(ordinary.running, isNull, reason: 'null is "nothing to wait for" — a different thing');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: KeyWidget(keyData: waiting, size: 80, launching: true)),
+      ),
+    );
+    await tester.pump();
+
+    // Waiting is said with a spinner, the vocabulary everyone already knows. Red belongs to the
+    // danger key; painting a launching key with it said "something is wrong here" instead.
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    // And the cap stays DOWN while it waits — a button that is working on it looks held, and a
+    // held button is also the plainest way to say another press will do nothing.
+    final cap = tester.widget<AnimatedContainer>(
+      find.descendant(of: find.byType(KeyWidget), matching: find.byType(AnimatedContainer)).first,
+    );
+    expect((cap.transform ?? Matrix4.identity()).getTranslation().y, greaterThan(0));
+    final box = tester.widget<AnimatedContainer>(
+      find.descendant(of: find.byType(KeyWidget), matching: find.byType(AnimatedContainer)).first,
+    );
+    final face = ((box.decoration! as BoxDecoration).gradient! as LinearGradient).colors[1];
+    expect(face.r, lessThan(0.2), reason: 'the cap keeps its own colour');
+  });
+
+  testWidgets('a key travels when it is held down, like a cap on a spring', (tester) async {
+    // §3.0: it has to read as hardware. The light stays where it is — a gradient that flips reads
+    // as a different material — and what moves is the CAP: down by a couple of pixels, into a
+    // shadow that all but disappears. Asserted because it is invisible in a screenshot taken a
+    // frame late, and it is exactly the kind of detail a later refactor flattens.
+    final key = DeckKey.fromLayoutJson({'pos': 0, 'label': 'Copy', 'kind': 'action'});
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Center(child: KeyWidget(keyData: key, size: 80)),
+        ),
+      ),
+    );
+
+    AnimatedContainer cap() => tester.widget<AnimatedContainer>(
+      find.descendant(of: find.byType(KeyWidget), matching: find.byType(AnimatedContainer)).first,
+    );
+    double sink(AnimatedContainer c) => (c.transform ?? Matrix4.identity()).getTranslation().y;
+    BoxShadow shadow(AnimatedContainer c) => (c.decoration! as BoxDecoration).boxShadow!.first;
+
+    final atRest = cap();
+    expect(sink(atRest), 0);
+
+    final gesture = await tester.startGesture(tester.getCenter(find.byType(KeyWidget)));
+    await tester.pump(const Duration(milliseconds: 120));
+    final held = cap();
+
+    expect(sink(held), greaterThan(0), reason: 'the cap goes down, it does not just darken');
+    expect(
+      shadow(held).blurRadius,
+      lessThan(shadow(atRest).blurRadius),
+      reason: 'and lands in its own shadow',
+    );
+    expect(
+      ((held.decoration! as BoxDecoration).gradient! as LinearGradient).begin,
+      Alignment.topCenter,
+      reason: 'the light does not move — only the key does',
+    );
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(sink(cap()), 0, reason: 'and springs back');
+  });
+
+  testWidgets('a key that opens an app does not spring back between the finger and the launch', (
+    tester,
+  ) async {
+    // The blink: with `onDoubleTap` registered, `onTap` only fires after the 300 ms double-press
+    // window, so the press is not even sent until then. The cap used to come up when the finger
+    // left and go down again when the launch was marked — visible, and exactly what a physical
+    // button never does.
+    final opensApp = DeckKey.fromLayoutJson({
+      'pos': 0,
+      'label': 'Photoshop',
+      'kind': 'action',
+      'state': {'running': false},
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Center(child: KeyWidget(keyData: opensApp, size: 80)),
+        ),
+      ),
+    );
+
+    double sink() =>
+        (tester
+                    .widget<AnimatedContainer>(
+                      find
+                          .descendant(
+                            of: find.byType(KeyWidget),
+                            matching: find.byType(AnimatedContainer),
+                          )
+                          .first,
+                    )
+                    .transform ??
+                Matrix4.identity())
+            .getTranslation()
+            .y;
+
+    final gesture = await tester.startGesture(tester.getCenter(find.byType(KeyWidget)));
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(sink(), greaterThan(0));
+
+    await gesture.up();
+    // Every frame of the double-press window: the cap must not come up in any of them.
+    for (var ms = 50; ms <= 400; ms += 50) {
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(sink(), greaterThan(0), reason: 'came back up ${ms}ms after the finger left');
+    }
+
+    // And it does not stay down for ever when no launch ever starts.
+    await tester.pump(const Duration(seconds: 2));
+    expect(sink(), 0);
+  });
+
+  testWidgets('the same icon is decoded once, so a re-sent layout does not blink', (tester) async {
+    // A 1x1 PNG, the smallest thing that is really an image.
+    const uri =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    final key = DeckKey.fromLayoutJson({'pos': 0, 'label': 'App', 'kind': 'action', 'image': uri});
+
+    Future<ImageProvider> provider() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: KeyWidget(keyData: key, size: 80)),
+        ),
+      );
+      await tester.pump();
+      return tester.widget<Image>(find.byType(Image)).image;
+    }
+
+    // The SAME provider instance across rebuilds is the whole fix: a fresh `MemoryImage` is a new
+    // image as far as Flutter is concerned, so it decodes again and shows one empty frame — which
+    // is every icon on the page blinking each time the host re-sends a layout.
+    expect(identical(await provider(), await provider()), isTrue);
+  });
+
+  /// §4.2 `option`: `picker:` was in the catalogue from the first day and nothing ever drew it, so
+  /// "Modelo" and "Esfuerzo" answered `bad_key` and typed nothing. The list is the phone's job —
+  /// the action string arrives in the layout — and what goes back is the INDEX, never the action.
+  group('a key that asks something first', () {
+    Future<_TenKeys> pumpDeck(WidgetTester tester, String action) async {
+      final source = _TenKeys(keyAction: action);
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      return source;
+    }
+
+    /// A key registers `onDoubleTap`, so the short press is held back until that window closes.
+    Future<void> tapKey(WidgetTester tester) async {
+      await tester.tap(find.byType(KeyWidget).first);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a picker sends the branch that was chosen, not the action', (tester) async {
+      final source = await pumpDeck(
+        tester,
+        'picker:Fable=type:/model>>enter;Opus=type:/model>>enter;Sonnet=type:/model>>enter',
+      );
+      await tapKey(tester);
+
+      expect(source.pressed, isEmpty, reason: 'nothing goes to the PC until one is chosen');
+      expect(find.text('Opus'), findsOneWidget);
+      await tester.tap(find.text('Opus'));
+      await tester.pumpAndSettle();
+
+      expect(source.pressed, [0]);
+      expect(source.chose, 1, reason: 'the index, counted the way the host wrote them');
+      expect(source.typed, isNull);
+    });
+
+    testWidgets('dismissing the list is not a press', (tester) async {
+      final source = await pumpDeck(tester, 'picker:Fable=enter;Opus=enter');
+      await tapKey(tester);
+      expect(find.text('Fable'), findsOneWidget);
+
+      await tester.tapAt(const Offset(10, 10)); // the scrim
+      await tester.pumpAndSettle();
+      expect(source.pressed, isEmpty);
+    });
+
+    testWidgets('a prompt sends what was typed, for the host to put in its own hole', (
+      tester,
+    ) async {
+      final source = await pumpDeck(tester, 'prompt:Folder name=type:mkdir {}>>enter');
+      await tapKey(tester);
+
+      expect(find.text('Folder name'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'informes');
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+
+      expect(source.pressed, [0]);
+      expect(source.typed, 'informes');
+      expect(source.chose, isNull);
+    });
+
+    testWidgets('an empty prompt is a cancelled one', (tester) async {
+      final source = await pumpDeck(tester, 'prompt:Folder name=type:mkdir {}>>enter');
+      await tapKey(tester);
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+      expect(source.pressed, isEmpty);
+    });
+
+    testWidgets('an ordinary key still goes straight to the PC', (tester) async {
+      final source = await pumpDeck(tester, 'ctrl+c');
+      await tapKey(tester);
+      expect(source.pressed, [0]);
+      expect(source.chose, isNull);
+      expect(source.typed, isNull);
+    });
+  });
+
+  testWidgets('a swipe across a key neither clicks nor buzzes', (tester) async {
+    // The deck changes page with a sideways swipe, and that swipe starts on a key. The key
+    // correctly does nothing — and used to buzz and click anyway, because the feedback was on
+    // touch-down. It belongs to the press that lands.
+    final calls = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+      call,
+    ) async {
+      if (call.method == 'HapticFeedback.vibrate' || call.method == 'SystemSound.play') {
+        calls.add(call.method);
+      }
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    final key = DeckKey.fromLayoutJson({'pos': 0, 'label': 'Copy', 'kind': 'action'});
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Center(child: KeyWidget(keyData: key, size: 80)),
+        ),
+      ),
+    );
+
+    final centre = tester.getCenter(find.byType(KeyWidget));
+    final swipe = await tester.startGesture(centre);
+    await tester.pump(const Duration(milliseconds: 30));
+    await swipe.moveBy(const Offset(80, 0));
+    await tester.pump(const Duration(milliseconds: 30));
+    await swipe.up();
+    await tester.pumpAndSettle();
+    expect(calls, isEmpty, reason: 'a swipe is not a press');
+
+    final tap = await tester.startGesture(centre);
+    await tester.pump(const Duration(milliseconds: 30));
+    await tap.up();
+    await tester.pumpAndSettle();
+    expect(calls, isNotEmpty, reason: 'and a press still answers');
   });
 }

@@ -9,6 +9,22 @@ import 'layout_source.dart';
 import 'pinned_socket.dart';
 import 'trace.dart';
 
+/// Cells at the end of every page the phone keeps for itself (§4.1 `grid.reserve`).
+///
+/// THREE, and the number is the whole design of the foreground-app panel. Upright the grid is three
+/// columns, so three cells is a full row and the panel is always the width of the pad. Sideways it
+/// is three of five, which is the same shape — and, crucially, the SAME COUNT either way, so
+/// rotating does not repaginate.
+///
+/// Two was worse than it looked: the panel then had to grow into whatever unlit cell happened to
+/// sit beside it, so its width changed with how full the page was — three cells on a short page,
+/// two on a full one, two again when it moved to the top. A readout that resizes itself page by
+/// page is not a readout.
+///
+/// It is not free: the host paginates around these, so the same deck holds three fewer keys per
+/// page and gains pages.
+const reservedCells = 3;
+
 /// Thrown when `hello` is rejected: revoked, invalid_token, protocol_too_old (protocol §5).
 class HelloException implements Exception {
   final String code;
@@ -41,8 +57,8 @@ class WsLayoutSource implements LayoutSource {
     this.certificate,
     this.silenceLimit = const Duration(seconds: 40),
     // ignore: prefer_initializing_formals -- `grid` is public and mutable behind a getter
-  })  : _grid = grid,
-        locale = locale ?? deviceLocale();
+  }) : _grid = grid,
+       locale = locale ?? deviceLocale();
 
   final String ip;
   final int port;
@@ -154,13 +170,21 @@ class WsLayoutSource implements LayoutSource {
     _setStatus(SessionStatus.connecting);
     final PinnedSocket pinned;
     try {
-      pinned = await PinnedSocket.connect(ip, port, expected: certificate, timeout: handshakeTimeout);
+      pinned = await PinnedSocket.connect(
+        ip,
+        port,
+        expected: certificate,
+        timeout: handshakeTimeout,
+      );
     } on TimeoutException {
       throw const HelloException('connect_timeout');
+    } on CertificateChanged {
+      // Still not fatal — see `CertificateChanged`. But it is remembered, because the banner has
+      // to stop saying "offline, retrying" for a state that retrying cannot fix.
+      _identityChanged = true;
+      throw const HelloException('certificate_changed');
     } catch (e) {
-      // A refused certificate lands here too, as a handshake failure. It is deliberately NOT
-      // fatal: a host that was reinstalled looks the same from out here, and the reconnect loop
-      // retrying is the same thing it does for a PC that is simply off.
+      _identityChanged = false;
       throw HelloException('connect_failed: $e');
     }
     // First use adopts what it saw (§2.2). Every connection after this compares against it, so
@@ -196,7 +220,7 @@ class WsLayoutSource implements LayoutSource {
       'token': token,
       'deviceId': deviceId,
       'locale': locale,
-      'grid': {'rows': _grid.rows, 'cols': _grid.cols},
+      'grid': {'rows': _grid.rows, 'cols': _grid.cols, 'reserve': reservedCells},
     });
     final Map<String, dynamic> ack;
     try {
@@ -235,6 +259,30 @@ class WsLayoutSource implements LayoutSource {
     _channel?.sink.close();
     _channel = null;
     _setStatus(SessionStatus.offline);
+    _scheduleReconnect();
+  }
+
+  bool _identityChanged = false;
+
+  /// The last connection was refused because the host's certificate is not the pinned one.
+  ///
+  /// Separate from [SessionStatus] on purpose: as far as the link is concerned this is `offline`
+  /// and the retry loop should keep running. What changes is only what the user is told, because
+  /// this is the one offline that waiting does not cure.
+  bool get identityChanged => _identityChanged;
+
+  /// Try again NOW, throwing away whatever the backoff had worked its way up to.
+  ///
+  /// The backoff only resets on a successful connect, so after the PC has been off for an hour it
+  /// sits at its 15 s ceiling — and unlocking the phone then showed a stale deck and "offline" for
+  /// up to a quarter of a minute before the app so much as attempted a connection. That is not
+  /// "being offline", which is a normal state for this screen; it is not trying. Called when the
+  /// app comes back to the foreground, which is exactly the moment the user has just woken the PC.
+  void reconnectNow() {
+    if (_closed || currentStatus == SessionStatus.online) return;
+    _retry?.cancel();
+    _retry = null;
+    _attempt = 0;
     _scheduleReconnect();
   }
 
@@ -279,26 +327,59 @@ class WsLayoutSource implements LayoutSource {
   }
 
   @override
-  Future<void> pressKey({required int pos, required String press}) =>
-      pressResult(pos: pos, press: press);
+  Stream<String> toasts() => _messages
+      .where((m) => m['type'] == 'toast')
+      .map((m) => m['text'] as String? ?? '')
+      .where((text) => text.isNotEmpty);
+
+  @override
+  Stream<Layout> preloads() =>
+      // The same body as a `layout`, so the same parser. Deliberately NOT merged into `layouts()`:
+      // everything downstream of that stream draws what it is given, and a preload must not.
+      _messages.where((m) => m['type'] == 'page_preload').map(Layout.fromJson);
+
+  @override
+  Future<void> pressKey({required int pos, required String press, int? option, String? text}) =>
+      pressResult(pos: pos, press: press, option: option, text: text);
 
   /// [pressKey] plus the host's answer, for callers that need to assert on it. A navigating key
   /// (folder/page) is answered with the new `layout` instead of a `key_result` — for navigation
   /// the layout IS the result — so waiting for either keeps both cases from hanging. The layout
   /// also reaches the UI through [layouts], which shares this broadcast stream.
-  Future<Map<String, dynamic>> pressResult({required int pos, required String press}) async {
+  Future<Map<String, dynamic>> pressResult({
+    required int pos,
+    required String press,
+    int? option,
+    String? text,
+  }) async {
     final id = '${++_keyId}';
     final answered = _messages.firstWhere(
       (m) => (m['type'] == 'key_result' && m['id'] == id) || m['type'] == 'layout',
     );
-    _send({'v': 2, 'type': 'key', 'id': id, 'page': _page, 'pos': pos, 'press': press});
+    // Absent unless the key asked something: an ordinary press is byte for byte what it always was.
+    _send({
+      'v': 2,
+      'type': 'key',
+      'id': id,
+      'page': _page,
+      'pos': pos,
+      'press': press,
+      'option': ?option,
+      'text': ?text,
+    });
     // Bounded like every other request: the caller lights the key green on this future, so an
     // unanswered press would otherwise leave it waiting for a confirmation that never comes. This
     // one still THROWS, unlike session control — the caller is waiting on the answer to decide
     // whether to light the key — but a press that went unanswered also means the link is down, and
     // saying so is what starts the reconnect.
     try {
-      return await answered.timeout(handshakeTimeout);
+      final answer = await answered.timeout(handshakeTimeout);
+      // A `deck:` or `mode:` key moves the SESSION, and the host answers with the layout of wherever
+      // it landed — the only way the mode changes without [setMode]. The reconnect replays
+      // `_wantManual`, so a stale one re-asserted a mode the user had already left: the phone came
+      // back on a deck, the host stopped sending it auto pushes, and auto mode never updated again.
+      if (answer['type'] == 'layout') _wantManual = answer['mode'] == 'manual';
+      return answer;
     } on TimeoutException {
       trace('no answer to a key press — the link is down');
       _onDisconnected();
@@ -311,12 +392,7 @@ class WsLayoutSource implements LayoutSource {
     _wantManual = mode == 'manual';
     _manualDeckId = deckId ?? _manualDeckId;
     final replied = _replyTo();
-    _send({
-      'v': 2,
-      'type': 'set_mode',
-      'mode': mode,
-      'deckId': ?deckId,
-    });
+    _send({'v': 2, 'type': 'set_mode', 'mode': mode, 'deckId': ?deckId});
     await _sessionRequest(replied);
   }
 
@@ -330,7 +406,7 @@ class WsLayoutSource implements LayoutSource {
     _send({
       'v': 2,
       'type': 'set_grid',
-      'grid': {'rows': next.rows, 'cols': next.cols},
+      'grid': {'rows': next.rows, 'cols': next.cols, 'reserve': reservedCells},
     });
     await _sessionRequest(replied);
   }

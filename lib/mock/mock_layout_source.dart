@@ -9,7 +9,7 @@ import '../net/layout_source.dart';
 /// Reads bundled fixtures instead of a WebSocket (docs/implementation-plan.md phase FP).
 /// Folder/page navigation is simulated locally: the real host resolves it server-side, the
 /// wire shape is identical either way (protocol §4.1), so `WsLayoutSource` (F3) is a drop-in swap.
-class MockLayoutSource implements LayoutSource {
+class MockLayoutSource extends LayoutSource {
   final _controller = StreamController<Layout>.broadcast();
 
   late Layout _autoLayout;
@@ -24,7 +24,9 @@ class MockLayoutSource implements LayoutSource {
   Future<void> _ensureLoaded() async {
     if (_loaded) return;
     const fixtures = 'KiBoard-protocol/protocol/fixtures';
-    final autoJson = jsonDecode(await rootBundle.loadString('$fixtures/layout-auto-photoshop.json'));
+    final autoJson = jsonDecode(
+      await rootBundle.loadString('$fixtures/layout-auto-photoshop.json'),
+    );
     final launcherJson = jsonDecode(
       await rootBundle.loadString('$fixtures/layout-manual-launcher.json'),
     );
@@ -54,7 +56,12 @@ class MockLayoutSource implements LayoutSource {
   }
 
   @override
-  Future<void> pressKey({required int pos, required String press}) async {
+  Future<void> pressKey({
+    required int pos,
+    required String press,
+    int? option,
+    String? text,
+  }) async {
     await _ensureLoaded();
     if (pos >= _current.keys.length) return;
     final key = _current.keys[pos];

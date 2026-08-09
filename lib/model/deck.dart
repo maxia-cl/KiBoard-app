@@ -39,6 +39,11 @@ class DeckKey {
   final String? doublePress;
   final bool danger;
   final bool stateOn;
+
+  /// `state.running` (§3), which the host attaches per send for keys that open an app. **Null means
+  /// this key is not one of those** — the difference matters: `false` is "that app is not open yet"
+  /// and drives the launching colour, while null is "there is nothing to wait for".
+  final bool? running;
   final KeyKind kind;
   final String? folderId;
   final int? targetPage;
@@ -59,6 +64,7 @@ class DeckKey {
     this.doublePress,
     this.danger = false,
     this.stateOn = false,
+    this.running,
     this.kind = KeyKind.empty,
     this.folderId,
     this.targetPage,
@@ -84,6 +90,7 @@ class DeckKey {
       doublePress: json['double'] as String?,
       danger: json['danger'] as bool? ?? false,
       stateOn: state?['on'] as bool? ?? false,
+      running: state?['running'] as bool?,
       kind: _kindFromString(json['kind'] as String?),
     );
   }
@@ -113,6 +120,7 @@ class DeckKey {
     doublePress: doublePress,
     danger: danger,
     stateOn: stateOn,
+    running: running,
     kind: kind,
     folderId: folderId ?? this.folderId,
     targetPage: targetPage ?? this.targetPage,
@@ -129,7 +137,13 @@ class LayoutSourceInfo {
   final String? name;
   final String? appName;
   final String? appIcon;
-  const LayoutSourceInfo({required this.kind, required this.id, this.name, this.appName, this.appIcon});
+  const LayoutSourceInfo({
+    required this.kind,
+    required this.id,
+    this.name,
+    this.appName,
+    this.appIcon,
+  });
 
   factory LayoutSourceInfo.fromJson(Map<String, dynamic> json) => LayoutSourceInfo(
     kind: json['kind'] as String,
@@ -138,6 +152,25 @@ class LayoutSourceInfo {
     appName: json['appName'] as String?,
     appIcon: json['appIcon'] as String?,
   );
+}
+
+/// Fills the holes in a page WITHOUT inventing cells the host chose not to fill.
+///
+/// The host sends exactly the cells it may use: the whole grid, minus whatever the client reserved
+/// for itself (§4.1 `grid.reserve`). Padding to `grid.capacity` regardless put empty keys back into
+/// the reserved cells — so the panel drawn over them had key caps underneath, which is precisely
+/// what "funciona muy mal" looked like.
+///
+/// Holes in the middle are still filled: a deck with a gap at position 3 must draw an empty cell
+/// there, not shift everything left.
+List<DeckKey> _densify(List<DeckKey> sparse, Grid grid) {
+  if (sparse.isEmpty) return List<DeckKey>.generate(grid.capacity, DeckKey.empty);
+  final filled = sparse.map((k) => k.pos).reduce((a, b) => a > b ? a : b) + 1;
+  final dense = List<DeckKey>.generate(filled.clamp(1, grid.capacity), DeckKey.empty);
+  for (final key in sparse) {
+    if (key.pos < dense.length) dense[key.pos] = key;
+  }
+  return dense;
 }
 
 class Layout {
@@ -166,10 +199,7 @@ class Layout {
     final sparse = (json['keys'] as List)
         .map((k) => DeckKey.fromLayoutJson(k as Map<String, dynamic>))
         .toList();
-    final dense = List<DeckKey>.generate(grid.capacity, (i) => DeckKey.empty(i));
-    for (final key in sparse) {
-      if (key.pos < dense.length) dense[key.pos] = key;
-    }
+    final dense = _densify(sparse, grid);
     final sys = json['sys'] as Map<String, dynamic>?;
     return Layout(
       mode: json['mode'] as String,
@@ -217,17 +247,24 @@ class WindowsPage {
   final int pages;
   final List<DeckKey> keys;
 
-  const WindowsPage({required this.grid, required this.page, required this.pages, required this.keys});
+  const WindowsPage({
+    required this.grid,
+    required this.page,
+    required this.pages,
+    required this.keys,
+  });
 
   factory WindowsPage.fromJson(Map<String, dynamic> json) {
     final grid = Grid.fromJson(json['grid'] as Map<String, dynamic>);
     final sparse = (json['keys'] as List)
         .map((k) => DeckKey.fromWindowJson(k as Map<String, dynamic>))
         .toList();
-    final dense = List<DeckKey>.generate(grid.capacity, (i) => DeckKey.empty(i));
-    for (final key in sparse) {
-      if (key.pos < dense.length) dense[key.pos] = key;
-    }
-    return WindowsPage(grid: grid, page: json['page'] as int, pages: json['pages'] as int, keys: dense);
+    final dense = _densify(sparse, grid);
+    return WindowsPage(
+      grid: grid,
+      page: json['page'] as int,
+      pages: json['pages'] as int,
+      keys: dense,
+    );
   }
 }

@@ -67,8 +67,13 @@ class _BootScreenState extends State<BootScreen> {
     return FutureBuilder<Widget>(
       future: _next,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Splash();
-        return snapshot.data!;
+        // A hard cut from the brand mark to the deck reads as a flicker — the mark is up for its
+        // own minimum (see `Splash.hold`) and then simply vanishes. 200 ms of cross-fade is
+        // enough to look deliberate and short enough that nobody waits for it.
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: snapshot.hasData ? snapshot.data! : const Splash(),
+        );
       },
     );
   }

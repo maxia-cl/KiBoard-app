@@ -26,7 +26,11 @@ class DeviceBezel extends StatelessWidget {
     this.dotsInside = true,
   });
 
-  static const _logoLineHeight = 16.0; // 11px font, default line height, rounded up
+  /// The logo's line box, PINNED rather than estimated: the style below sets `height: 1.2`, so
+  /// this is 11 x 1.2 and not whatever line height the ambient theme happens to carry. It was
+  /// "16, rounded up" and the real box was 20 — invisible while the key had slack to absorb it,
+  /// a 4 px overflow the moment the grid started taking the whole box.
+  static const _logoLineHeight = 11 * 1.2;
 
   /// Below this height the shell goes compact. A phone held sideways has ~390 logical pixels top
   /// to bottom, and the full-size padding plus the engraved logo were eating a third of it — on
@@ -38,8 +42,10 @@ class DeviceBezel extends StatelessWidget {
 
   // Compact is the phone held sideways, where every pixel of height is a pixel off the keys.
   // Trimmed to the minimum that still reads as a bezel rather than a hairline.
-  static double _padTop(bool compact) => compact ? 6 : DeckTokens.bezelPaddingTopPx;
-  static double _padBottom(bool compact) => compact ? 6 : DeckTokens.bezelPaddingBottomPx;
+  /// 2, not 6, on a short screen: sideways those 8 pixels are the difference between a key that
+  /// matches the upright one and one that does not, and at this size the frame still reads.
+  static double _padTop(bool compact) => compact ? 2 : DeckTokens.bezelPaddingTopPx;
+  static double _padBottom(bool compact) => compact ? 2 : DeckTokens.bezelPaddingBottomPx;
 
   /// Vertical space the bezel needs BEYOND the grid it wraps: its padding, the page dots when
   /// there is more than one page, and the engraved logo.
@@ -50,7 +56,12 @@ class DeviceBezel extends StatelessWidget {
     final compact = isCompact(availableHeight);
     return _padTop(compact) +
         _padBottom(compact) +
-        (dotsInside && pageCount > 1 ? 18 : 0) + // 10 gap + 8 dot
+        // 10 gap + the row. The `2/4` label is 12 where a dot is 8, and sideways those 4 pixels
+        // come straight off the key: measured 110.2 -> 109.6 and `CAPPED BY BOX` where nothing
+        // had been capped before. So the label is portrait-only, where height is not what binds.
+        // This number is the one thing that trace cannot catch — both sides of its comparison
+        // derive from it, so they agree while being wrong together. `no_overflow_test` catches it.
+        (dotsInside && pageCount > 1 ? (compact ? 18 : 22) : 0) +
         (compact ? 0 : 8 + _logoLineHeight);
   }
 
@@ -59,27 +70,58 @@ class DeviceBezel extends StatelessWidget {
   /// The margin goes on the axis the dots are laid out along, never both: in the bezel they sit in
   /// a Row whose height `chromeHeightFor` has already budgeted at 8, so a vertical margin here is
   /// height nobody reserved — which is precisely how this overflowed the deck by 4.4 pixels.
+  ///
+  /// **The active one is LONGER, not just redder.** The two token colours are dark brand red and
+  /// dark grey on a near-black bezel: about 1.7:1 and 2.1:1, and barely 1.2:1 apart in luminance —
+  /// so the only thing separating them was hue, which is nothing at all to the ~8% of men who
+  /// cannot tell those two apart. Length reads in greyscale, at arm's length, and next to a
+  /// monitor. The pale ring is what lifts the mark off the bezel.
   static Widget dot(bool active, {bool stacked = false}) => Container(
-        margin: stacked
-            ? const EdgeInsets.symmetric(vertical: 3)
-            : const EdgeInsets.symmetric(horizontal: 3),
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: active ? const Color(DeckTokens.pageDotActive) : const Color(DeckTokens.pageDotInactive),
-        ),
-      );
+    margin: stacked
+        ? const EdgeInsets.symmetric(vertical: 3)
+        : const EdgeInsets.symmetric(horizontal: 3),
+    width: stacked ? 8 : (active ? 18 : 8),
+    height: stacked ? (active ? 18 : 8) : 8,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(4),
+      color: active
+          ? const Color(DeckTokens.pageDotActive)
+          : const Color(DeckTokens.pageDotInactive),
+      border: active
+          ? Border.all(color: const Color(0x66FFFFFF), width: 1)
+          : null,
+    ),
+  );
+
+  /// `2/4`, for when eight-pixel marks are not enough — which is most of the time on a surface
+  /// read at arm's length. Costs no colour, so it is the one page cue that works for everybody.
+  static Widget pageLabel(int currentPage, int pageCount) => Text(
+    '${currentPage + 1}/$pageCount',
+    style: const TextStyle(
+      color: Color(DeckTokens.textSecondary),
+      fontSize: 11,
+      height: 1.0,
+      fontFeatures: [FontFeature.tabularFigures()],
+    ),
+  );
 
   /// Horizontal space the bezel needs beyond the grid.
-  static double chromeWidth() => 2 * DeckTokens.bezelPaddingSidePx;
+  /// The drawn frame down each side. Thin on purpose: upright the key is bound by height, so
+  /// every pixel here is margin taken off the grid's width and given to nothing — at 20 it was the
+  /// difference between two columns and three. The top and bottom keep the token's full padding,
+  /// which is where the bezel still reads as a bezel.
+  static const _padSide = 4.0;
+
+  static double chromeWidth() => 2 * _padSide;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final compact = isCompact(constraints.maxHeight);
-      return _shell(compact);
-    });
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = isCompact(constraints.maxHeight);
+        return _shell(compact);
+      },
+    );
   }
 
   Widget _shell(bool compact) {
@@ -92,24 +134,37 @@ class DeviceBezel extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(DeckTokens.bezelCornerRadiusPx),
       ),
-      padding: EdgeInsets.fromLTRB(
-        DeckTokens.bezelPaddingSidePx,
-        _padTop(compact),
-        DeckTokens.bezelPaddingSidePx,
-        _padBottom(compact),
-      ),
+      padding: EdgeInsets.fromLTRB(_padSide, _padTop(compact), _padSide, _padBottom(compact)),
       // Fills whatever it is given and centres the keys inside, rather than shrink-wrapping them.
       // Shrink-wrapped, the pad floated as a small slab in the middle of the screen; the phone is
       // meant to BE the device (§3.0), so the shell goes edge to edge and the keys sit in it.
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        // Bottom-aligned, so the slack the keys give back collects along the TOP edge instead of
+        // being split evenly. The logo and the dots stay where they were, hung off the bottom.
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          SizedBox(width: gridWidth, height: gridHeight, child: child),
+          // The grid takes what is left after the fixed parts below, instead of a height the
+          // caller worked out for it. Two places computing the same number is how a 4 px
+          // overflow appears the moment one of them is off — and `chromeHeightFor` had to guess
+          // at a text line box, which is a number only the text engine really knows.
+          Flexible(
+            child: SizedBox(width: gridWidth, height: gridHeight, child: child),
+          ),
           if (dotsInside && pageCount > 1) ...[
             const SizedBox(height: 10),
             Row(
               mainAxisSize: MainAxisSize.min,
-              children: [for (var i = 0; i < pageCount; i++) dot(i == currentPage)],
+              spacing: 6,
+              children: [
+                // ponytail: deliberately NOT tappable. A target worth tapping is ~48 high, and
+                // sideways every pixel of height comes straight off the key — which is the one
+                // thing on this screen that is not allowed to shrink. The swipe already goes to
+                // any page, and it follows the finger now.
+                for (var i = 0; i < pageCount; i++) dot(i == currentPage),
+                // Portrait only: sideways it costs key size, and the longer active mark already
+                // carries the cue that does not depend on telling two dark colours apart.
+                if (!compact) pageLabel(currentPage, pageCount),
+              ],
             ),
           ],
           // Dropped on a short screen: see [_compactBelow]. Every pixel it takes is a pixel off
@@ -118,7 +173,12 @@ class DeviceBezel extends StatelessWidget {
             const SizedBox(height: 8),
             const Text(
               DeckTokens.bezelLogoText,
-              style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 11, letterSpacing: 2),
+              style: TextStyle(
+                color: Color(DeckTokens.textSecondary),
+                fontSize: 11,
+                height: 1.2,
+                letterSpacing: 2,
+              ),
             ),
           ],
         ],

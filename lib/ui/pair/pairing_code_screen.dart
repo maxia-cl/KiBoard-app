@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 
 import '../../net/discovered_host.dart';
@@ -8,12 +10,22 @@ import '../../net/saved_session.dart';
 import '../../net/trace.dart';
 import '../../net/ws_layout_source.dart';
 import '../deck/deck_screen.dart';
+import '../nav.dart';
 import '../tokens.g.dart';
 
-const _errorMessages = {
-  'pairing_closed': "This PC isn't accepting new pairings right now.",
-  'bad_code': 'Wrong code — check the PC screen and try again.',
-  'rate_limited': 'Too many wrong attempts. Wait a few minutes and try again.',
+/// The host's error code -> what to say about it. Translated at the point of USE, not here: a
+/// top-level constant has no context and therefore no language.
+String _errorMessage(AppLocalizations t, String code) => switch (code) {
+  'pairing_closed' => t.pairingClosed,
+  'bad_code' => t.wrongCode,
+  'rate_limited' => t.tooManyAttempts,
+  'unreachable' => t.couldNotReach,
+  'dropped' => t.connectionDropped,
+  // Paired, and then the session would not open — a different failure from any of the above, and
+  // the one where the detail is worth showing, because it is the only clue there is.
+  _ when code.startsWith('session_failed:') =>
+    t.pairFailed(code.substring('session_failed:'.length).trim()),
+  _ => code,
 };
 
 /// protocol/README.md §2: a real pair_request/pair_challenge/pair_confirm/pair_ack round trip
@@ -52,6 +64,10 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
   bool _checking = false;
   bool _ready = false;
   bool _paired = false;
+
+  /// The host's error CODE, not a sentence. Translating here would mean reading the locale from
+  /// `initState`, which Flutter forbids for good reason — and it is what broke the pairing screen
+  /// the first time this was localized. `build` turns it into words.
   String? _error;
   late Pairing _client = widget.injectedClient ?? PairingClient();
 
@@ -80,7 +96,7 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
     } catch (e) {
       trace('pairing setup FAILED: $e');
       if (!mounted) return;
-      setState(() => _error = e is PairingException ? (_errorMessages[e.code] ?? e.code) : 'Could not reach that PC.');
+      setState(() => _error = e is PairingException ? e.code : 'unreachable');
     }
   }
 
@@ -97,7 +113,7 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
         _ready = false;
         _checking = false;
         _controller.clear();
-        _error = 'The connection dropped. Getting a new code — check the PC screen.';
+        _error = 'dropped';
       });
       // A dead socket is unrecoverable, and the code it issued died with it: start clean.
       _client = PairingClient();
@@ -118,27 +134,29 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
       final source = await (widget.openSession ?? _openRealSession)(result);
       trace('session ready, opening the deck');
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => DeckScreen(
-            layoutSource: source,
-            hostName: result.hostName,
-            session: _session,
-          ),
-        ),
+      // Fade-through, not a push: the deck is not "deeper" than the pairing screen, it replaces it.
+      //
+      // And `pushAndRemoveUntil`, not `pushReplacement`: the discovery screen underneath is a
+      // finished flow with no route forward, so leaving it in the stack meant back on the deck
+      // popped to a host list the user had already used — and the only way out of that was killing
+      // the app. Clearing the stack makes the deck the root here, exactly as it is on a relaunch,
+      // so back means one thing in both cases.
+      Navigator.of(context).pushAndRemoveUntil(
+        fadeRoute(DeckScreen(layoutSource: source, hostName: result.hostName, session: _session)),
+        (route) => false,
       );
     } on PairingException catch (e) {
       if (!mounted) return;
       setState(() {
         _checking = false;
-        _error = _errorMessages[e.code] ?? e.code;
+        _error = e.code;
       });
     } catch (e) {
       trace('session FAILED: $e');
       if (!mounted) return;
       setState(() {
         _checking = false;
-        _error = 'Paired, but the session could not start: $e';
+        _error = 'session_failed: $e';
       });
     }
   }
@@ -189,9 +207,14 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F10),
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, foregroundColor: const Color(DeckTokens.textPrimary)),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: const Color(DeckTokens.textPrimary),
+      ),
       // Scrollable because the keyboard is what makes this screen tight, not the content: with a
       // phone held sideways the numeric pad takes most of the height and pushed Confirm off the
       // bottom — unreachable, which made pairing in landscape impossible.
@@ -201,13 +224,17 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '"${widget.host.name}" wants to connect',
-              style: const TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 20, fontWeight: FontWeight.w600),
+              t.wantsToConnect(widget.host.name),
+              style: const TextStyle(
+                color: Color(DeckTokens.textPrimary),
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Enter the 6-digit code shown on that PC. It expires in 120 s.',
-              style: TextStyle(color: Color(DeckTokens.textSecondary)),
+            Text(
+              t.enterCode,
+              style: const TextStyle(color: Color(DeckTokens.textSecondary)),
             ),
             const SizedBox(height: 24),
             if (!_ready && _error == null)
@@ -218,7 +245,10 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
                 autofocus: true,
                 enabled: _ready,
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
                 maxLength: 6,
                 onChanged: (_) => setState(() {}),
                 // The keyboard's own confirm key submits. Six digits then reaching past the
@@ -229,24 +259,38 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
                   if (_ready && !_checking && _controller.text.length == 6) _confirm();
                 },
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 32, letterSpacing: 12),
+                style: const TextStyle(
+                  color: Color(DeckTokens.textPrimary),
+                  fontSize: 32,
+                  letterSpacing: 12,
+                ),
                 decoration: InputDecoration(
                   counterText: '',
                   filled: true,
                   fillColor: const Color(0xFF1E1E20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  errorText: _error,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  errorText: _error == null ? null : _errorMessage(t, _error!),
                 ),
               ),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: const Color(DeckTokens.accent), padding: const EdgeInsets.all(14)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(DeckTokens.accent),
+                    padding: const EdgeInsets.all(14),
+                  ),
                   onPressed: !_ready || _checking || _controller.text.length != 6 ? null : _confirm,
                   child: _checking
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Confirm'),
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text(t.confirm),
                 ),
               ),
             ],

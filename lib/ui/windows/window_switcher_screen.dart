@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../model/deck.dart';
 import '../../net/layout_source.dart';
 import '../deck/device_bezel.dart';
@@ -21,6 +22,7 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
   final Map<int, WindowsPage> _pages = {};
   int _currentPage = 0;
   bool _loading = true;
+  bool _failed = false;
 
   @override
   void initState() {
@@ -28,13 +30,37 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
     _loadPage(0);
   }
 
+  /// `listWindows` gives up by THROWING, and nothing used to catch it: the first page never
+  /// arrived, `_loading` was never cleared, and the screen showed a spinner for ever — after an
+  /// eight-second wait during which it looked like it was working.
   Future<void> _loadPage(int page) async {
     if (!_pages.containsKey(page)) {
-      final data = await widget.layoutSource.listWindows(page);
-      if (!mounted) return;
-      setState(() => _pages[page] = data);
+      try {
+        final data = await widget.layoutSource.listWindows(page);
+        if (!mounted) return;
+        setState(() => _pages[page] = data);
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _failed = true;
+          _loading = false;
+        });
+        return;
+      }
     }
-    setState(() => _loading = false);
+    if (!mounted) return;
+    setState(() {
+      _failed = false;
+      _loading = false;
+    });
+  }
+
+  void _retry() {
+    setState(() {
+      _failed = false;
+      _loading = true;
+    });
+    _loadPage(_currentPage);
   }
 
   @override
@@ -45,6 +71,7 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F10),
       body: SafeArea(
@@ -56,13 +83,17 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
                 children: [
                   const Icon(Icons.window, color: Color(DeckTokens.textSecondary), size: 18),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Open windows',
-                      style: TextStyle(color: Color(DeckTokens.textPrimary), fontWeight: FontWeight.w600),
+                      t.openWindows,
+                      style: const TextStyle(
+                        color: Color(DeckTokens.textPrimary),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   IconButton(
+                    tooltip: t.close,
                     icon: const Icon(Icons.close, color: Color(DeckTokens.textSecondary)),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -72,16 +103,23 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent)))
+                  // A sentence and a way forward, the same bargain the deck makes when the host is
+                  // asleep. A spinner here would be a lie: nothing is still coming.
+                  : _failed
+                  ? _Message(text: t.windowsFailed, action: TextButton(onPressed: _retry, child: Text(t.retry)))
+                  : (_pages[0]?.keys.isEmpty ?? true)
+                  ? _Message(text: t.noOpenWindows)
                   : Padding(
                       padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          final first = _pages[0]!;
+                          final first = _pages[0]!; // guarded by the empty/failed branches above
                           // Same shell and sizing as the deck — §4.3 says same grid, same key.
                           final keySize = KeyGrid.sizeToFit(
                             first.grid,
                             constraints.maxWidth - DeviceBezel.chromeWidth(),
-                            constraints.maxHeight - DeviceBezel.chromeHeightFor(first.pages, constraints.maxHeight),
+                            constraints.maxHeight -
+                                DeviceBezel.chromeHeightFor(first.pages, constraints.maxHeight),
                           );
                           return DeviceBezel(
                             gridWidth: KeyGrid.widthFor(first.grid, keySize),
@@ -116,6 +154,34 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
                       ),
                     ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A sentence in the middle of the pad, with an optional way forward. The deck says the same kind
+/// of thing when the host is asleep; a spinner would claim something is still on its way.
+class _Message extends StatelessWidget {
+  final String text;
+  final Widget? action;
+  const _Message({required this.text, this.action});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 14),
+            ),
+            if (action != null) ...[const SizedBox(height: 8), action!],
           ],
         ),
       ),

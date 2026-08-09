@@ -6,6 +6,19 @@ import 'package:web_socket_channel/io.dart';
 import 'discovered_host.dart';
 import 'trace.dart';
 
+/// The host served a certificate that is not the pinned one (protocol §2.2).
+///
+/// Deliberately NOT fatal — the saved session is kept and the app keeps retrying. Clearing it
+/// automatically is precisely what somebody standing in the middle would want: refuse once, and
+/// the phone helpfully forgets the identity it was protecting. Only the user gets to decide, from
+/// "Forget this PC" in Settings. What this exception buys is the UI being able to SAY so, instead
+/// of showing the same "the PC is asleep" copy for a state that waiting cannot fix.
+class CertificateChanged implements Exception {
+  const CertificateChanged();
+  @override
+  String toString() => 'certificate_changed';
+}
+
 /// A `wss://` connection that trusts exactly ONE certificate (protocol §2.2).
 ///
 /// The host is self-signed — a LAN has no certificate authority to appeal to — so ordinary
@@ -37,12 +50,15 @@ class PinnedSocket {
     Duration timeout = const Duration(seconds: 8),
   }) async {
     String? seen;
+    var mismatch = false;
+    var handedOver = false;
     final client = HttpClient()
       ..badCertificateCallback = (cert, _, _) {
         seen = base64Encode(cert.der);
         if (expected == null) return true; // first use: adopt it
         final ok = seen == expected;
         if (!ok) {
+          mismatch = true;
           trace('certificate for $host is not the pinned one — refusing');
         }
         return ok;
@@ -57,11 +73,19 @@ class PinnedSocket {
       await channel.ready.timeout(timeout);
       // `badCertificateCallback` only fires for a certificate that failed ordinary validation,
       // which a self-signed one always does — so by here it has run and `seen` is set.
+      handedOver = true;
       return PinnedSocket._(seen ?? '', channel);
+    } on Object {
+      // A refusal arrives as an ordinary handshake failure, which is indistinguishable from a PC
+      // that is simply off. Naming it is what lets the UI say "pair again" for the one case where
+      // waiting cannot help.
+      if (mismatch) throw const CertificateChanged();
+      rethrow;
     } finally {
       // The client owns the connection until the socket takes over; closing it here would kill a
-      // live channel, so it is only closed on the failure path.
-      if (seen == null) client.close(force: true);
+      // live channel, so it is only closed when no socket was handed out. `seen` is set on the
+      // refusal path too, so it cannot be the test.
+      if (!handedOver) client.close(force: true);
     }
   }
 }

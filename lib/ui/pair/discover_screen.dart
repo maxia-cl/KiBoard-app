@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
+
 import '../wordmark.dart';
 
 import '../../net/discovered_host.dart';
 import '../../net/discovery.dart';
 import '../../net/mdns_discovery.dart';
+import '../manual_screen.dart';
+import '../nav.dart';
 import '../tokens.g.dart';
 import 'pairing_code_screen.dart';
 
@@ -27,7 +31,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   void _open(DiscoveredHost host) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => PairingCodeScreen(host: host)));
+    Navigator.of(context).push(screenRoute(PairingCodeScreen(host: host)));
   }
 
   /// R1's escape hatch: the address typed by hand. Deliberately reuses the ordinary pairing screen
@@ -44,10 +48,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       backgroundColor: const Color(0xFF1E1E20),
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) {
+          final t = AppLocalizations.of(sheetContext)!;
           void submit() {
             final parsed = parseHostAddress(text);
             if (parsed == null) {
-              setSheetState(() => error = "That doesn't look like an address.");
+              setSheetState(() => error = t.notAnAddress);
               return;
             }
             Navigator.of(sheetContext).pop(parsed);
@@ -64,8 +69,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Your PC's address",
+                Text(
+                  t.yourPcsAddress,
                   style: TextStyle(
                     color: Color(DeckTokens.textPrimary),
                     fontSize: 18,
@@ -73,10 +78,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'KiBoard shows it on the PC, under the pairing code. The port is '
-                  '$defaultHostPort unless you changed it.',
-                  style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 13),
+                Text(
+                  t.addressHint,
+                  style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 13),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -108,7 +112,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       padding: const EdgeInsets.all(14),
                     ),
                     onPressed: submit,
-                    child: const Text('Connect'),
+                    child: Text(t.connect),
                   ),
                 ),
               ],
@@ -123,6 +127,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F10),
       body: SafeArea(
@@ -136,10 +141,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               // drawn mark in the other.
               const Wordmark(markHeight: 34),
               const SizedBox(height: 4),
-              const Text(
-                'Looking for PCs on your network…',
-                style: TextStyle(color: Color(DeckTokens.textSecondary)),
-              ),
+              Text(t.lookingForPcs, style: TextStyle(color: Color(DeckTokens.textSecondary))),
               const SizedBox(height: 24),
               Expanded(
                 child: FutureBuilder<List<DiscoveredHost>>(
@@ -169,8 +171,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Text(
-                                  'No PCs found on this network yet.',
+                                Text(
+                                  t.noPcsFound,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: Color(DeckTokens.textPrimary),
@@ -178,15 +180,28 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
+                                // The host check comes FIRST. The screen used to open with the
+                                // multicast explanation, which is true for the networks that hit
+                                // it — but somebody who found the phone app before the PC one has
+                                // nothing running to be found, and every route offered here was a
+                                // dead end for them: rescanning finds nothing and a typed address
+                                // connects to nothing.
+                                Text(
+                                  t.isKiboardRunning,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Color(DeckTokens.textPrimary),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
                                 // Two lines, not four. The long version fitted upright and had to
                                 // be scrolled sideways, which left the buttons sliced in half
                                 // below the fold — it looked broken even though nothing was.
-                                const Text(
-                                  'Some networks — guest WiFi, plenty of ISP routers — never pass '
-                                  'on the messages KiBoard listens for. Typing the address works '
-                                  'anyway.',
+                                Text(
+                                  t.noPcsWhy,
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     color: Color(DeckTokens.textSecondary),
                                     fontSize: 13,
                                   ),
@@ -199,13 +214,22 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                   spacing: 8,
                                   runSpacing: 8,
                                   children: [
-                                    TextButton(onPressed: _rescan, child: const Text('Scan again')),
+                                    TextButton(onPressed: _rescan, child: Text(t.scanAgain)),
                                     FilledButton(
                                       style: FilledButton.styleFrom(
                                         backgroundColor: const Color(DeckTokens.accent),
                                       ),
                                       onPressed: _enterAddress,
-                                      child: const Text('Enter its address'),
+                                      child: Text(t.enterAddress),
+                                    ),
+                                    // The manual answers this screen's question better than this
+                                    // screen can, and it was three levels away behind a cog
+                                    // nobody stuck here has ever opened.
+                                    TextButton(
+                                      onPressed: () => Navigator.of(
+                                        context,
+                                      ).push(screenRoute<void>(const ManualScreen())),
+                                      child: Text(t.readTheManual),
                                     ),
                                   ],
                                 ),
@@ -247,8 +271,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                           ),
                                         ),
                                         if (!host.pairingOpen)
-                                          const Text(
-                                            'Not accepting new pairings right now',
+                                          Text(
+                                            t.pairingClosed,
                                             style: TextStyle(
                                               color: Color(DeckTokens.textSecondary),
                                               fontSize: 12,
@@ -285,8 +309,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     color: Color(DeckTokens.textSecondary),
                     size: 18,
                   ),
-                  label: const Text(
-                    "Don't see your PC? Enter its address",
+                  label: Text(
+                    t.dontSeeYourPc,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Color(DeckTokens.textSecondary)),
                   ),

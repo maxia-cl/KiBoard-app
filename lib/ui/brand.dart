@@ -53,8 +53,7 @@ class Brand {
   /// follows the system this is the only line that has to be right. The Android launch theme is
   /// pinned dark to match — a system splash that followed the phone showed a cream screen in front
   /// of a dark app.
-  static Brand of(BuildContext c) =>
-      Theme.of(c).brightness == Brightness.dark ? dark : light;
+  static Brand of(BuildContext c) => Theme.of(c).brightness == Brightness.dark ? dark : light;
 
   /// The logo file that reads on this brightness — the mark is dark ink on paper, so it needs its
   /// own light-on-dark version rather than a tint.

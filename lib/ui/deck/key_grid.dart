@@ -14,8 +14,11 @@ class KeyGrid extends StatelessWidget {
   final double keySize;
   final void Function(int pos, String press)? onKeyPress;
 
-  /// Positions the host has just confirmed with `key_result` ok — painted lit (§3.1).
-  final Set<int> confirmed;
+  /// Positions waiting for the app they opened to appear (see `KeyWidget.launching`).
+  final Set<int> launching;
+
+  /// Cells to leave blank BEFORE the first key. See the note in `build`.
+  final int leadingBlanks;
 
   const KeyGrid({
     super.key,
@@ -23,7 +26,8 @@ class KeyGrid extends StatelessWidget {
     required this.keys,
     required this.keySize,
     this.onKeyPress,
-    this.confirmed = const {},
+    this.launching = const {},
+    this.leadingBlanks = 0,
   });
 
   static double gapFor(double keySize) => keySize * DeckTokens.keyGapRatioOfSide;
@@ -44,6 +48,9 @@ class KeyGrid extends StatelessWidget {
   /// bar, the bezel padding and the page dots. Being generous here costs a few pixels of key; not
   /// being generous enough costs an overflow, so [sizeToFit] still caps the result against the
   /// space really on offer.
+  /// A ceiling, so a tablet does not get keys the size of a hand. Nothing on a phone reaches it.
+  static const maxKeySize = 140.0;
+
   static double sizeForDevice(Size screen, Grid grid) {
     const gapRatio = DeckTokens.keyGapRatioOfSide;
     final small = math.min(grid.rows, grid.cols);
@@ -73,18 +80,22 @@ class KeyGrid extends StatelessWidget {
   /// lets the box cap bite in one orientation only — which is the rotation-resize this whole
   /// mechanism exists to prevent.
   ///
-  /// MEASURED from the `space=WxH` the trace prints, against a 393x873 logical screen:
-  ///   upright   space 337x674  -> shell costs  56 wide, 199 tall
-  ///   sideways  space 755x320  -> shell costs 118 wide,  73 tall
-  /// The short edge of the DEVICE is the height sideways (73) and the width upright (56): worst
-  /// case 73. The long edge is the width sideways (118) and the height upright (199): worst 199.
-  /// A few pixels of slack on each, because too small a reserve is what makes the cap bite.
+  /// RE-MEASURED after the bezel went to 4 at the sides and the deck went full screen sideways,
+  /// against the same 393x873 logical phone:
+  ///   upright   space 369x682  -> shell costs  24 wide, 191 tall
+  ///   sideways  space 755x389  -> shell costs 118 wide,   4 tall
+  /// The short edge of the DEVICE is the height sideways (4) and the width upright (24): worst
+  /// case 24. The long edge is the width sideways (118) and the height upright (191): worst 191.
+  ///
+  /// The old 80 dated from a 20 px bezel and a status bar sideways; left alone it held the key at
+  /// 95 in a box that now fits 112, which is the whole point of this pair of numbers being
+  /// MEASURED rather than guessed.
   ///
   /// Measure with a deck that PAGINATES. 185 looked right against a single-page layout and then
   /// capped as soon as a second page appeared: the dots are 18 of those pixels, and they only
   /// exist when there is somewhere to go.
-  static const _reserveShort = 80.0;
-  static const _reserveLong = 200.0;
+  static const _reserveShort = 24.0;
+  static const _reserveLong = 191.0;
 
   /// The largest key that fits BOTH dimensions of the space available.
   ///
@@ -117,11 +128,15 @@ class KeyGrid extends StatelessWidget {
         childAspectRatio: 1,
         physics: const NeverScrollableScrollPhysics(),
         children: [
+          // Cells the caller has taken for something else — the foreground-app panel, when it sits
+          // on the first row. Blank rather than an empty KEY: an unlit cap under the panel is the
+          // double frame this already had to be rid of once.
+          for (var i = 0; i < leadingBlanks; i++) const SizedBox.shrink(),
           for (final key in keys)
             KeyWidget(
               keyData: key,
               size: keySize,
-              confirmed: confirmed.contains(key.pos),
+              launching: launching.contains(key.pos),
               onPress: (p) => onKeyPress?.call(key.pos, p),
             ),
         ],

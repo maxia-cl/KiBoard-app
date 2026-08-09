@@ -1,0 +1,103 @@
+{
+  "@@locale": "en",
+  "backAgainToLeave": "Press back again to leave KiBoard",
+  "forgetPc": "Forget this PC",
+  "forgetPcHint": "Pair again from scratch. Use this if the PC changed address or was reinstalled.",
+  "forgetPcAsk": "This phone will stop being paired with this PC. You can pair again right away.",
+  "forget": "Forget",
+  "identityChanged": "This PC's identity changed. Waiting will not fix it.",
+  "close": "Close",
+  "retry": "Try again",
+  "windowsFailed": "Could not reach your PC to list its windows.",
+  "noOpenWindows": "No open windows on your PC.",
+  "isKiboardRunning": "Is KiBoard running on the PC? It sits in the tray, next to the clock.",
+  "readTheManual": "How this works",
+  "noSuchKey": "That key is not on the PC anymore.",
+  "unknownAction": "The PC did not recognise that key's action.",
+  "blockedAction": "The PC refused that action.",
+  "keyRefusedGeneric": "The PC refused that key.",
+  "yourPc": "your PC",
+  "dictate": "Dictate",
+  "launching": "opening…",
+  "inFrontOnPc": "{app} is in front on the PC",
+  "@inFrontOnPc": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "appPanel": "App panel",
+  "appPanelHint": "Upright only. At the top, the keys keep the row your thumb reaches.",
+  "panelTop": "Top",
+  "panelBottom": "Bottom",
+  "appName": "KiBoard",
+  "lookingForPcs": "Looking for PCs on your network…",
+  "noPcsFound": "No PCs found on this network yet.",
+  "noPcsWhy": "Some networks — guest WiFi, plenty of ISP routers — never pass on the messages KiBoard listens for. Typing the address works anyway.",
+  "scanAgain": "Scan again",
+  "enterAddress": "Enter its address",
+  "dontSeeYourPc": "Don't see your PC? Enter its address",
+  "yourPcsAddress": "Your PC's address",
+  "addressHint": "KiBoard shows it on the PC, under the pairing code. The port is only needed if it is not the usual one.",
+  "notAnAddress": "That doesn't look like an address. It should be like 192.168.1.20 or 192.168.1.20:8770.",
+  "connect": "Connect",
+  "cancel": "Cancel",
+  "connecting": "Connecting…",
+  "couldNotReach": "Could not reach that PC.",
+  "wantsToConnect": "\"{host}\" wants to connect",
+  "@wantsToConnect": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "enterCode": "Enter the 6-digit code shown on that PC. It expires in 120 s.",
+  "wrongCode": "Wrong code — check the PC screen and try again.",
+  "tooManyAttempts": "Too many wrong attempts. Wait a few minutes and try again.",
+  "pairingClosed": "Not accepting new pairings right now",
+  "connectionDropped": "The connection dropped. Getting a new code — check the PC screen.",
+  "pairFailed": "Paired, but the session could not start: {error}",
+  "@pairFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "confirm": "Confirm",
+  "offlineRetrying": "Offline — retrying…",
+  "revoked": "This PC revoked access.",
+  "pairAgain": "Pair again",
+  "waitingForHost": "Waiting for \"{host}\".",
+  "@waitingForHost": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "waitingForHostHint": "It will appear here as soon as the PC is awake and on this network.",
+  "decks": "Decks",
+  "auto": "Auto",
+  "manual": "Manual",
+  "settings": "Settings",
+  "openWindows": "Open windows",
+  "rightClick": "Right click",
+  "listening": "Listening…",
+  "holdAndSpeak": "Hold the button and speak.\nThe text is typed on the PC when you let go.",
+  "micNeeded": "Microphone permission is needed to dictate.",
+  "micDenied": "Microphone denied. Enable it in Android settings.",
+  "noSpeech": "Speech recognition is not available on this phone.",
+  "cannotUndo": "This one cannot be undone from here.",
+  "noAnswer": "no answer from the PC",
+  "vibration": "Vibration",
+  "sound": "Sound",
+  "language": "Language",
+  "languageSystem": "Phone's language",
+  "manualTitle": "How KiBoard works",
+  "openManual": "Manual",
+  "buyCoffee": "Buy me a coffee",
+  "coffeeHint": "KiBoard is free. If it saves you time, this keeps it going."
+}
