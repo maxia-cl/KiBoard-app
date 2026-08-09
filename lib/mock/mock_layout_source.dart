@@ -56,7 +56,12 @@ class MockLayoutSource extends LayoutSource {
   }
 
   @override
-  Future<void> pressKey({required int pos, required String press}) async {
+  Future<void> pressKey({
+    required int pos,
+    required String press,
+    int? option,
+    String? text,
+  }) async {
     await _ensureLoaded();
     if (pos >= _current.keys.length) return;
     final key = _current.keys[pos];

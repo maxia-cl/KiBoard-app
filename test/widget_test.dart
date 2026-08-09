@@ -42,12 +42,17 @@ class _TenKeys extends LayoutSource {
   final String? foreground;
   final bool full;
 
+  /// What key 0 does. A `picker:`/`colorpicker:`/`prompt:` here is a key that asks something first
+  /// (§4.2), which is the only kind the phone has to understand the action string of.
+  final String keyAction;
+
   _TenKeys({
     this.danger = false,
     this.paginated = false,
     this.manual = false,
     this.foreground,
     this.full = false,
+    this.keyAction = 'ctrl+c',
   });
 
   int _page = 0;
@@ -56,6 +61,17 @@ class _TenKeys extends LayoutSource {
   /// test can tell which page it is looking at — including one drawn as a neighbour.
   void goTo(int page) {
     _page = page;
+    _controller.add(_layout);
+  }
+
+  /// Auto mode's `source.id`. It changes when the PC puts another app in front, which is the one
+  /// moment the phone throws its cached pages away.
+  String profile = 'test';
+
+  /// Another app came to the front on the PC.
+  void switchTo(String next) {
+    profile = next;
+    _page = 0;
     _controller.add(_layout);
   }
 
@@ -69,8 +85,8 @@ class _TenKeys extends LayoutSource {
   Layout _layoutFor(int page) => Layout(
     mode: manual ? 'manual' : 'auto',
     source: manual
-        ? LayoutSourceInfo(kind: 'deck', id: 'test', name: 'Work', appName: foreground)
-        : LayoutSourceInfo(kind: 'profile', id: 'test', appName: foreground ?? 'Test'),
+        ? LayoutSourceInfo(kind: 'deck', id: profile, name: 'Work', appName: foreground)
+        : LayoutSourceInfo(kind: 'profile', id: profile, appName: foreground ?? 'Test'),
     grid: const Grid(rows: 5, cols: 2),
     page: page,
     pages: paginated ? 3 : 1,
@@ -82,7 +98,7 @@ class _TenKeys extends LayoutSource {
             : paginated
             ? 'page $page'
             : 'Copy',
-        action: 'ctrl+c',
+        action: keyAction,
         danger: danger,
         kind: KeyKind.action,
       ),
@@ -106,9 +122,21 @@ class _TenKeys extends LayoutSource {
   Stream<Layout> preloads() => _preloadController.stream;
 
   @override
-  Future<void> pressKey({required int pos, required String press}) async {
+  Future<void> pressKey({
+    required int pos,
+    required String press,
+    int? option,
+    String? text,
+  }) async {
     pressed.add(pos);
+    chose = option;
+    typed = text;
   }
+
+  /// The answer to a key that asked something first (§4.2), so a test can assert on what the phone
+  /// sent rather than on what it drew.
+  int? chose;
+  String? typed;
 
   @override
   Future<void> setMode(String mode, {String? deckId}) async {}
@@ -796,6 +824,26 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    // The app on the PC changes, and the host sends the new layout AND its neighbours back to back
+    // — all of it before the phone builds a frame. The cached pages are dropped on the build that
+    // notices the new app, so the drop landed on preloads that had ALREADY arrived for it: the
+    // first swipe after every app change had nothing to draw and the pad emptied out.
+    testWidgets('the pages that arrive with a new app are not thrown away', (tester) async {
+      final source = await pumpDeck(tester);
+      source.switchTo('explorer');
+      source.preload(1);
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      final finger = await tester.startGesture(tester.getCenter(find.byType(KeyGrid)));
+      await finger.moveBy(const Offset(-20, 0));
+      await tester.pump(const Duration(milliseconds: 120));
+
+      expect(find.text('page 1'), findsOneWidget, reason: 'the preload for the new app survived');
+      await finger.up();
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('a page it has never been sent draws nothing rather than guessing', (tester) async {
       await pumpDeck(tester); // page 0, and nothing else has arrived
 
@@ -999,6 +1047,92 @@ void main() {
     // image as far as Flutter is concerned, so it decodes again and shows one empty frame — which
     // is every icon on the page blinking each time the host re-sends a layout.
     expect(identical(await provider(), await provider()), isTrue);
+  });
+
+  /// §4.2 `option`: `picker:` was in the catalogue from the first day and nothing ever drew it, so
+  /// "Modelo" and "Esfuerzo" answered `bad_key` and typed nothing. The list is the phone's job —
+  /// the action string arrives in the layout — and what goes back is the INDEX, never the action.
+  group('a key that asks something first', () {
+    Future<_TenKeys> pumpDeck(WidgetTester tester, String action) async {
+      final source = _TenKeys(keyAction: action);
+      addTearDown(source.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: DeckScreen(layoutSource: source, hostName: 'PC'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      return source;
+    }
+
+    /// A key registers `onDoubleTap`, so the short press is held back until that window closes.
+    Future<void> tapKey(WidgetTester tester) async {
+      await tester.tap(find.byType(KeyWidget).first);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a picker sends the branch that was chosen, not the action', (tester) async {
+      final source = await pumpDeck(
+        tester,
+        'picker:Fable=type:/model>>enter;Opus=type:/model>>enter;Sonnet=type:/model>>enter',
+      );
+      await tapKey(tester);
+
+      expect(source.pressed, isEmpty, reason: 'nothing goes to the PC until one is chosen');
+      expect(find.text('Opus'), findsOneWidget);
+      await tester.tap(find.text('Opus'));
+      await tester.pumpAndSettle();
+
+      expect(source.pressed, [0]);
+      expect(source.chose, 1, reason: 'the index, counted the way the host wrote them');
+      expect(source.typed, isNull);
+    });
+
+    testWidgets('dismissing the list is not a press', (tester) async {
+      final source = await pumpDeck(tester, 'picker:Fable=enter;Opus=enter');
+      await tapKey(tester);
+      expect(find.text('Fable'), findsOneWidget);
+
+      await tester.tapAt(const Offset(10, 10)); // the scrim
+      await tester.pumpAndSettle();
+      expect(source.pressed, isEmpty);
+    });
+
+    testWidgets('a prompt sends what was typed, for the host to put in its own hole', (
+      tester,
+    ) async {
+      final source = await pumpDeck(tester, 'prompt:Folder name=type:mkdir {}>>enter');
+      await tapKey(tester);
+
+      expect(find.text('Folder name'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'informes');
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+
+      expect(source.pressed, [0]);
+      expect(source.typed, 'informes');
+      expect(source.chose, isNull);
+    });
+
+    testWidgets('an empty prompt is a cancelled one', (tester) async {
+      final source = await pumpDeck(tester, 'prompt:Folder name=type:mkdir {}>>enter');
+      await tapKey(tester);
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+      expect(source.pressed, isEmpty);
+    });
+
+    testWidgets('an ordinary key still goes straight to the PC', (tester) async {
+      final source = await pumpDeck(tester, 'ctrl+c');
+      await tapKey(tester);
+      expect(source.pressed, [0]);
+      expect(source.chose, isNull);
+      expect(source.typed, isNull);
+    });
   });
 
   testWidgets('a swipe across a key neither clicks nor buzzes', (tester) async {

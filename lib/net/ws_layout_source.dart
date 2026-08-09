@@ -339,26 +339,47 @@ class WsLayoutSource implements LayoutSource {
       _messages.where((m) => m['type'] == 'page_preload').map(Layout.fromJson);
 
   @override
-  Future<void> pressKey({required int pos, required String press}) =>
-      pressResult(pos: pos, press: press);
+  Future<void> pressKey({required int pos, required String press, int? option, String? text}) =>
+      pressResult(pos: pos, press: press, option: option, text: text);
 
   /// [pressKey] plus the host's answer, for callers that need to assert on it. A navigating key
   /// (folder/page) is answered with the new `layout` instead of a `key_result` — for navigation
   /// the layout IS the result — so waiting for either keeps both cases from hanging. The layout
   /// also reaches the UI through [layouts], which shares this broadcast stream.
-  Future<Map<String, dynamic>> pressResult({required int pos, required String press}) async {
+  Future<Map<String, dynamic>> pressResult({
+    required int pos,
+    required String press,
+    int? option,
+    String? text,
+  }) async {
     final id = '${++_keyId}';
     final answered = _messages.firstWhere(
       (m) => (m['type'] == 'key_result' && m['id'] == id) || m['type'] == 'layout',
     );
-    _send({'v': 2, 'type': 'key', 'id': id, 'page': _page, 'pos': pos, 'press': press});
+    // Absent unless the key asked something: an ordinary press is byte for byte what it always was.
+    _send({
+      'v': 2,
+      'type': 'key',
+      'id': id,
+      'page': _page,
+      'pos': pos,
+      'press': press,
+      'option': ?option,
+      'text': ?text,
+    });
     // Bounded like every other request: the caller lights the key green on this future, so an
     // unanswered press would otherwise leave it waiting for a confirmation that never comes. This
     // one still THROWS, unlike session control — the caller is waiting on the answer to decide
     // whether to light the key — but a press that went unanswered also means the link is down, and
     // saying so is what starts the reconnect.
     try {
-      return await answered.timeout(handshakeTimeout);
+      final answer = await answered.timeout(handshakeTimeout);
+      // A `deck:` or `mode:` key moves the SESSION, and the host answers with the layout of wherever
+      // it landed — the only way the mode changes without [setMode]. The reconnect replays
+      // `_wantManual`, so a stale one re-asserted a mode the user had already left: the phone came
+      // back on a deck, the host stopped sending it auto pushes, and auto mode never updated again.
+      if (answer['type'] == 'layout') _wantManual = answer['mode'] == 'manual';
+      return answer;
     } on TimeoutException {
       trace('no answer to a key press — the link is down');
       _onDisconnected();

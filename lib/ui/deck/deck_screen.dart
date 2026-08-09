@@ -175,7 +175,12 @@ class _DeckScreenState extends State<DeckScreen> {
     if (source != _lastSource) {
       // A different deck entirely. Its pages are not this one's, and keeping them would grow the
       // cache by every deck ever opened for the sake of pages nothing can swipe to.
-      _seen.clear();
+      //
+      // Everything EXCEPT the new surface's own pages. The host sends a layout and its `page_preload`
+      // neighbours back to back, and all of them are read off the socket before this build runs —
+      // so clearing outright threw away the pages that had just arrived for the app being switched
+      // to, and the first swipe after every app change had nothing to draw.
+      _seen.removeWhere((key, _) => !key.startsWith('$source/'));
       // A different deck, or auto mode following a different app. Not a swipe, so there is no
       // direction to infer; leave the last one alone.
       _lastSource = source;
@@ -363,6 +368,20 @@ class _DeckScreenState extends State<DeckScreen> {
     }
     if (!mounted) return;
 
+    // §4.2: a key that asks something first. The whole action string is in the layout, so the list
+    // is drawn HERE — and what goes back is the index or the text, never the action.
+    // Dismissing is not a press: nothing is sent, exactly like cancelling a danger key.
+    int? option;
+    String? typed;
+    final action = key.action ?? '';
+    if (action.startsWith('picker:') || action.startsWith('colorpicker:')) {
+      option = await _chooseOption(key, action);
+      if (option == null || !mounted) return;
+    } else if (action.startsWith('prompt:')) {
+      typed = await _askForText(action);
+      if (typed == null || !mounted) return;
+    }
+
     if (key.action == 'windows') {
       // The list comes from the PC, so with the link down this pushes a screen that cannot fill
       // itself — and the un-awaited press below would throw its timeout into nowhere as well.
@@ -395,7 +414,7 @@ class _DeckScreenState extends State<DeckScreen> {
     }
 
     if (session == null) {
-      widget.layoutSource.pressKey(pos: pos, press: press);
+      widget.layoutSource.pressKey(pos: pos, press: press, option: option, text: typed);
       return;
     }
 
@@ -411,7 +430,12 @@ class _DeckScreenState extends State<DeckScreen> {
     }
 
     try {
-      final result = await session.pressResult(pos: pos, press: press);
+      final result = await session.pressResult(
+        pos: pos,
+        press: press,
+        option: option,
+        text: typed,
+      );
       if (!mounted) return;
       if (result['type'] == 'key_result' && result['ok'] != true) {
         trace('key pos=$pos REFUSED: ${result['error']}');
@@ -424,6 +448,93 @@ class _DeckScreenState extends State<DeckScreen> {
       _stopLaunching(pos);
       if (mounted) _showKeyError(AppLocalizations.of(context)!.noAnswer);
     }
+  }
+
+  /// `Name=value;Name2=value2` — the options of a `picker:` or `colorpicker:`, in the order the
+  /// host wrote them, which is the order `option` counts in. Split on the FIRST `=`: a picker's
+  /// value is a whole action chain and carries plenty more.
+  List<(String, String)> _branches(String list) => [
+    for (final part in list.split(';'))
+      if (part.split('=') case [final name, ...final rest] when rest.isNotEmpty)
+        (name.trim(), rest.join('=')),
+  ];
+
+  /// The list a `picker:`/`colorpicker:` key puts up, returning the index chosen — or null when it
+  /// was dismissed, which is not a press.
+  ///
+  /// A colour swatch shows its own colour: the hex in the action exists for exactly that, and the
+  /// host runs the palette entry by NAME rather than by the value drawn here.
+  Future<int?> _chooseOption(DeckKey key, String action) async {
+    final colours = action.startsWith('colorpicker:');
+    final options = _branches(action.substring(action.indexOf(':') + 1));
+    if (options.isEmpty) return null;
+    return showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E20),
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            if ((key.label ?? '').isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Text(
+                  key.label!,
+                  style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 13),
+                ),
+              ),
+            for (final (i, (name, value)) in options.indexed)
+              ListTile(
+                leading: colours
+                    ? Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF000000 | (int.tryParse(value.trim(), radix: 16) ?? 0)),
+                          border: Border.all(color: const Color(0x33FFFFFF)),
+                        ),
+                      )
+                    : null,
+                title: Text(name, style: const TextStyle(color: Color(DeckTokens.textPrimary))),
+                onTap: () => Navigator.of(sheetContext).pop(i),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The text field a `prompt:` key puts up, returning what was typed — or null when it was
+  /// cancelled or left empty. The label is the host's; the text goes in the hole of ITS template.
+  Future<String?> _askForText(String action) async {
+    final t = AppLocalizations.of(context)!;
+    final label = action.substring('prompt:'.length).split('=').first.trim();
+    // No controller: the dialog's exit animation rebuilds the field one more time, and a controller
+    // disposed on the way out is used after being disposed. The value is all this needs.
+    var value = '';
+    final answer = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E20),
+        title: Text(label, style: const TextStyle(color: Color(DeckTokens.textPrimary))),
+        content: TextField(
+          autofocus: true,
+          style: const TextStyle(color: Color(DeckTokens.textPrimary)),
+          onChanged: (typed) => value = typed,
+          onSubmitted: (typed) => Navigator.of(dialogContext).pop(typed),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(t.cancel)),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(value),
+            child: Text(t.confirm),
+          ),
+        ],
+      ),
+    );
+    return (answer == null || answer.trim().isEmpty) ? null : answer;
   }
 
   /// A §5 error code turned into a sentence. The code went straight into the snackbar, so a

@@ -32,6 +32,11 @@ class _Host {
   /// What `hello_ack` offers (§2). Empty by default; the deck tests set it.
   List<Map<String, dynamic>> decks = const [];
 
+  /// §4.2: a navigating key (`deck:`, `mode:`) is answered with the layout of wherever the session
+  /// landed rather than a `key_result` — the host moving the session's mode with nobody calling
+  /// `set_mode`. Null means this host has no such key.
+  Map<String, dynamic>? answerPressWith;
+
   _Host(this.server) {
     server.transform(WebSocketTransformer()).listen((ws) {
       socket = ws;
@@ -52,6 +57,9 @@ class _Host {
         }
         if (msg['type'] == 'set_mode') {
           ws.add(jsonEncode({'v': 2, 'type': 'command_result', 'ok': true}));
+        }
+        if (msg['type'] == 'key' && answerPressWith != null) {
+          ws.add(jsonEncode(answerPressWith));
         }
       });
     });
@@ -163,6 +171,55 @@ void main() {
     await Future<void>.delayed(const Duration(seconds: 1));
     expect(session.currentStatus, SessionStatus.online);
   });
+
+  /// The mode the reconnect restores has to be the mode the session is actually IN. A `mode:` or
+  /// `deck:` key moves it on the host and never went through `setMode`, so the phone kept replaying
+  /// a mode the user had left minutes ago — and a manual session gets no auto pushes at all, so
+  /// auto mode simply stopped updating until the app was restarted.
+  test('the mode a key changed is the mode the reconnect restores', () async {
+    final host = await _Host.start();
+    addTearDown(host.stop);
+
+    final session = WsLayoutSource(
+      ip: '127.0.0.1',
+      port: host.server.port,
+      token: 't',
+      deviceId: 'd',
+      silenceLimit: const Duration(milliseconds: 300),
+    );
+    addTearDown(session.dispose);
+
+    // Into a deck with the mode toggle, then back to auto with a `mode:auto` KEY.
+    await session.connect();
+    await session.setMode('manual', deckId: 'launcher');
+    host.answerPressWith = {
+      'v': 2,
+      'type': 'layout',
+      'mode': 'auto',
+      'source': {'kind': 'profile', 'id': 'explorer', 'appName': 'Explorador de Windows'},
+      'grid': {'rows': 5, 'cols': 3},
+      'page': 0,
+      'pages': 1,
+      'keys': <Map<String, dynamic>>[],
+    };
+    await session.pressResult(pos: 0, press: 'short');
+
+    // The link drops and comes back, which is what a phone in a pocket does all day.
+    host.received.clear();
+    host.answer = false;
+    await session.status.firstWhere((s) => s != SessionStatus.online);
+    host.answer = true;
+    await session.status
+        .firstWhere((s) => s == SessionStatus.online)
+        .timeout(const Duration(seconds: 5));
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(
+      host.received.where((m) => m['type'] == 'set_mode'),
+      isEmpty,
+      reason: 'the session is in auto — putting it back on a deck is what froze it',
+    );
+  }, timeout: const Timeout(Duration(seconds: 20)));
 
   test(
     'a session request that goes unanswered marks the link down instead of throwing',
