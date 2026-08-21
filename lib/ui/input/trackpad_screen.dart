@@ -174,7 +174,11 @@ class _TrackpadScreenState extends State<TrackpadScreen> {
               padding: const EdgeInsets.fromLTRB(14, 2, 8, 2),
               child: Row(
                 children: [
-                  const Icon(Icons.mouse, color: Color(DeckTokens.textSecondary), size: 16),
+                  const Icon(
+                    Icons.mouse,
+                    color: Color(DeckTokens.textSecondary),
+                    size: 16,
+                  ),
                   const SizedBox(width: 6),
                   const Expanded(
                     child: Text(
@@ -189,7 +193,11 @@ class _TrackpadScreenState extends State<TrackpadScreen> {
                   TextButton(onPressed: _cycleDpi, child: Text(_dpiName[_dpi])),
                   IconButton(
                     tooltip: AppLocalizations.of(context)!.close,
-                    icon: const Icon(Icons.close, color: Color(DeckTokens.textSecondary), size: 18),
+                    icon: const Icon(
+                      Icons.cancel,
+                      color: Color(DeckTokens.textSecondary),
+                      size: 18,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -201,7 +209,11 @@ class _TrackpadScreenState extends State<TrackpadScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: _PadButton(label: 'Drag', active: _dragging, onTap: _toggleDrag),
+                    child: _PadButton(
+                      label: 'Drag',
+                      active: _dragging,
+                      onTap: _toggleDrag,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -209,7 +221,10 @@ class _TrackpadScreenState extends State<TrackpadScreen> {
                       label: AppLocalizations.of(context)!.rightClick,
                       onTap: () {
                         HapticFeedback.mediumImpact();
-                        widget.session.sendInput({'kind': 'click', 'button': 'right'});
+                        widget.session.sendInput({
+                          'kind': 'click',
+                          'button': 'right',
+                        });
                       },
                     ),
                   ),
@@ -259,7 +274,9 @@ class _TrackpadScreenState extends State<TrackpadScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: const Color(DeckTokens.keyDefaultBackground),
-              borderRadius: BorderRadius.circular(DeckTokens.bezelCornerRadiusPx),
+              borderRadius: BorderRadius.circular(
+                DeckTokens.bezelCornerRadiusPx,
+              ),
             ),
             clipBehavior: Clip.antiAlias,
             child: Stack(
@@ -300,7 +317,9 @@ class _TrackpadScreenState extends State<TrackpadScreen> {
                         child: Icon(
                           _gestureIcon ?? Icons.mouse,
                           size: 84,
-                          color: const Color(DeckTokens.textSecondary).withValues(alpha: 0.45),
+                          color: const Color(
+                            DeckTokens.textSecondary,
+                          ).withValues(alpha: 0.45),
                         ),
                       ),
                     ),
@@ -315,7 +334,10 @@ class _TrackpadScreenState extends State<TrackpadScreen> {
                           '1 finger: move · tap: left click · hold: right click\n'
                           '2 fingers: scroll · pinch: zoom',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Color(DeckTokens.textSecondary), height: 1.6),
+                          style: TextStyle(
+                            color: Color(DeckTokens.textSecondary),
+                            height: 1.6,
+                          ),
                         ),
                       ),
                     ),
@@ -333,7 +355,11 @@ class _PadButton extends StatelessWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
-  const _PadButton({required this.label, required this.onTap, this.active = false});
+  const _PadButton({
+    required this.label,
+    required this.onTap,
+    this.active = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -350,7 +376,10 @@ class _PadButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: const TextStyle(color: Color(DeckTokens.textPrimary), fontWeight: FontWeight.w600),
+          style: const TextStyle(
+            color: Color(DeckTokens.textPrimary),
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );

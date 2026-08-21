@@ -81,7 +81,11 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  const Icon(Icons.window, color: Color(DeckTokens.textSecondary), size: 18),
+                  const Icon(
+                    Icons.window,
+                    color: Color(DeckTokens.textSecondary),
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -94,7 +98,10 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
                   ),
                   IconButton(
                     tooltip: t.close,
-                    icon: const Icon(Icons.close, color: Color(DeckTokens.textSecondary)),
+                    icon: const Icon(
+                      Icons.cancel,
+                      color: Color(DeckTokens.textSecondary),
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -102,24 +109,38 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
             ),
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent)))
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(DeckTokens.accent),
+                      ),
+                    )
                   // A sentence and a way forward, the same bargain the deck makes when the host is
                   // asleep. A spinner here would be a lie: nothing is still coming.
                   : _failed
-                  ? _Message(text: t.windowsFailed, action: TextButton(onPressed: _retry, child: Text(t.retry)))
+                  ? _Message(
+                      text: t.windowsFailed,
+                      action: TextButton(
+                        onPressed: _retry,
+                        child: Text(t.retry),
+                      ),
+                    )
                   : (_pages[0]?.keys.isEmpty ?? true)
                   ? _Message(text: t.noOpenWindows)
                   : Padding(
                       padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          final first = _pages[0]!; // guarded by the empty/failed branches above
+                          final first =
+                              _pages[0]!; // guarded by the empty/failed branches above
                           // Same shell and sizing as the deck — §4.3 says same grid, same key.
                           final keySize = KeyGrid.sizeToFit(
                             first.grid,
                             constraints.maxWidth - DeviceBezel.chromeWidth(),
                             constraints.maxHeight -
-                                DeviceBezel.chromeHeightFor(first.pages, constraints.maxHeight),
+                                DeviceBezel.chromeHeightFor(
+                                  first.pages,
+                                  constraints.maxHeight,
+                                ),
                           );
                           return DeviceBezel(
                             gridWidth: KeyGrid.widthFor(first.grid, keySize),
@@ -135,7 +156,9 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
                               },
                               itemBuilder: (context, i) {
                                 final page = _pages[i];
-                                if (page == null) return const SizedBox.shrink();
+                                if (page == null) {
+                                  return const SizedBox.shrink();
+                                }
                                 return KeyGrid(
                                   grid: page.grid,
                                   keys: page.keys,
@@ -143,8 +166,12 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
                                   onKeyPress: (pos, _) async {
                                     final windowId = page.keys[pos].windowId;
                                     if (windowId == null) return;
-                                    await widget.layoutSource.focusWindow(windowId);
-                                    if (context.mounted) Navigator.of(context).pop();
+                                    await widget.layoutSource.focusWindow(
+                                      windowId,
+                                    );
+                                    if (context.mounted) {
+                                      Navigator.of(context).pop();
+                                    }
                                   },
                                 );
                               },
@@ -179,7 +206,10 @@ class _Message extends StatelessWidget {
             Text(
               text,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 14),
+              style: const TextStyle(
+                color: Color(DeckTokens.textSecondary),
+                fontSize: 14,
+              ),
             ),
             if (action != null) ...[const SizedBox(height: 8), action!],
           ],

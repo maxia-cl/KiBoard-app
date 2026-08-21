@@ -218,6 +218,12 @@ abstract class AppLocalizations {
   /// **'{app} is in front on the PC'**
   String inFrontOnPc(String app);
 
+  /// No description provided for @closeApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Close {app}'**
+  String closeApp(String app);
+
   /// No description provided for @appPanel.
   ///
   /// In en, this message translates to:

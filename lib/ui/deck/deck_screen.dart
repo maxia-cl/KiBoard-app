@@ -33,7 +33,12 @@ class DeckScreen extends StatefulWidget {
   /// no socket, so there is no connection state to report.
   final WsLayoutSource? session;
 
-  const DeckScreen({super.key, required this.layoutSource, required this.hostName, this.session});
+  const DeckScreen({
+    super.key,
+    required this.layoutSource,
+    required this.hostName,
+    this.session,
+  });
 
   @override
   State<DeckScreen> createState() => _DeckScreenState();
@@ -88,7 +93,13 @@ class _DeckScreenState extends State<DeckScreen> {
   /// Reports the sizing decision when it changes. The point of `sizeForDevice` is that the key
   /// does NOT resize on rotation, and eyeballing a screenshot cannot tell 118 from 120 — if the
   /// box cap (`byBox`) is ever the one chosen, the guarantee is broken and this says so.
-  void _traceSize(double byDevice, double byBox, double chosen, double w, double h) {
+  void _traceSize(
+    double byDevice,
+    double byBox,
+    double chosen,
+    double w,
+    double h,
+  ) {
     if (_lastTracedSize == chosen) return;
     _lastTracedSize = chosen;
     final capped = byBox < byDevice ? ' CAPPED BY BOX' : '';
@@ -132,7 +143,9 @@ class _DeckScreenState extends State<DeckScreen> {
 
   void _stopLaunching(int pos) {
     _launchTimers.remove(pos)?.cancel();
-    if (mounted && _launching.contains(pos)) setState(() => _launching.remove(pos));
+    if (mounted && _launching.contains(pos)) {
+      setState(() => _launching.remove(pos));
+    }
   }
 
   /// Ends the wait early for keys whose app the host now reports as up. Called on every layout,
@@ -140,7 +153,10 @@ class _DeckScreenState extends State<DeckScreen> {
   void _clearLaunched(Layout layout) {
     if (_launching.isEmpty) return;
     final done = _launching
-        .where((pos) => pos >= layout.keys.length || layout.keys[pos].running == true)
+        .where(
+          (pos) =>
+              pos >= layout.keys.length || layout.keys[pos].running == true,
+        )
         .toList();
     if (done.isEmpty) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -163,7 +179,8 @@ class _DeckScreenState extends State<DeckScreen> {
 
   /// Identity of what is on screen. The deck as well as the page, so switching decks also swaps
   /// rather than mutating the same grid under the user.
-  String _pageKey(Layout layout) => '${layout.mode}/${layout.source.id}#${layout.page}';
+  String _pageKey(Layout layout) =>
+      '${layout.mode}/${layout.source.id}#${layout.page}';
 
   /// Reads the direction of a page change out of the layouts as they arrive.
   ///
@@ -219,7 +236,8 @@ class _DeckScreenState extends State<DeckScreen> {
   /// thumb reaches — so moving the panel up hands that row back to the keys. Sideways the whole pad
   /// is within reach and the panel stays where it is, which also keeps the reserved cells in the
   /// corner the eye already goes to.
-  bool _panelOnTop(bool sideways) => !sideways && Settings.instance.value.appPanelAtTop;
+  bool _panelOnTop(bool sideways) =>
+      !sideways && Settings.instance.value.appPanelAtTop;
 
   /// Remembers a page so a swipe towards it has something to draw.
   void _remember(Layout layout) {
@@ -265,7 +283,8 @@ class _DeckScreenState extends State<DeckScreen> {
   /// rows×cols would miss every page cached in the other orientation while holding exactly the
   /// keys that belong on screen. A genuinely different capacity paginates differently and misses,
   /// which is right.
-  String _seenKey(Layout l, int page) => '${l.mode}/${l.source.id}/${l.grid.capacity}#$page';
+  String _seenKey(Layout l, int page) =>
+      '${l.mode}/${l.source.id}/${l.grid.capacity}#$page';
 
   /// The page on one side of this one, if the phone has it. Null is the honest answer, and the
   /// caller draws nothing rather than guessing.
@@ -291,7 +310,8 @@ class _DeckScreenState extends State<DeckScreen> {
     // Resistance at the two ends, the way a list rubber-bands: it still moves, so the gesture is
     // never dead under the finger, but it says there is nothing over there.
     final pushingPastEnd =
-        (delta < 0 && layout.page >= layout.pages - 1) || (delta > 0 && layout.page <= 0);
+        (delta < 0 && layout.page >= layout.pages - 1) ||
+        (delta > 0 && layout.page <= 0);
     setState(() {
       _dragging = true;
       _swiping = true;
@@ -340,15 +360,26 @@ class _DeckScreenState extends State<DeckScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E20),
-        title: Text('$label?', style: const TextStyle(color: Color(DeckTokens.textPrimary))),
-        content: Text(t.cannotUndo, style: TextStyle(color: Color(DeckTokens.textSecondary))),
+        title: Text(
+          '$label?',
+          style: const TextStyle(color: Color(DeckTokens.textPrimary)),
+        ),
+        content: Text(
+          t.cannotUndo,
+          style: TextStyle(color: Color(DeckTokens.textSecondary)),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(t.cancel, style: TextStyle(color: Color(DeckTokens.textSecondary))),
+            child: Text(
+              t.cancel,
+              style: TextStyle(color: Color(DeckTokens.textSecondary)),
+            ),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: const Color(DeckTokens.accent)),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(DeckTokens.accent),
+            ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(label),
           ),
@@ -356,6 +387,61 @@ class _DeckScreenState extends State<DeckScreen> {
       ),
     );
     return answer ?? false;
+  }
+
+  Future<void> _closeForegroundApp(Layout layout) async {
+    final app = _foregroundApp(layout);
+    if (app == null) return;
+    final t = AppLocalizations.of(context)!;
+    final live = widget.session;
+    if (live != null && live.currentStatus != SessionStatus.online) {
+      _showKeyError(t.noAnswer);
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E20),
+        title: Text(
+          '${t.closeApp(app)}?',
+          style: const TextStyle(color: Color(DeckTokens.textPrimary)),
+        ),
+        content: Text(
+          t.cannotUndo,
+          style: const TextStyle(color: Color(DeckTokens.textSecondary)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              t.cancel,
+              style: const TextStyle(color: Color(DeckTokens.textSecondary)),
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF5252),
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(t.close),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    if (Settings.instance.value.haptics) HapticFeedback.mediumImpact();
+    await widget.layoutSource.closeForegroundApp();
+  }
+
+  Future<void> _openWindowSwitcher() async {
+    final live = widget.session;
+    if (live != null && live.currentStatus != SessionStatus.online) {
+      _showKeyError(AppLocalizations.of(context)!.windowsFailed);
+      return;
+    }
+    await Navigator.of(context).push(
+      screenRoute(WindowSwitcherScreen(layoutSource: widget.layoutSource)),
+    );
   }
 
   Future<void> _handlePress(Layout layout, int pos, String press) async {
@@ -392,9 +478,9 @@ class _DeckScreenState extends State<DeckScreen> {
         return;
       }
       unawaited(widget.layoutSource.pressKey(pos: pos, press: press));
-      Navigator.of(
-        context,
-      ).push(screenRoute(WindowSwitcherScreen(layoutSource: widget.layoutSource)));
+      Navigator.of(context).push(
+        screenRoute(WindowSwitcherScreen(layoutSource: widget.layoutSource)),
+      );
       return;
     }
 
@@ -402,7 +488,8 @@ class _DeckScreenState extends State<DeckScreen> {
 
     // §4.2.1: these name a screen on THIS phone, not work for the PC. Opening it is the whole
     // action — the press is never sent, and what reaches the host afterwards is `input`.
-    if (session != null && (key.action == 'trackpad' || key.action == 'dictate')) {
+    if (session != null &&
+        (key.action == 'trackpad' || key.action == 'dictate')) {
       Navigator.of(context).push(
         screenRoute(
           key.action == 'trackpad'
@@ -414,7 +501,12 @@ class _DeckScreenState extends State<DeckScreen> {
     }
 
     if (session == null) {
-      widget.layoutSource.pressKey(pos: pos, press: press, option: option, text: typed);
+      widget.layoutSource.pressKey(
+        pos: pos,
+        press: press,
+        option: option,
+        text: typed,
+      );
       return;
     }
 
@@ -481,7 +573,10 @@ class _DeckScreenState extends State<DeckScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Text(
                   key.label!,
-                  style: TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 13),
+                  style: TextStyle(
+                    color: Color(DeckTokens.textSecondary),
+                    fontSize: 13,
+                  ),
                 ),
               ),
             for (final (i, (name, value)) in options.indexed)
@@ -492,12 +587,18 @@ class _DeckScreenState extends State<DeckScreen> {
                         height: 28,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Color(0xFF000000 | (int.tryParse(value.trim(), radix: 16) ?? 0)),
+                          color: Color(
+                            0xFF000000 |
+                                (int.tryParse(value.trim(), radix: 16) ?? 0),
+                          ),
                           border: Border.all(color: const Color(0x33FFFFFF)),
                         ),
                       )
                     : null,
-                title: Text(name, style: const TextStyle(color: Color(DeckTokens.textPrimary))),
+                title: Text(
+                  name,
+                  style: const TextStyle(color: Color(DeckTokens.textPrimary)),
+                ),
                 onTap: () => Navigator.of(sheetContext).pop(i),
               ),
           ],
@@ -518,7 +619,10 @@ class _DeckScreenState extends State<DeckScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E20),
-        title: Text(label, style: const TextStyle(color: Color(DeckTokens.textPrimary))),
+        title: Text(
+          label,
+          style: const TextStyle(color: Color(DeckTokens.textPrimary)),
+        ),
         content: TextField(
           autofocus: true,
           style: const TextStyle(color: Color(DeckTokens.textPrimary)),
@@ -526,7 +630,10 @@ class _DeckScreenState extends State<DeckScreen> {
           onSubmitted: (typed) => Navigator.of(dialogContext).pop(typed),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text(t.cancel)),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(t.cancel),
+          ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(value),
             child: Text(t.confirm),
@@ -632,9 +739,13 @@ class _DeckScreenState extends State<DeckScreen> {
             if (!snapshot.hasData) {
               return Column(
                 children: [
-                  if (widget.session != null) _LinkBanner(session: widget.session!),
+                  if (widget.session != null)
+                    _LinkBanner(session: widget.session!),
                   Expanded(
-                    child: _NoLayoutYet(session: widget.session, hostName: widget.hostName),
+                    child: _NoLayoutYet(
+                      session: widget.session,
+                      hostName: widget.hostName,
+                    ),
                   ),
                 ],
               );
@@ -645,7 +756,9 @@ class _DeckScreenState extends State<DeckScreen> {
             // Sideways the chrome runs down the left instead of across the top. Height is what
             // limits the number of rows on a phone held that way — barely 390 logical pixels of it
             // against 870 of width — so the bar belongs on the axis that has room to spare.
-            final sideways = MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+            final sideways =
+                MediaQuery.sizeOf(context).width >
+                MediaQuery.sizeOf(context).height;
             // Sideways the key is bound by HEIGHT, and the system bars own 40 of the 393 the phone
             // has. Three rows at the upright size need 369; hiding the bars is what closes that
             // gap, and it is what §3.0 asks for anyway — the device IS the screen. Upright there
@@ -661,7 +774,8 @@ class _DeckScreenState extends State<DeckScreen> {
                     layoutSource: widget.layoutSource,
                     session: widget.session,
                   ),
-                if (widget.session != null) _LinkBanner(session: widget.session!),
+                if (widget.session != null)
+                  _LinkBanner(session: widget.session!),
                 Expanded(
                   child: Padding(
                     // Sideways: no outer margin at all. The bezel is the device and the device is
@@ -672,7 +786,8 @@ class _DeckScreenState extends State<DeckScreen> {
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         // Space the grid itself gets, after the bezel takes its share.
-                        final w = constraints.maxWidth - DeviceBezel.chromeWidth();
+                        final w =
+                            constraints.maxWidth - DeviceBezel.chromeWidth();
                         final h =
                             constraints.maxHeight -
                             DeviceBezel.chromeHeightFor(
@@ -709,7 +824,10 @@ class _DeckScreenState extends State<DeckScreen> {
                         // re-measured after the bezel and the system bars stopped taking what they
                         // used to: at the old numbers this held the key at 95 inside a box that
                         // fits 112.
-                        final byDevice = KeyGrid.sizeForDevice(MediaQuery.sizeOf(context), grid);
+                        final byDevice = KeyGrid.sizeForDevice(
+                          MediaQuery.sizeOf(context),
+                          grid,
+                        );
                         final byBox = KeyGrid.sizeToFit(grid, w, h);
                         // 2% off the key, given to the top edge of the frame below. The pad was
                         // sitting hard against the top of the device and the gap reads as breathing
@@ -733,7 +851,9 @@ class _DeckScreenState extends State<DeckScreen> {
                             explicitChildNodes: true,
                             // All three, not just `value`: Flutter asserts that a node offering
                             // increase/decrease says what the value would become.
-                            value: layout.pages > 1 ? '${layout.page + 1}/${layout.pages}' : null,
+                            value: layout.pages > 1
+                                ? '${layout.page + 1}/${layout.pages}'
+                                : null,
                             increasedValue: layout.pages > 1
                                 ? '${(layout.page + 2).clamp(1, layout.pages)}/${layout.pages}'
                                 : null,
@@ -747,7 +867,8 @@ class _DeckScreenState extends State<DeckScreen> {
                                 ? () => widget.session?.setPage(layout.page - 1)
                                 : null,
                             child: GestureDetector(
-                              onHorizontalDragUpdate: (d) => _dragUpdate(layout, d.delta.dx),
+                              onHorizontalDragUpdate: (d) =>
+                                  _dragUpdate(layout, d.delta.dx),
                               onHorizontalDragEnd: (d) => _dragEnd(
                                 layout,
                                 d.primaryVelocity ?? 0,
@@ -789,14 +910,22 @@ class _DeckScreenState extends State<DeckScreen> {
                                       // giving it the opposite start sends it out the far side while
                                       // the new one comes in from the near one.
                                       final incoming =
-                                          (child.key as ValueKey<String>).value == _pageKey(layout);
-                                      final from = Offset(incoming ? _pageDir : -_pageDir, 0);
+                                          (child.key as ValueKey<String>)
+                                              .value ==
+                                          _pageKey(layout);
+                                      final from = Offset(
+                                        incoming ? _pageDir : -_pageDir,
+                                        0,
+                                      );
                                       return SlideTransition(
                                         position: Tween(
                                           begin: from,
                                           end: Offset.zero,
                                         ).animate(animation),
-                                        child: FadeTransition(opacity: animation, child: child),
+                                        child: FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        ),
                                       );
                                     },
                                     // The key is on the wrapper, not on the grid: the offset has to
@@ -809,17 +938,22 @@ class _DeckScreenState extends State<DeckScreen> {
                                       // nothing to dispose.
                                       child: TweenAnimationBuilder<double>(
                                         tween: Tween<double>(end: _dragDx),
-                                        duration: _dragging ? Duration.zero : _settle,
+                                        duration: _dragging
+                                            ? Duration.zero
+                                            : _settle,
                                         curve: Curves.easeOut,
                                         onEnd: () {
-                                          if (mounted && _dragDx == 0 && _swiping) {
+                                          if (mounted &&
+                                              _dragDx == 0 &&
+                                              _swiping) {
                                             setState(() => _swiping = false);
                                           }
                                         },
-                                        builder: (context, dx, child) => Transform.translate(
-                                          offset: Offset(dx, 0),
-                                          child: child,
-                                        ),
+                                        builder: (context, dx, child) =>
+                                            Transform.translate(
+                                              offset: Offset(dx, 0),
+                                              child: child,
+                                            ),
                                         // The neighbours ride INSIDE the same transform, one page
                                         // plus a gap out on either side, so they come in behind the
                                         // finger without any second animation to keep in step.
@@ -838,15 +972,22 @@ class _DeckScreenState extends State<DeckScreen> {
                                               launching: _launching,
                                               // Panel on the first row: the keys start after it,
                                               // so the grid opens with that many blank cells.
-                                              leadingBlanks: panelOnTop ? reservedCells : 0,
+                                              leadingBlanks: panelOnTop
+                                                  ? reservedCells
+                                                  : 0,
                                               onKeyPress: (pos, press) =>
-                                                  _handlePress(layout, pos, press),
+                                                  _handlePress(
+                                                    layout,
+                                                    pos,
+                                                    press,
+                                                  ),
                                             ),
                                             // What the PC has in front. The cells are reserved
                                             // (§4.1), so this never fights a key for them — and
                                             // upright the user can move it to the first row, which
                                             // hands the thumb's row back to the keys.
-                                            if (_foregroundApp(layout) case final app?)
+                                            if (_foregroundApp(layout)
+                                                case final app?)
                                               Positioned(
                                                 left: panelOnTop ? 0 : null,
                                                 right: panelOnTop ? null : 0,
@@ -854,22 +995,34 @@ class _DeckScreenState extends State<DeckScreen> {
                                                 bottom: panelOnTop ? null : 0,
                                                 width:
                                                     reservedCells * keySize +
-                                                    (reservedCells - 1) * KeyGrid.gapFor(keySize),
+                                                    (reservedCells - 1) *
+                                                        KeyGrid.gapFor(keySize),
                                                 height: keySize,
                                                 child: _ForegroundApp(
                                                   name: app,
                                                   icon: layout.source.appIcon,
                                                   keySize: keySize,
+                                                  onOpen: _openWindowSwitcher,
+                                                  onClose: () =>
+                                                      _closeForegroundApp(
+                                                        layout,
+                                                      ),
                                                 ),
                                               ),
                                             if (_swiping)
                                               for (final side in const [-1, 1])
-                                                if (_neighbour(layout, side) case final near?)
+                                                if (_neighbour(layout, side)
+                                                    case final near?)
                                                   Positioned(
                                                     left:
                                                         side *
-                                                        (KeyGrid.widthFor(grid, keySize) +
-                                                            KeyGrid.gapFor(keySize)),
+                                                        (KeyGrid.widthFor(
+                                                              grid,
+                                                              keySize,
+                                                            ) +
+                                                            KeyGrid.gapFor(
+                                                              keySize,
+                                                            )),
                                                     top: 0,
                                                     // Not pressable: it is a page you have not
                                                     // arrived at, and a key half off the screen is
@@ -935,7 +1088,9 @@ class _NoLayoutYet extends StatelessWidget {
     final t = AppLocalizations.of(context)!;
     final host = hostName.isEmpty ? t.yourPc : '"$hostName"';
     if (session == null) {
-      return const Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent)));
+      return const Center(
+        child: CircularProgressIndicator(color: Color(DeckTokens.accent)),
+      );
     }
     return StreamBuilder<SessionStatus>(
       stream: session!.status,
@@ -945,7 +1100,9 @@ class _NoLayoutYet extends StatelessWidget {
         // moment. Retrying cycles connecting/offline every few seconds, and spinning through that
         // would hide the explanation behind an animation for as long as the PC stays asleep.
         if (snapshot.data == SessionStatus.online) {
-          return const Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent)));
+          return const Center(
+            child: CircularProgressIndicator(color: Color(DeckTokens.accent)),
+          );
         }
         return Center(
           child: Padding(
@@ -953,7 +1110,10 @@ class _NoLayoutYet extends StatelessWidget {
             child: Text(
               '${t.waitingForHost(host)}\n${t.waitingForHostHint}',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(DeckTokens.textSecondary), height: 1.5),
+              style: const TextStyle(
+                color: Color(DeckTokens.textSecondary),
+                height: 1.5,
+              ),
             ),
           ),
         );
@@ -987,7 +1147,9 @@ class _LinkBanner extends StatelessWidget {
               onPressed: () async {
                 await SavedSession.clear();
                 if (!context.mounted) return;
-                Navigator.of(context).pushReplacement(fadeRoute(DiscoverScreen()));
+                Navigator.of(
+                  context,
+                ).pushReplacement(fadeRoute(DiscoverScreen()));
               },
               child: Text(t.pairAgain),
             ),
@@ -1009,7 +1171,9 @@ class _LinkBanner extends StatelessWidget {
         }
         return _Banner(
           colour: const Color(0xFF3A3A3C),
-          text: status == SessionStatus.connecting ? t.connecting : t.offlineRetrying,
+          text: status == SessionStatus.connecting
+              ? t.connecting
+              : t.offlineRetrying,
         );
       },
     );
@@ -1094,12 +1258,20 @@ class _TopBar extends StatelessWidget {
                 ListTile(
                   leading: Icon(
                     iconForDeck(deck.icon),
-                    color: Color(deck.id == current ? DeckTokens.accent : DeckTokens.textSecondary),
+                    color: Color(
+                      deck.id == current
+                          ? DeckTokens.accent
+                          : DeckTokens.textSecondary,
+                    ),
                   ),
                   title: Text(
                     deck.name,
                     style: TextStyle(
-                      color: Color(deck.id == current ? DeckTokens.accent : DeckTokens.textPrimary),
+                      color: Color(
+                        deck.id == current
+                            ? DeckTokens.accent
+                            : DeckTokens.textPrimary,
+                      ),
                     ),
                   ),
                   onTap: () => Navigator.of(sheetContext).pop(deck.id),
@@ -1115,7 +1287,11 @@ class _TopBar extends StatelessWidget {
   /// The deck picker, when there is a host with decks to pick from.
   Widget? _deckButton(BuildContext context, AppLocalizations t) =>
       (session != null && session!.decks.isNotEmpty)
-      ? _StripButton(icon: Icons.dashboard, label: _deckLabel(t), onTap: () => _pickDeck(context))
+      ? _StripButton(
+          icon: Icons.dashboard,
+          label: _deckLabel(t),
+          onTap: () => _pickDeck(context),
+        )
       : null;
 
   /// Mode, then Settings — built ONCE and laid out by whichever orientation is asking.
@@ -1129,11 +1305,16 @@ class _TopBar extends StatelessWidget {
     _StripButton(
       icon: layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
       label: layout.mode == 'auto' ? t.auto : t.manual,
-      onTap: () => layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
+      onTap: () =>
+          layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
     ),
     // The cog is back, and this time it opens something. It was removed in F7 precisely because it
     // did not: a control that cannot be pressed is worse than no control.
-    _StripButton(icon: Icons.settings, label: t.settings, onTap: () => showSettingsSheet(context)),
+    _StripButton(
+      icon: Icons.settings,
+      label: t.settings,
+      onTap: () => showSettingsSheet(context),
+    ),
   ];
 
   @override
@@ -1243,7 +1424,11 @@ class _StripButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _StripButton({required this.icon, required this.label, required this.onTap});
+  const _StripButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1261,7 +1446,11 @@ class _StripButton extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: const Color(DeckTokens.textPrimary), size: 20),
+                Icon(
+                  icon,
+                  color: const Color(DeckTokens.textPrimary),
+                  size: 20,
+                ),
                 const SizedBox(height: 2),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -1269,7 +1458,10 @@ class _StripButton extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 10),
+                    style: const TextStyle(
+                      color: Color(DeckTokens.textSecondary),
+                      fontSize: 10,
+                    ),
                   ),
                 ),
               ],
@@ -1283,10 +1475,9 @@ class _StripButton extends StatelessWidget {
 
 /// What the PC has in front, in the two cells the phone reserves at the end of every page.
 ///
-/// **Deliberately not a key.** Everything else on this surface is a cap that sinks under a finger;
-/// this one does nothing when pressed, so it must not invite the press. No cap, no cast shadow, no
-/// gradient — a recessed well instead, the way a readout is set into a real device rather than
-/// standing proud of it.
+/// **Deliberately not a key.** The identity area opens the window switcher while its explicit red
+/// close affordance remains a separate action. No cap, no cast shadow, no gradient — a recessed
+/// well, with both app-level actions attached to the app they actually affect.
 ///
 /// Icon on the left with the name beside it, not stacked: a two-cell box is wide and short, and
 /// laying it out sideways is what buys the icon its size.
@@ -1294,55 +1485,95 @@ class _ForegroundApp extends StatelessWidget {
   final String name;
   final String? icon;
   final double keySize;
-  const _ForegroundApp({required this.name, required this.icon, required this.keySize});
+  final VoidCallback onOpen;
+  final VoidCallback onClose;
+  const _ForegroundApp({
+    required this.name,
+    required this.icon,
+    required this.keySize,
+    required this.onOpen,
+    required this.onClose,
+  });
 
   @override
   Widget build(BuildContext context) {
     final image = decodedIcon(icon);
-    return IgnorePointer(
-      child: Semantics(
-        label: AppLocalizations.of(context)!.inFrontOnPc(name),
-        excludeSemantics: true,
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: keySize * 0.16),
-          decoration: BoxDecoration(
-            // Darker than the bezel it sits in, so it reads as cut INTO the device. A key is
-            // lighter than its surroundings and stands on a shadow; this is the inverse of that.
-            color: const Color(0x33000000),
-            borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
-            border: Border.all(color: const Color(0x14FFFFFF)),
-          ),
-          child: Row(
-            children: [
-              if (image != null)
-                Image(
-                  image: image,
-                  width: keySize * 0.52,
-                  height: keySize * 0.52,
-                  gaplessPlayback: true,
-                )
-              else
-                Icon(
-                  Icons.desktop_windows_outlined,
-                  size: keySize * 0.44,
-                  color: const Color(DeckTokens.textSecondary),
-                ),
-              SizedBox(width: keySize * 0.14),
-              Expanded(
-                child: Text(
-                  name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: const Color(DeckTokens.textPrimary),
-                    fontSize: keySize * 0.15,
-                    height: 1.15,
+    final t = AppLocalizations.of(context)!;
+    return Container(
+      key: const ValueKey('foreground-app-panel'),
+      padding: EdgeInsets.only(left: keySize * 0.06, right: keySize * 0.06),
+      decoration: BoxDecoration(
+        // Darker than the bezel it sits in, so it reads as cut INTO the device. A key is
+        // lighter than its surroundings and stands on a shadow; this is the inverse of that.
+        color: const Color(0x33000000),
+        borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
+        border: Border.all(color: const Color(0x14FFFFFF)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Tooltip(
+              message: t.openWindows,
+              child: Semantics(
+                button: true,
+                label: '${t.openWindows}: ${t.inFrontOnPc(name)}',
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(
+                    onTap: onOpen,
+                    borderRadius: BorderRadius.circular(
+                      DeckTokens.keyCornerRadiusPx,
+                    ),
+                    child: SizedBox.expand(
+                      child: Row(
+                        children: [
+                          SizedBox(width: keySize * 0.10),
+                          if (image != null)
+                            Image(
+                              image: image,
+                              width: keySize * 0.52,
+                              height: keySize * 0.52,
+                              gaplessPlayback: true,
+                            )
+                          else
+                            Icon(
+                              Icons.desktop_windows,
+                              size: keySize * 0.44,
+                              color: const Color(DeckTokens.textSecondary),
+                            ),
+                          SizedBox(width: keySize * 0.14),
+                          Expanded(
+                            child: Text(
+                              name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: const Color(DeckTokens.textPrimary),
+                                fontSize: keySize * 0.15,
+                                height: 1.15,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+          IconButton(
+            onPressed: onClose,
+            tooltip: t.closeApp(name),
+            color: const Color(0xFFFF5252),
+            iconSize: keySize * 0.25,
+            constraints: BoxConstraints.tightFor(
+              width: math.max(48.0, keySize * 0.48),
+              height: math.max(48.0, keySize * 0.48),
+            ),
+            icon: const Icon(Icons.close),
+          ),
+        ],
       ),
     );
   }

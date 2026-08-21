@@ -17,7 +17,8 @@ import 'pairing_code_screen.dart';
 /// block multicast. Discovery is a convenience, never the only way in.
 class DiscoverScreen extends StatefulWidget {
   final Discovery discovery;
-  DiscoverScreen({super.key, Discovery? discovery}) : discovery = discovery ?? MdnsDiscovery();
+  DiscoverScreen({super.key, Discovery? discovery})
+    : discovery = discovery ?? MdnsDiscovery();
 
   @override
   State<DiscoverScreen> createState() => _DiscoverScreenState();
@@ -80,7 +81,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 const SizedBox(height: 8),
                 Text(
                   t.addressHint,
-                  style: const TextStyle(color: Color(DeckTokens.textSecondary), fontSize: 13),
+                  style: const TextStyle(
+                    color: Color(DeckTokens.textSecondary),
+                    fontSize: 13,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -93,7 +97,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   style: const TextStyle(color: Color(DeckTokens.textPrimary)),
                   decoration: InputDecoration(
                     hintText: '192.168.1.11',
-                    hintStyle: const TextStyle(color: Color(DeckTokens.textSecondary)),
+                    hintStyle: const TextStyle(
+                      color: Color(DeckTokens.textSecondary),
+                    ),
                     filled: true,
                     fillColor: const Color(0xFF2C2C2E),
                     border: OutlineInputBorder(
@@ -141,7 +147,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               // drawn mark in the other.
               const Wordmark(markHeight: 34),
               const SizedBox(height: 4),
-              Text(t.lookingForPcs, style: TextStyle(color: Color(DeckTokens.textSecondary))),
+              Text(
+                t.lookingForPcs,
+                style: TextStyle(color: Color(DeckTokens.textSecondary)),
+              ),
               const SizedBox(height: 24),
               Expanded(
                 child: FutureBuilder<List<DiscoveredHost>>(
@@ -149,7 +158,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   builder: (context, snapshot) {
                     if (snapshot.connectionState != ConnectionState.done) {
                       return const Center(
-                        child: CircularProgressIndicator(color: Color(DeckTokens.accent)),
+                        child: CircularProgressIndicator(
+                          color: Color(DeckTokens.accent),
+                        ),
                       );
                     }
                     final hosts = snapshot.data ?? const [];
@@ -167,7 +178,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       return LayoutBuilder(
                         builder: (context, box) => SingleChildScrollView(
                           child: ConstrainedBox(
-                            constraints: BoxConstraints(minHeight: box.maxHeight),
+                            constraints: BoxConstraints(
+                              minHeight: box.maxHeight,
+                            ),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -214,10 +227,15 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                   spacing: 8,
                                   runSpacing: 8,
                                   children: [
-                                    TextButton(onPressed: _rescan, child: Text(t.scanAgain)),
+                                    TextButton(
+                                      onPressed: _rescan,
+                                      child: Text(t.scanAgain),
+                                    ),
                                     FilledButton(
                                       style: FilledButton.styleFrom(
-                                        backgroundColor: const Color(DeckTokens.accent),
+                                        backgroundColor: const Color(
+                                          DeckTokens.accent,
+                                        ),
                                       ),
                                       onPressed: _enterAddress,
                                       child: Text(t.enterAddress),
@@ -226,9 +244,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                     // screen can, and it was three levels away behind a cog
                                     // nobody stuck here has ever opened.
                                     TextButton(
-                                      onPressed: () => Navigator.of(
-                                        context,
-                                      ).push(screenRoute<void>(const ManualScreen())),
+                                      onPressed: () =>
+                                          Navigator.of(context).push(
+                                            screenRoute<void>(
+                                              const ManualScreen(),
+                                            ),
+                                          ),
                                       child: Text(t.readTheManual),
                                     ),
                                   ],
@@ -261,12 +282,15 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           host.name,
                                           style: const TextStyle(
-                                            color: Color(DeckTokens.textPrimary),
+                                            color: Color(
+                                              DeckTokens.textPrimary,
+                                            ),
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -274,7 +298,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                           Text(
                                             t.pairingClosed,
                                             style: TextStyle(
-                                              color: Color(DeckTokens.textSecondary),
+                                              color: Color(
+                                                DeckTokens.textSecondary,
+                                              ),
                                               fontSize: 12,
                                             ),
                                           ),
@@ -282,7 +308,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                                     ),
                                   ),
                                   const Icon(
-                                    Icons.chevron_right,
+                                    Icons.arrow_right,
                                     color: Color(DeckTokens.textSecondary),
                                   ),
                                 ],

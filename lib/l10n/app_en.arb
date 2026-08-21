@@ -27,6 +27,14 @@
       }
     }
   },
+  "closeApp": "Close {app}",
+  "@closeApp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
   "appPanel": "App panel",
   "appPanelHint": "Upright only. At the top, the keys keep the row your thumb reaches.",
   "panelTop": "Top",

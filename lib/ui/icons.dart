@@ -21,13 +21,13 @@ const Map<String, IconData> _icons = {
   'folder': Icons.folder,
   'newfolder': Icons.create_new_folder,
   'home': Icons.home,
-  'back': Icons.arrow_back,
-  'fwdnav': Icons.arrow_forward,
-  'prev': Icons.navigate_before,
-  'next': Icons.navigate_next,
+  'back': Icons.arrow_left,
+  'fwdnav': Icons.arrow_right,
+  'prev': Icons.arrow_left,
+  'next': Icons.arrow_right,
   'page': Icons.skip_next,
-  'scrollup': Icons.keyboard_arrow_up,
-  'scrolldown': Icons.keyboard_arrow_down,
+  'scrollup': Icons.arrow_drop_up,
+  'scrolldown': Icons.arrow_drop_down,
   'tab': Icons.keyboard_tab,
   'find': Icons.search,
   'pin': Icons.push_pin,
@@ -38,16 +38,16 @@ const Map<String, IconData> _icons = {
   'terminal': Icons.terminal,
 
   // --- editing ---
-  'new': Icons.add,
-  'copy': Icons.content_copy,
-  'paste': Icons.content_paste,
+  'new': Icons.add_circle,
+  'copy': Icons.file_copy,
+  'paste': Icons.assignment,
   'cut': Icons.content_cut,
-  'duplicate': Icons.copy_all,
-  'delete': Icons.delete_outline,
+  'duplicate': Icons.file_copy,
+  'delete': Icons.delete,
   'undo': Icons.undo,
   'redo': Icons.redo,
   'save': Icons.save,
-  'rename': Icons.drive_file_rename_outline,
+  'rename': Icons.edit,
   'selectall': Icons.select_all,
   'cursor': Icons.highlight_alt,
   'move': Icons.open_with,
@@ -68,7 +68,7 @@ const Map<String, IconData> _icons = {
   'format': Icons.format_align_left,
   'highlight': Icons.highlight,
   'note': Icons.sticky_note_2,
-  'comment': Icons.chat_bubble_outline,
+  'comment': Icons.chat_bubble,
   'link': Icons.link,
 
   // --- drawing ---
@@ -104,8 +104,9 @@ const Map<String, IconData> _icons = {
   'video': Icons.smart_display,
   'record': Icons.fiber_manual_record,
   'stream': Icons.sensors,
-  'clip': Icons.movie_outlined,
+  'clip': Icons.movie,
   'play': Icons.play_arrow,
+  'bolt': Icons.bolt,
   'subtitles': Icons.subtitles,
   'mic': Icons.mic,
   'mute': Icons.volume_off,
@@ -118,25 +119,39 @@ const Map<String, IconData> _icons = {
   'replyall': Icons.reply_all,
   'forward': Icons.forward,
   'share': Icons.share,
-  'archive': Icons.archive_outlined,
+  'archive': Icons.archive,
   'people': Icons.people,
   'assign': Icons.person_add_alt,
   'login': Icons.login,
   'logout': Icons.logout,
   'calendar': Icons.calendar_today,
-  'star': Icons.star_border,
+  'star': Icons.star,
 
   // --- transfer ---
   'upload': Icons.upload,
   'download': Icons.download,
 
   // --- outcomes ---
-  'accept': Icons.check,
-  'close': Icons.close,
+  'accept': Icons.check_circle,
+  'close': Icons.cancel,
   // Claude Code's own two: which model is answering, and how hard it is being asked to think.
   'model': Icons.psychology,
   'effort': Icons.speed,
 };
+
+/// Solid triangles have a smaller visible footprint than most Material glyphs, even when their
+/// icon boxes have the same size. Keys use this semantic set to give only directional controls a
+/// larger box without making every icon oversized.
+const Set<String> directionalIconNames = {
+  'back',
+  'fwdnav',
+  'prev',
+  'next',
+  'scrollup',
+  'scrolldown',
+};
+
+bool isDirectionalIcon(String? name) => directionalIconNames.contains(name);
 
 IconData iconFor(String? name) => _icons[name] ?? Icons.crop_square;
 

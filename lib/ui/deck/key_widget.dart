@@ -67,7 +67,8 @@ class KeyWidget extends StatefulWidget {
   State<KeyWidget> createState() => _KeyWidgetState();
 }
 
-class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMixin {
+class _KeyWidgetState extends State<KeyWidget>
+    with SingleTickerProviderStateMixin {
   bool _pressed = false;
 
   /// A key that opens an app stays DOWN when the finger leaves, instead of springing back and
@@ -142,6 +143,30 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
         ? const Color(DeckTokens.keyEmptyBackground)
         : const Color(DeckTokens.keyDefaultBackground);
     final image = decodedIcon(key.image);
+    final hasSub = (key.sub ?? '').isNotEmpty;
+    final compact = widget.size < 70;
+    final directional = isDirectionalIcon(key.icon);
+    final iconSize =
+        widget.size *
+        (directional
+            ? compact
+                  ? 0.60
+                  : 0.68
+            : hasSub
+            ? 0.34
+            : compact
+            ? 0.40
+            : 0.46);
+    final imageSize =
+        widget.size *
+        (hasSub
+            ? 0.36
+            : compact
+            ? 0.44
+            : 0.50);
+    final labelSize = (widget.size * 0.15).clamp(compact ? 9.0 : 13.0, 18.0);
+    final subSize = (widget.size * 0.105).clamp(compact ? 8.0 : 10.0, 13.0);
+    final contentGap = compact ? 1.0 : 3.0;
 
     Widget content = const SizedBox.shrink();
     if (!isEmpty) {
@@ -151,8 +176,8 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
           if (image != null)
             Image(
               image: image,
-              width: widget.size * 0.42,
-              height: widget.size * 0.42,
+              width: imageSize,
+              height: imageSize,
               // Holds the last frame while a new provider decodes, so even a genuine icon change
               // swaps rather than blinks through empty.
               gaplessPlayback: true,
@@ -160,18 +185,27 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
           else
             Icon(
               iconFor(key.icon),
-              color: const Color(DeckTokens.textPrimary),
-              size: widget.size * 0.32,
+              color: key.iconColor != null
+                  ? Color(key.iconColor!)
+                  : key.icon == 'record'
+                  ? const Color(0xFFFF5252)
+                  : const Color(DeckTokens.textPrimary),
+              size: iconSize,
             ),
-          const SizedBox(height: 2),
+          SizedBox(height: contentGap),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 3),
             child: Text(
               key.label ?? '',
-              maxLines: 1,
+              maxLines: compact ? 1 : 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(DeckTokens.textPrimary), fontSize: 10),
+              style: TextStyle(
+                color: const Color(DeckTokens.textPrimary),
+                fontSize: labelSize,
+                height: 1.05,
+                fontWeight: FontWeight.normal,
+              ),
             ),
           ),
           // §4.3's second line: the window's title. The host has always sent it and the model has
@@ -179,7 +213,7 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
           // "chrome" with no way to tell which was which, which is the one job it has.
           //
           // Only `windows` keys carry it; a deck key leaves this out entirely.
-          if ((key.sub ?? '').isNotEmpty)
+          if (hasSub)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3),
               child: Text(
@@ -187,10 +221,10 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(DeckTokens.textSecondary),
-                  fontSize: 8,
-                  height: 1.2,
+                style: TextStyle(
+                  color: const Color(DeckTokens.textSecondary),
+                  fontSize: subSize,
+                  height: 1.1,
                 ),
               ),
             ),
@@ -210,7 +244,11 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
     final down = _pressed || widget.launching;
 
     final face = down
-        ? Color.lerp(baseColor, Colors.black, DeckTokens.pressDarkenPercent / 100)!
+        ? Color.lerp(
+            baseColor,
+            Colors.black,
+            DeckTokens.pressDarkenPercent / 100,
+          )!
         : baseColor;
 
     // While it is launching the key answers nothing: no press, no long press, no second tap. It
@@ -236,7 +274,9 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
       toggled: key.stateOn ? true : null,
       hint: widget.launching ? AppLocalizations.of(context)!.launching : null,
       onTap: deaf ? null : () => widget.onPress?.call('short'),
-      onLongPress: deaf || key.hold == null ? null : () => widget.onPress?.call('long'),
+      onLongPress: deaf || key.hold == null
+          ? null
+          : () => widget.onPress?.call('long'),
       // The cap's own text and icon say nothing: this node already carries the label, and without
       // this a screen reader reads every key twice.
       child: ExcludeSemantics(
@@ -300,12 +340,19 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
         // a dropped link was the complaint that put the confirmation dot in §3.1.
         onTapCancel: deaf ? null : () => setState(() => _pressed = false),
         onTap: deaf ? null : () => widget.onPress?.call('short'),
-        // Dropped while a screen reader is on: its activation gesture IS a double tap, so keeping
-        // this would turn every press into the key's second action. See `screenReader` above.
-        onDoubleTap: deaf || screenReader ? null : () => widget.onPress?.call('double'),
+        // Registering this recognizer makes Flutter hold every ordinary tap while it waits for a
+        // possible second one. Most keys — including all automatic boards and their arrows — have
+        // no double binding, so that delay bought nothing and swallowed two quick presses. Keep
+        // the gesture only where the host actually supplied a second action. It also stays off for
+        // screen readers because their activation gesture IS a double tap; see `screenReader`.
+        onDoubleTap: deaf || screenReader || key.doublePress == null
+            ? null
+            : () => widget.onPress?.call('double'),
         // Only where there IS a second action. Drawn on every key it promised one that does not
         // exist — "¿qué significa el círculo rojo?" is what a control saying nothing looks like.
-        onLongPressStart: deaf || key.hold == null ? null : (_) => _ringController.forward(from: 0),
+        onLongPressStart: deaf || key.hold == null
+            ? null
+            : (_) => _ringController.forward(from: 0),
         onLongPress: deaf ? null : () => widget.onPress?.call('long'),
         onLongPressEnd: deaf ? null : (_) => _ringController.reset(),
         onLongPressCancel: deaf ? null : () => _ringController.reset(),
@@ -333,7 +380,9 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                 width: widget.width ?? widget.size,
                 height: widget.size,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
+                  borderRadius: BorderRadius.circular(
+                    DeckTokens.keyCornerRadiusPx,
+                  ),
                   // Three stops, not two: a moulded cap is brightest just under its top edge, the
                   // way it catches a ceiling light, and falls off towards the base.
                   gradient: LinearGradient(
@@ -358,7 +407,9 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                   ],
                   // The seam where the cap meets its housing. Uniform, because Flutter cannot
                   // round a border whose sides differ — the lit top edge is the overlay below.
-                  border: Border.all(color: Colors.black.withValues(alpha: down ? 0.10 : 0.28)),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: down ? 0.10 : 0.28),
+                  ),
                 ),
                 child: content,
               ),
@@ -380,7 +431,10 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                   left: 2,
                   top: 8,
                   bottom: 8,
-                  child: Container(width: 3, color: const Color(DeckTokens.accent)),
+                  child: Container(
+                    width: 3,
+                    color: const Color(DeckTokens.accent),
+                  ),
                 ),
               if (key.minimized)
                 Container(
@@ -388,7 +442,9 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                   height: widget.size,
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
+                    borderRadius: BorderRadius.circular(
+                      DeckTokens.keyCornerRadiusPx,
+                    ),
                   ),
                 ),
               // The moulding: the top edge catches the light, and only the top. It fades as the
@@ -402,12 +458,17 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                     width: widget.size,
                     height: widget.size,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
+                      borderRadius: BorderRadius.circular(
+                        DeckTokens.keyCornerRadiusPx,
+                      ),
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         stops: const [0, 0.06],
-                        colors: [Colors.white.withValues(alpha: 0.16), Colors.transparent],
+                        colors: [
+                          Colors.white.withValues(alpha: 0.16),
+                          Colors.transparent,
+                        ],
                       ),
                     ),
                   ),
@@ -423,7 +484,9 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
                   height: widget.size,
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(DeckTokens.keyCornerRadiusPx),
+                    borderRadius: BorderRadius.circular(
+                      DeckTokens.keyCornerRadiusPx,
+                    ),
                   ),
                 ),
                 SizedBox(
@@ -438,7 +501,9 @@ class _KeyWidgetState extends State<KeyWidget> with SingleTickerProviderStateMix
               AnimatedBuilder(
                 animation: _ringController,
                 builder: (context, _) {
-                  if (_ringController.value == 0) return const SizedBox.shrink();
+                  if (_ringController.value == 0) {
+                    return const SizedBox.shrink();
+                  }
                   return SizedBox(
                     width: widget.size,
                     height: widget.size,

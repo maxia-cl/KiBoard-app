@@ -26,7 +26,16 @@ abstract class LayoutSource {
   /// [option] and [text] are the answer to a key that asks something first — the branch chosen out
   /// of a `picker:`/`colorpicker:`, or what was typed for a `prompt:`. Still not an action: an
   /// index into the host's own key, and the text that goes in the hole of its own template.
-  Future<void> pressKey({required int pos, required String press, int? option, String? text});
+  Future<void> pressKey({
+    required int pos,
+    required String press,
+    int? option,
+    String? text,
+  });
+
+  /// Fixed destructive control in the client-owned foreground-app panel. Unlike a key press this
+  /// has no configurable action or position; the host closes whatever is actually in front.
+  Future<void> closeForegroundApp() async {}
 
   /// Protocol §4.4 `set_mode`.
   Future<void> setMode(String mode, {String? deckId});

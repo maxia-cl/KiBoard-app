@@ -15,6 +15,13 @@ class Grid {
 
 enum KeyKind { action, folder, page, empty }
 
+int? _colorFromHex(String? value) {
+  if (value == null || !RegExp(r'^#[0-9A-Fa-f]{6}$').hasMatch(value)) {
+    return null;
+  }
+  return int.parse('FF${value.substring(1)}', radix: 16);
+}
+
 KeyKind _kindFromString(String? value) {
   switch (value) {
     case 'action':
@@ -34,6 +41,7 @@ class DeckKey {
   final String? icon;
   final String? image;
   final int? color; // 0xAARRGGBB, parsed from a "#RRGGBB" string
+  final int? iconColor; // glyph tint; does not colour the key cap
   final String? action;
   final String? hold;
   final String? doublePress;
@@ -59,6 +67,7 @@ class DeckKey {
     this.icon,
     this.image,
     this.color,
+    this.iconColor,
     this.action,
     this.hold,
     this.doublePress,
@@ -84,7 +93,8 @@ class DeckKey {
       label: json['label'] as String?,
       icon: json['icon'] as String?,
       image: json['image'] as String?,
-      color: colorHex != null ? int.parse('FF${colorHex.substring(1)}', radix: 16) : null,
+      color: colorHex != null ? _colorFromHex(colorHex) : null,
+      iconColor: _colorFromHex(json['iconColor'] as String?),
       action: json['action'] as String?,
       hold: json['hold'] as String?,
       doublePress: json['double'] as String?,
@@ -115,6 +125,7 @@ class DeckKey {
     icon: icon,
     image: image,
     color: color,
+    iconColor: iconColor,
     action: action,
     hold: hold,
     doublePress: doublePress,
@@ -145,13 +156,14 @@ class LayoutSourceInfo {
     this.appIcon,
   });
 
-  factory LayoutSourceInfo.fromJson(Map<String, dynamic> json) => LayoutSourceInfo(
-    kind: json['kind'] as String,
-    id: json['id'] as String,
-    name: json['name'] as String?,
-    appName: json['appName'] as String?,
-    appIcon: json['appIcon'] as String?,
-  );
+  factory LayoutSourceInfo.fromJson(Map<String, dynamic> json) =>
+      LayoutSourceInfo(
+        kind: json['kind'] as String,
+        id: json['id'] as String,
+        name: json['name'] as String?,
+        appName: json['appName'] as String?,
+        appIcon: json['appIcon'] as String?,
+      );
 }
 
 /// Fills the holes in a page WITHOUT inventing cells the host chose not to fill.
@@ -164,9 +176,14 @@ class LayoutSourceInfo {
 /// Holes in the middle are still filled: a deck with a gap at position 3 must draw an empty cell
 /// there, not shift everything left.
 List<DeckKey> _densify(List<DeckKey> sparse, Grid grid) {
-  if (sparse.isEmpty) return List<DeckKey>.generate(grid.capacity, DeckKey.empty);
+  if (sparse.isEmpty) {
+    return List<DeckKey>.generate(grid.capacity, DeckKey.empty);
+  }
   final filled = sparse.map((k) => k.pos).reduce((a, b) => a > b ? a : b) + 1;
-  final dense = List<DeckKey>.generate(filled.clamp(1, grid.capacity), DeckKey.empty);
+  final dense = List<DeckKey>.generate(
+    filled.clamp(1, grid.capacity),
+    DeckKey.empty,
+  );
   for (final key in sparse) {
     if (key.pos < dense.length) dense[key.pos] = key;
   }

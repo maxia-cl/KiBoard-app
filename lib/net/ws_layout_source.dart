@@ -34,7 +34,8 @@ class HelloException implements Exception {
 
   /// The host will never accept this token again, so retrying is pointless and the saved session
   /// has to go. Anything else (a timeout, a dropped Wi-Fi) is worth another attempt.
-  bool get isFatal => code == 'revoked' || code == 'invalid_token' || code == 'not_paired';
+  bool get isFatal =>
+      code == 'revoked' || code == 'invalid_token' || code == 'not_paired';
 }
 
 /// What the deck screen shows about the link. A phone on Wi-Fi loses its connection constantly —
@@ -153,7 +154,9 @@ class WsLayoutSource implements LayoutSource {
     if (_closed) return;
     _watchdog?.cancel();
     _watchdog = Timer(silenceLimit, () {
-      trace('nothing from the host in ${silenceLimit.inSeconds}s — treating the link as gone');
+      trace(
+        'nothing from the host in ${silenceLimit.inSeconds}s — treating the link as gone',
+      );
       _onDisconnected();
     });
   }
@@ -220,7 +223,11 @@ class WsLayoutSource implements LayoutSource {
       'token': token,
       'deviceId': deviceId,
       'locale': locale,
-      'grid': {'rows': _grid.rows, 'cols': _grid.cols, 'reserve': reservedCells},
+      'grid': {
+        'rows': _grid.rows,
+        'cols': _grid.cols,
+        'reserve': reservedCells,
+      },
     });
     final Map<String, dynamic> ack;
     try {
@@ -290,7 +297,9 @@ class WsLayoutSource implements LayoutSource {
   /// Wi-Fi blip should recover in about a second.
   void _scheduleReconnect() {
     if (_closed || _retry != null) return;
-    final delay = Duration(milliseconds: (500 * (1 << _attempt.clamp(0, 5))).clamp(500, 15000));
+    final delay = Duration(
+      milliseconds: (500 * (1 << _attempt.clamp(0, 5))).clamp(500, 15000),
+    );
     _attempt++;
     _retry = Timer(delay, () async {
       _retry = null;
@@ -339,8 +348,12 @@ class WsLayoutSource implements LayoutSource {
       _messages.where((m) => m['type'] == 'page_preload').map(Layout.fromJson);
 
   @override
-  Future<void> pressKey({required int pos, required String press, int? option, String? text}) =>
-      pressResult(pos: pos, press: press, option: option, text: text);
+  Future<void> pressKey({
+    required int pos,
+    required String press,
+    int? option,
+    String? text,
+  }) => pressResult(pos: pos, press: press, option: option, text: text);
 
   /// [pressKey] plus the host's answer, for callers that need to assert on it. A navigating key
   /// (folder/page) is answered with the new `layout` instead of a `key_result` — for navigation
@@ -354,7 +367,8 @@ class WsLayoutSource implements LayoutSource {
   }) async {
     final id = '${++_keyId}';
     final answered = _messages.firstWhere(
-      (m) => (m['type'] == 'key_result' && m['id'] == id) || m['type'] == 'layout',
+      (m) =>
+          (m['type'] == 'key_result' && m['id'] == id) || m['type'] == 'layout',
     );
     // Absent unless the key asked something: an ordinary press is byte for byte what it always was.
     _send({
@@ -396,6 +410,13 @@ class WsLayoutSource implements LayoutSource {
     await _sessionRequest(replied);
   }
 
+  @override
+  Future<void> closeForegroundApp() async {
+    final replied = _replyTo();
+    _send({'v': 2, 'type': 'close_foreground_app'});
+    await _sessionRequest(replied);
+  }
+
   /// Protocol §4.4 `set_grid` — the phone was rotated, so the grid it derived from the screen
   /// changed. No-ops when the grid is unchanged: this is called from a layout builder, which runs
   /// on every frame.
@@ -421,8 +442,9 @@ class WsLayoutSource implements LayoutSource {
   /// Subscribes for a session-control reply before the request goes out. Both `set_mode` and
   /// `set_page` are answered with the resulting `layout`, or a `command_result` when there is
   /// nothing to render.
-  Future<Map<String, dynamic>> _replyTo() =>
-      _messages.firstWhere((m) => m['type'] == 'layout' || m['type'] == 'command_result');
+  Future<Map<String, dynamic>> _replyTo() => _messages.firstWhere(
+    (m) => m['type'] == 'layout' || m['type'] == 'command_result',
+  );
 
   /// Waits for a session-control reply, and treats not getting one as what it is: the link is not
   /// working. Two things follow from that, and both were missing.
@@ -469,7 +491,8 @@ class WsLayoutSource implements LayoutSource {
   }
 
   Future<void> dispose() async {
-    _closed = true; // stops the reconnect loop: an intentional close is not a dropped connection
+    _closed =
+        true; // stops the reconnect loop: an intentional close is not a dropped connection
     _watchdog?.cancel();
     _watchdog = null;
     _retry?.cancel();

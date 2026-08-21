@@ -27,6 +27,14 @@
       }
     }
   },
+  "closeApp": "Cerrar {app}",
+  "@closeApp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
   "appPanel": "Panel de la app",
   "appPanelHint": "Sólo en vertical. Arriba, las teclas se quedan con la fila que alcanza el pulgar.",
   "panelTop": "Arriba",

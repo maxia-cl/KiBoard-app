@@ -125,7 +125,11 @@ class _DictationScreenState extends State<DictationScreen> {
               padding: const EdgeInsets.fromLTRB(14, 2, 8, 2),
               child: Row(
                 children: [
-                  const Icon(Icons.mic, color: Color(DeckTokens.textSecondary), size: 16),
+                  const Icon(
+                    Icons.mic,
+                    color: Color(DeckTokens.textSecondary),
+                    size: 16,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -139,7 +143,11 @@ class _DictationScreenState extends State<DictationScreen> {
                   ),
                   IconButton(
                     tooltip: t.close,
-                    icon: const Icon(Icons.close, color: Color(DeckTokens.textSecondary), size: 18),
+                    icon: const Icon(
+                      Icons.cancel,
+                      color: Color(DeckTokens.textSecondary),
+                      size: 18,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -160,7 +168,11 @@ class _DictationScreenState extends State<DictationScreen> {
                             : t.holdAndSpeak),
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Color(_error != null ? DeckTokens.accent : DeckTokens.textPrimary),
+                      color: Color(
+                        _error != null
+                            ? DeckTokens.accent
+                            : DeckTokens.textPrimary,
+                      ),
                       fontSize: _partial.isNotEmpty ? 20 : 14,
                       height: 1.5,
                     ),
@@ -183,11 +195,13 @@ class _DictationScreenState extends State<DictationScreen> {
                     color: _listening
                         ? const Color(DeckTokens.accent)
                         : const Color(DeckTokens.keyDefaultBackground),
-                    borderRadius: BorderRadius.circular(DeckTokens.bezelCornerRadiusPx),
+                    borderRadius: BorderRadius.circular(
+                      DeckTokens.bezelCornerRadiusPx,
+                    ),
                   ),
                   child: Center(
                     child: Icon(
-                      _listening ? Icons.mic : Icons.mic_none,
+                      Icons.mic,
                       size: 40,
                       color: const Color(DeckTokens.textPrimary),
                     ),

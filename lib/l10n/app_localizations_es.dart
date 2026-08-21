@@ -76,6 +76,11 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String closeApp(String app) {
+    return 'Cerrar $app';
+  }
+
+  @override
   String get appPanel => 'Panel de la app';
 
   @override
