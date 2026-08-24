@@ -80,6 +80,7 @@ class _DeckScreenState extends State<DeckScreen> {
       t.cancel();
     }
     _swipeGuard?.cancel();
+    _liveDragDx.dispose();
     _preloads?.cancel();
     _toasts?.cancel();
     _exitArmed?.cancel();
@@ -174,8 +175,8 @@ class _DeckScreenState extends State<DeckScreen> {
   double _pageDir = 1;
 
   /// Short enough that the pad still feels like hardware, long enough to read as a move. Android's
-  /// own page transitions sit around 300 ms; a control surface wants to be quicker than that.
-  static const _pageSlide = Duration(milliseconds: 200);
+  /// own page transitions sit around 300 ms; a control surface wants to feel nearly immediate.
+  static const _pageSlide = Duration(milliseconds: 120);
 
   /// Identity of what is on screen. The deck as well as the page, so switching decks also swaps
   /// rather than mutating the same grid under the user.
@@ -258,6 +259,12 @@ class _DeckScreenState extends State<DeckScreen> {
   /// Where the page sits relative to home, in pixels. Positive is dragged right (going back).
   double _dragDx = 0;
 
+  /// The live finger position is deliberately outside the screen's [setState] tree. Rebuilding a
+  /// full deck (and up to two neighbours) for every pointer packet made the page trail the finger
+  /// on real phones. Only the transform listens to this value; the grids remain the same rendered
+  /// children while they move.
+  final ValueNotifier<double> _liveDragDx = ValueNotifier(0);
+
   /// Finger down: the page tracks it with no animation at all.
   bool _dragging = false;
 
@@ -299,12 +306,12 @@ class _DeckScreenState extends State<DeckScreen> {
   Timer? _swipeGuard;
 
   /// Springing home, and carrying a committed page the rest of the way out.
-  static const _settle = Duration(milliseconds: 160);
+  static const _settle = Duration(milliseconds: 110);
 
   /// A host that has not answered by now is asleep, not slow — the deck stays up while offline
   /// (that is what the link banner is for), so the page has to come back rather than hang off
   /// the edge of the screen.
-  static const _swipeTimeout = Duration(milliseconds: 400);
+  static const _swipeTimeout = Duration(milliseconds: 600);
 
   void _dragUpdate(Layout layout, double delta) {
     // Resistance at the two ends, the way a list rubber-bands: it still moves, so the gesture is
@@ -312,19 +319,24 @@ class _DeckScreenState extends State<DeckScreen> {
     final pushingPastEnd =
         (delta < 0 && layout.page >= layout.pages - 1) ||
         (delta > 0 && layout.page <= 0);
-    setState(() {
-      _dragging = true;
-      _swiping = true;
-      _dragDx += pushingPastEnd ? delta * 0.25 : delta;
-    });
+    // The first packet adds the neighbours once. Every packet after it only updates the composited
+    // transform below; rebuilding all of the keys here was the source of the sticky swipe.
+    if (!_dragging) {
+      setState(() {
+        _dragging = true;
+        _swiping = true;
+      });
+    }
+    _dragDx += pushingPastEnd ? delta * 0.25 : delta;
+    _liveDragDx.value = _dragDx;
   }
 
   void _dragEnd(Layout layout, double velocity, double width) {
     _dragging = false;
     // Either a long drag or a quick flick commits. Distance is the half that was missing — a slow,
     // deliberate drag across the whole pad ends at zero velocity and used to change nothing.
-    final far = _dragDx.abs() > width * 0.25;
-    final fast = velocity.abs() > 320;
+    final far = _dragDx.abs() > width * 0.18;
+    final fast = velocity.abs() > 260;
     final dir = (_dragDx != 0 ? _dragDx < 0 : velocity < 0) ? 1 : -1;
     final next = (layout.page + dir).clamp(0, layout.pages - 1);
 
@@ -897,8 +909,8 @@ class _DeckScreenState extends State<DeckScreen> {
                                 child: ClipRect(
                                   child: AnimatedSwitcher(
                                     duration: _pageSlide,
-                                    switchInCurve: Curves.easeOutCubic,
-                                    switchOutCurve: Curves.easeInCubic,
+                                    switchInCurve: Curves.easeOutQuart,
+                                    switchOutCurve: Curves.easeOutQuart,
                                     // Stacked rather than the default cross-fade-in-place: the two
                                     // pages have to pass each other, so both must be laid out.
                                     layoutBuilder: (current, previous) => Stack(
@@ -922,10 +934,7 @@ class _DeckScreenState extends State<DeckScreen> {
                                           begin: from,
                                           end: Offset.zero,
                                         ).animate(animation),
-                                        child: FadeTransition(
-                                          opacity: animation,
-                                          child: child,
-                                        ),
+                                        child: child,
                                       );
                                     },
                                     // The key is on the wrapper, not on the grid: the offset has to
@@ -936,108 +945,131 @@ class _DeckScreenState extends State<DeckScreen> {
                                       // finger; `_settle` once it lifts, to spring home or to carry
                                       // a committed page the rest of the way out. No controller and
                                       // nothing to dispose.
-                                      child: TweenAnimationBuilder<double>(
-                                        tween: Tween<double>(end: _dragDx),
-                                        duration: _dragging
-                                            ? Duration.zero
-                                            : _settle,
-                                        curve: Curves.easeOut,
-                                        onEnd: () {
-                                          if (mounted &&
-                                              _dragDx == 0 &&
-                                              _swiping) {
-                                            setState(() => _swiping = false);
-                                          }
-                                        },
-                                        builder: (context, dx, child) =>
-                                            Transform.translate(
-                                              offset: Offset(dx, 0),
+                                      child: ValueListenableBuilder<double>(
+                                        valueListenable: _liveDragDx,
+                                        builder: (context, liveDx, child) {
+                                          if (_dragging) {
+                                            return Transform.translate(
+                                              offset: Offset(liveDx, 0),
                                               child: child,
+                                            );
+                                          }
+                                          return TweenAnimationBuilder<double>(
+                                            tween: Tween(
+                                              begin: liveDx,
+                                              end: _dragDx,
                                             ),
+                                            duration: _settle,
+                                            curve: Curves.easeOutCubic,
+                                            onEnd: () {
+                                              _liveDragDx.value = _dragDx;
+                                              if (mounted &&
+                                                  _dragDx == 0 &&
+                                                  _swiping) {
+                                                setState(
+                                                  () => _swiping = false,
+                                                );
+                                              }
+                                            },
+                                            builder: (context, dx, child) =>
+                                                Transform.translate(
+                                                  offset: Offset(dx, 0),
+                                                  child: child,
+                                                ),
+                                            child: child,
+                                          );
+                                        },
                                         // The neighbours ride INSIDE the same transform, one page
                                         // plus a gap out on either side, so they come in behind the
                                         // finger without any second animation to keep in step.
                                         // `Positioned` keeps them out of the Stack's sizing and the
                                         // ClipRect above cuts them at the edge of the device.
-                                        child: Stack(
-                                          clipBehavior: Clip.none,
-                                          children: [
-                                            KeyGrid(
-                                              grid: grid,
-                                              // Stops where the panel starts. Absorbing a cell and
-                                              // then still drawing its cap underneath is the very
-                                              // fault this was meant to remove.
-                                              keys: layout.keys,
-                                              keySize: keySize,
-                                              launching: _launching,
-                                              // Panel on the first row: the keys start after it,
-                                              // so the grid opens with that many blank cells.
-                                              leadingBlanks: panelOnTop
-                                                  ? reservedCells
-                                                  : 0,
-                                              onKeyPress: (pos, press) =>
-                                                  _handlePress(
-                                                    layout,
-                                                    pos,
-                                                    press,
-                                                  ),
-                                            ),
-                                            // What the PC has in front. The cells are reserved
-                                            // (§4.1), so this never fights a key for them — and
-                                            // upright the user can move it to the first row, which
-                                            // hands the thumb's row back to the keys.
-                                            if (_foregroundApp(layout)
-                                                case final app?)
-                                              Positioned(
-                                                left: panelOnTop ? 0 : null,
-                                                right: panelOnTop ? null : 0,
-                                                top: panelOnTop ? 0 : null,
-                                                bottom: panelOnTop ? null : 0,
-                                                width:
-                                                    reservedCells * keySize +
-                                                    (reservedCells - 1) *
-                                                        KeyGrid.gapFor(keySize),
-                                                height: keySize,
-                                                child: _ForegroundApp(
-                                                  name: app,
-                                                  icon: layout.source.appIcon,
-                                                  keySize: keySize,
-                                                  onOpen: _openWindowSwitcher,
-                                                  onClose: () =>
-                                                      _closeForegroundApp(
-                                                        layout,
-                                                      ),
-                                                ),
+                                        child: RepaintBoundary(
+                                          child: Stack(
+                                            clipBehavior: Clip.none,
+                                            children: [
+                                              KeyGrid(
+                                                grid: grid,
+                                                // Stops where the panel starts. Absorbing a cell and
+                                                // then still drawing its cap underneath is the very
+                                                // fault this was meant to remove.
+                                                keys: layout.keys,
+                                                keySize: keySize,
+                                                launching: _launching,
+                                                // Panel on the first row: the keys start after it,
+                                                // so the grid opens with that many blank cells.
+                                                leadingBlanks: panelOnTop
+                                                    ? reservedCells
+                                                    : 0,
+                                                onKeyPress: (pos, press) =>
+                                                    _handlePress(
+                                                      layout,
+                                                      pos,
+                                                      press,
+                                                    ),
                                               ),
-                                            if (_swiping)
-                                              for (final side in const [-1, 1])
-                                                if (_neighbour(layout, side)
-                                                    case final near?)
-                                                  Positioned(
-                                                    left:
-                                                        side *
-                                                        (KeyGrid.widthFor(
-                                                              grid,
-                                                              keySize,
-                                                            ) +
-                                                            KeyGrid.gapFor(
-                                                              keySize,
-                                                            )),
-                                                    top: 0,
-                                                    // Not pressable: it is a page you have not
-                                                    // arrived at, and a key half off the screen is
-                                                    // not something anyone means to hit.
-                                                    child: IgnorePointer(
-                                                      child: KeyGrid(
-                                                        grid: grid,
-                                                        keys: near.keys,
-                                                        keySize: keySize,
-                                                        launching: const {},
-                                                        onKeyPress: (_, _) {},
+                                              // What the PC has in front. The cells are reserved
+                                              // (§4.1), so this never fights a key for them — and
+                                              // upright the user can move it to the first row, which
+                                              // hands the thumb's row back to the keys.
+                                              if (_foregroundApp(layout)
+                                                  case final app?)
+                                                Positioned(
+                                                  left: panelOnTop ? 0 : null,
+                                                  right: panelOnTop ? null : 0,
+                                                  top: panelOnTop ? 0 : null,
+                                                  bottom: panelOnTop ? null : 0,
+                                                  width:
+                                                      reservedCells * keySize +
+                                                      (reservedCells - 1) *
+                                                          KeyGrid.gapFor(
+                                                            keySize,
+                                                          ),
+                                                  height: keySize,
+                                                  child: _ForegroundApp(
+                                                    name: app,
+                                                    icon: layout.source.appIcon,
+                                                    keySize: keySize,
+                                                    onOpen: _openWindowSwitcher,
+                                                    onClose: () =>
+                                                        _closeForegroundApp(
+                                                          layout,
+                                                        ),
+                                                  ),
+                                                ),
+                                              if (_swiping)
+                                                for (final side in const [
+                                                  -1,
+                                                  1,
+                                                ])
+                                                  if (_neighbour(layout, side)
+                                                      case final near?)
+                                                    Positioned(
+                                                      left:
+                                                          side *
+                                                          (KeyGrid.widthFor(
+                                                                grid,
+                                                                keySize,
+                                                              ) +
+                                                              KeyGrid.gapFor(
+                                                                keySize,
+                                                              )),
+                                                      top: 0,
+                                                      // Not pressable: it is a page you have not
+                                                      // arrived at, and a key half off the screen is
+                                                      // not something anyone means to hit.
+                                                      child: IgnorePointer(
+                                                        child: KeyGrid(
+                                                          grid: grid,
+                                                          keys: near.keys,
+                                                          keySize: keySize,
+                                                          launching: const {},
+                                                          onKeyPress: (_, _) {},
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
