@@ -957,6 +957,42 @@ void main() {
       expect(gridX(tester), closeTo(home, 1));
     });
 
+    testWidgets('the host confirmation does not restart or twitch the slide', (
+      tester,
+    ) async {
+      final source = await pumpDeck(tester);
+      source.preload(1);
+      await tester.pump();
+      final current = find.byType(KeyGrid);
+      final home = tester.getTopLeft(current).dx;
+      final width = tester.getSize(current).width;
+
+      final finger = await tester.startGesture(tester.getCenter(current));
+      await finger.moveBy(Offset(-width * 0.35, 0));
+      await tester.pump();
+      final incoming = find.ancestor(
+        of: find.text('page 1'),
+        matching: find.byType(KeyGrid),
+      );
+      final beforeConfirmation = tester.getTopLeft(incoming).dx;
+
+      // The LAN reply can arrive in the same frame as release. The preloaded neighbour is already
+      // visible, so replacing it with an animation that starts at the edge produces a one-frame
+      // flash. Its physical position must be identical on both sides of the reply.
+      await finger.up();
+      source.goTo(1);
+      await tester.pump();
+
+      expect(
+        tester.getTopLeft(incoming).dx,
+        closeTo(beforeConfirmation, 1),
+        reason: 'the confirmed layout continues from the visible neighbour',
+      );
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(tester.getTopLeft(incoming).dx, closeTo(home, 1));
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('a page already seen comes in behind the finger', (
       tester,
     ) async {

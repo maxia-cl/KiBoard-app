@@ -44,7 +44,8 @@ class DeckScreen extends StatefulWidget {
   State<DeckScreen> createState() => _DeckScreenState();
 }
 
-class _DeckScreenState extends State<DeckScreen> {
+class _DeckScreenState extends State<DeckScreen>
+    with SingleTickerProviderStateMixin {
   late final Stream<Layout> _layouts = widget.layoutSource.layouts();
 
   /// Watches for the app coming back to the foreground. The phone spends most of its life in a
@@ -59,6 +60,7 @@ class _DeckScreenState extends State<DeckScreen> {
   @override
   void initState() {
     super.initState();
+    _pageMotion = AnimationController.unbounded(vsync: this);
     _lifecycle; // created lazily; touch it so it is listening from the first frame
     // §4.4. The host was talking and nothing was listening: every `toast` it sent was filtered
     // out and dropped, which is why "Profile imported" never appeared anywhere.
@@ -80,7 +82,7 @@ class _DeckScreenState extends State<DeckScreen> {
       t.cancel();
     }
     _swipeGuard?.cancel();
-    _liveDragDx.dispose();
+    _pageMotion.dispose();
     _preloads?.cancel();
     _toasts?.cancel();
     _exitArmed?.cancel();
@@ -203,6 +205,8 @@ class _DeckScreenState extends State<DeckScreen> {
       // direction to infer; leave the last one alone.
       _lastSource = source;
       _lastPage = layout.page;
+      _pendingPage = null;
+      _handoffPage = null;
       return;
     }
     if (layout.page != _lastPage) {
@@ -212,8 +216,23 @@ class _DeckScreenState extends State<DeckScreen> {
       // INCOMING subtree only — the outgoing one keeps the offset it was last built with and
       // carries on out from there, which is what makes the swap continue the gesture instead of
       // starting a second, separate move.
-      _swipeGuard?.cancel();
-      _dragDx = 0;
+      if (_pendingPage == layout.page) {
+        // The neighbour already visible under the finger IS this layout. Suppress the switcher's
+        // second slide and keep using the same motion value, translated onto the incoming page.
+        // That makes the host confirmation a zero-pixel handoff instead of a visible restart.
+        _swipeGuard?.cancel();
+        _handoffPage = layout.page;
+        if (!_pageMotion.isAnimating) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _finishHandoff());
+        }
+      } else {
+        _pendingPage = null;
+        _handoffPage = null;
+        _pageMotion.stop();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _pageMotion.value = 0;
+        });
+      }
     }
   }
 
@@ -256,14 +275,16 @@ class _DeckScreenState extends State<DeckScreen> {
   // no neighbour to bring in behind it; the gap shows the bezel, which reads as the page being
   // pushed aside rather than as a missing screen.
 
-  /// Where the page sits relative to home, in pixels. Positive is dragged right (going back).
-  double _dragDx = 0;
+  /// Where the page sits relative to home, in pixels. Unbounded because it follows a finger rather
+  /// than a 0..1 timeline. Only the transform listens: pointer packets never rebuild the grids.
+  late final AnimationController _pageMotion;
 
-  /// The live finger position is deliberately outside the screen's [setState] tree. Rebuilding a
-  /// full deck (and up to two neighbours) for every pointer packet made the page trail the finger
-  /// on real phones. Only the transform listens to this value; the grids remain the same rendered
-  /// children while they move.
-  final ValueNotifier<double> _liveDragDx = ValueNotifier(0);
+  /// A committed local change waiting for the host's layout, plus the geometry needed to turn the
+  /// already-visible neighbour into that incoming layout without moving it by even one pixel.
+  int? _pendingPage;
+  int? _handoffPage;
+  int _pendingDir = 0;
+  double _pageExtent = 0;
 
   /// Finger down: the page tracks it with no animation at all.
   bool _dragging = false;
@@ -314,6 +335,7 @@ class _DeckScreenState extends State<DeckScreen> {
   static const _swipeTimeout = Duration(milliseconds: 600);
 
   void _dragUpdate(Layout layout, double delta) {
+    if (_pendingPage != null) return;
     // Resistance at the two ends, the way a list rubber-bands: it still moves, so the gesture is
     // never dead under the finger, but it says there is nothing over there.
     final pushingPastEnd =
@@ -327,21 +349,39 @@ class _DeckScreenState extends State<DeckScreen> {
         _swiping = true;
       });
     }
-    _dragDx += pushingPastEnd ? delta * 0.25 : delta;
-    _liveDragDx.value = _dragDx;
+    _pageMotion.value += pushingPastEnd ? delta * 0.25 : delta;
   }
 
-  void _dragEnd(Layout layout, double velocity, double width) {
-    _dragging = false;
+  void _dragCancel() {
+    if (_pendingPage != null) return;
+    setState(() => _dragging = false);
+    _pageMotion
+        .animateTo(0, duration: _settle, curve: Curves.easeOutCubic)
+        .whenComplete(() {
+          if (mounted && _pendingPage == null && _pageMotion.value == 0) {
+            setState(() => _swiping = false);
+          }
+        });
+  }
+
+  void _dragEnd(Layout layout, double velocity, double width, double extent) {
+    final dx = _pageMotion.value;
     // Either a long drag or a quick flick commits. Distance is the half that was missing — a slow,
     // deliberate drag across the whole pad ends at zero velocity and used to change nothing.
-    final far = _dragDx.abs() > width * 0.18;
+    final far = dx.abs() > width * 0.18;
     final fast = velocity.abs() > 260;
-    final dir = (_dragDx != 0 ? _dragDx < 0 : velocity < 0) ? 1 : -1;
+    final dir = (dx != 0 ? dx < 0 : velocity < 0) ? 1 : -1;
     final next = (layout.page + dir).clamp(0, layout.pages - 1);
 
     if (layout.pages < 2 || !(far || fast) || next == layout.page) {
-      setState(() => _dragDx = 0); // springs home over `_settle`
+      setState(() => _dragging = false);
+      _pageMotion
+          .animateTo(0, duration: _settle, curve: Curves.easeOutCubic)
+          .whenComplete(() {
+            if (mounted && _pendingPage == null && _pageMotion.value == 0) {
+              setState(() => _swiping = false);
+            }
+          });
       return;
     }
 
@@ -350,15 +390,48 @@ class _DeckScreenState extends State<DeckScreen> {
     // Keep going the way the finger was going. The swap catches it part way out, and the outgoing
     // page keeps this offset because it is the widget that was already built — only the incoming
     // one is rebuilt, at zero.
-    setState(() => _dragDx = -dir * width);
+    setState(() {
+      _dragging = false;
+      _pendingPage = next;
+      _pendingDir = dir;
+      _pageExtent = extent;
+    });
+    _pageMotion
+        .animateTo(-dir * extent, duration: _settle, curve: Curves.easeOutCubic)
+        .whenComplete(_finishHandoff);
     _swipeGuard?.cancel();
     _swipeGuard = Timer(_swipeTimeout, () {
-      if (!mounted || _dragDx == 0) return;
+      if (!mounted || _pendingPage == null) return;
       trace('no layout for the swipe — putting the page back');
-      setState(() => _dragDx = 0);
+      setState(() {
+        _pendingPage = null;
+        _handoffPage = null;
+      });
+      _pageMotion
+          .animateTo(0, duration: _settle, curve: Curves.easeOutCubic)
+          .whenComplete(() {
+            if (mounted && _pageMotion.value == 0) {
+              setState(() => _swiping = false);
+            }
+          });
     });
     widget.session?.setPage(next);
   }
+
+  /// Completes the local/remote handoff after both halves are ready: the motion has reached the
+  /// centre and the host has confirmed the page. Either may arrive first; the visible result is the
+  /// same because [_handoffOffset] maps both layouts onto the same physical position.
+  void _finishHandoff() {
+    if (!mounted || _handoffPage == null || _pageMotion.isAnimating) return;
+    _handoffPage = null;
+    _pendingPage = null;
+    _pageMotion.value = 0;
+    setState(() => _swiping = false);
+  }
+
+  double _handoffOffset(Layout layout) =>
+      _pageMotion.value +
+      (_handoffPage == layout.page ? _pendingDir * _pageExtent : 0);
 
   /// §3: a `danger` key is painted red AND asks before it acts. Only the painting was ever built,
   /// so "Cerrar app" closed whatever was in front on a single mis-tap — on a surface hit from
@@ -885,11 +958,10 @@ class _DeckScreenState extends State<DeckScreen> {
                                 layout,
                                 d.primaryVelocity ?? 0,
                                 KeyGrid.widthFor(grid, keySize),
+                                KeyGrid.widthFor(grid, keySize) +
+                                    KeyGrid.gapFor(keySize),
                               ),
-                              onHorizontalDragCancel: () => setState(() {
-                                _dragging = false;
-                                _dragDx = 0;
-                              }),
+                              onHorizontalDragCancel: _dragCancel,
                               child: DeviceBezel(
                                 gridWidth: KeyGrid.widthFor(grid, keySize),
                                 gridHeight: KeyGrid.heightFor(grid, keySize),
@@ -908,15 +980,35 @@ class _DeckScreenState extends State<DeckScreen> {
                                 // instead of over it.
                                 child: ClipRect(
                                   child: AnimatedSwitcher(
-                                    duration: _pageSlide,
+                                    // A gesture handoff gets a fresh switcher. Otherwise its old
+                                    // page remains in the switcher's private outgoing list and can
+                                    // reappear for one frame when the zero-duration handoff ends.
+                                    key: ValueKey(
+                                      _handoffPage == layout.page
+                                          ? 'gesture-handoff'
+                                          : 'page-transition',
+                                    ),
+                                    duration: _handoffPage == layout.page
+                                        ? Duration.zero
+                                        : _pageSlide,
                                     switchInCurve: Curves.easeOutQuart,
                                     switchOutCurve: Curves.easeOutQuart,
                                     // Stacked rather than the default cross-fade-in-place: the two
                                     // pages have to pass each other, so both must be laid out.
-                                    layoutBuilder: (current, previous) => Stack(
-                                      alignment: Alignment.center,
-                                      children: [...previous, ?current],
-                                    ),
+                                    layoutBuilder: (current, previous) {
+                                      // During a gesture handoff the old tree already contains the
+                                      // incoming page as its neighbour. Keeping that tree for even
+                                      // one zero-duration frame draws the same page twice and is the
+                                      // small flash visible on the phone.
+                                      if (_handoffPage == layout.page) {
+                                        return current ??
+                                            const SizedBox.shrink();
+                                      }
+                                      return Stack(
+                                        alignment: Alignment.center,
+                                        children: [...previous, ?current],
+                                      );
+                                    },
                                     transitionBuilder: (child, animation) {
                                       // The outgoing child runs this same animation in REVERSE, so
                                       // giving it the opposite start sends it out the far side while
@@ -943,42 +1035,18 @@ class _DeckScreenState extends State<DeckScreen> {
                                       key: ValueKey(_pageKey(layout)),
                                       // Zero duration while the finger is down, so the page IS the
                                       // finger; `_settle` once it lifts, to spring home or to carry
-                                      // a committed page the rest of the way out. No controller and
-                                      // nothing to dispose.
-                                      child: ValueListenableBuilder<double>(
-                                        valueListenable: _liveDragDx,
-                                        builder: (context, liveDx, child) {
-                                          if (_dragging) {
-                                            return Transform.translate(
-                                              offset: Offset(liveDx, 0),
+                                      // a committed page the rest of the way out. The controller is
+                                      // unbounded because its value is a physical pixel offset.
+                                      child: AnimatedBuilder(
+                                        animation: _pageMotion,
+                                        builder: (context, child) =>
+                                            Transform.translate(
+                                              offset: Offset(
+                                                _handoffOffset(layout),
+                                                0,
+                                              ),
                                               child: child,
-                                            );
-                                          }
-                                          return TweenAnimationBuilder<double>(
-                                            tween: Tween(
-                                              begin: liveDx,
-                                              end: _dragDx,
                                             ),
-                                            duration: _settle,
-                                            curve: Curves.easeOutCubic,
-                                            onEnd: () {
-                                              _liveDragDx.value = _dragDx;
-                                              if (mounted &&
-                                                  _dragDx == 0 &&
-                                                  _swiping) {
-                                                setState(
-                                                  () => _swiping = false,
-                                                );
-                                              }
-                                            },
-                                            builder: (context, dx, child) =>
-                                                Transform.translate(
-                                                  offset: Offset(dx, 0),
-                                                  child: child,
-                                                ),
-                                            child: child,
-                                          );
-                                        },
                                         // The neighbours ride INSIDE the same transform, one page
                                         // plus a gap out on either side, so they come in behind the
                                         // finger without any second animation to keep in step.
