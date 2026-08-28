@@ -260,6 +260,43 @@ void main() {
     expect(source.requestedDeck, 'launcher');
   });
 
+  testWidgets('Launcher stays directly available when Manual is enabled', (
+    tester,
+  ) async {
+    final source = _TenKeys(manualFeatureEnabled: true);
+    final session =
+        WsLayoutSource(ip: '127.0.0.1', port: 8770, token: 't', deviceId: 'd')
+          ..decks = const [
+            DeckSummary(id: 'launcher', name: 'Launcher', icon: 'apps'),
+            DeckSummary(id: 'work', name: 'Work'),
+          ];
+    addTearDown(source.dispose);
+    addTearDown(session.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: DeckScreen(
+          layoutSource: source,
+          session: session,
+          hostName: 'PC',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Launcher'), findsOneWidget);
+    expect(find.text('Decks'), findsNothing);
+    expect(find.text('Auto'), findsOneWidget);
+    expect(find.text('Manual'), findsNothing);
+
+    await tester.tap(find.text('Launcher'));
+    expect(source.requestedMode, 'manual');
+    expect(source.requestedDeck, 'launcher');
+  });
+
   testWidgets('Launcher is presented as Auto when Manual is enabled', (
     tester,
   ) async {

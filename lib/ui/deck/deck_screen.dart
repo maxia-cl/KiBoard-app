@@ -1397,26 +1397,25 @@ class _TopBar extends StatelessWidget {
     if (chosen != null) await live.setMode('manual', deckId: chosen);
   }
 
-  /// Launcher is generated and ordered by the host, so it remains available when fixed Manual
-  /// decks are hidden. With Manual enabled this becomes the full deck picker as before.
+  /// Launcher is generated and ordered by the host, so it always has a direct entry point. Once a
+  /// fixed Manual deck is active this same slot names it and opens the full deck picker.
   Widget? _deckButton(BuildContext context, AppLocalizations t) {
     final live = session;
     if (live == null || live.decks.isEmpty) return null;
-    if (layoutSource.manualEnabled) {
+    final launcher = live.decks.where((d) => d.id == 'launcher').firstOrNull;
+    if (layoutSource.manualEnabled && (_manualActive || launcher == null)) {
       return _StripButton(
         icon: Icons.dashboard,
         label: _deckLabel(t),
         onTap: () => _pickDeck(context),
       );
     }
-    final launcher = live.decks.where((d) => d.id == 'launcher').firstOrNull;
     if (launcher == null) return null;
-    final active = layout.mode == 'manual' && layout.source.id == 'launcher';
     return _StripButton(
       icon: iconForDeck(launcher.icon),
       label: launcher.name,
-      foreground: active ? const Color(DeckTokens.accent) : null,
-      onTap: () => active
+      foreground: _launcherActive ? const Color(DeckTokens.accent) : null,
+      onTap: () => _launcherActive
           ? layoutSource.setMode('auto')
           : layoutSource.setMode('manual', deckId: launcher.id),
     );
