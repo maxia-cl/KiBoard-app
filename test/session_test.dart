@@ -44,7 +44,9 @@ class _Host {
       ws.listen((raw) {
         final msg = jsonDecode(raw as String) as Map<String, dynamic>;
         received.add(msg);
-        if (!answer) return; // gone quiet: the frames arrive and nothing comes back
+        if (!answer) {
+          return; // gone quiet: the frames arrive and nothing comes back
+        }
         if (msg['type'] == 'hello') {
           ws.add(
             jsonEncode({
@@ -122,6 +124,13 @@ void main() {
       host.received.lastWhere((m) => m['type'] == 'set_mode')['mode'],
       'auto',
       reason: 'a hidden advanced feature cannot be entered through stale UI',
+    );
+
+    await session.setMode('manual', deckId: 'launcher');
+    expect(
+      host.received.lastWhere((m) => m['type'] == 'set_mode')['mode'],
+      'manual',
+      reason: 'Launcher is automatic and must not be hidden with fixed Manual decks',
     );
 
     expect(await session.setManualEnabled(true), isTrue);

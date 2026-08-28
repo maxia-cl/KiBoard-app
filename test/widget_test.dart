@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kiboard_app/main.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/layout_source.dart';
+import 'package:kiboard_app/net/ws_layout_source.dart';
 import 'package:kiboard_app/net/saved_session.dart';
 import 'package:kiboard_app/settings.dart';
 import 'package:kiboard_app/ui/splash.dart';
@@ -34,6 +35,8 @@ class _TenKeys extends LayoutSource {
   /// Positions that actually reached the host.
   final pressed = <int>[];
   int closeRequests = 0;
+  String? requestedMode;
+  String? requestedDeck;
 
   /// A deck with somewhere to swipe to, sitting on the middle page so both directions are open.
   final bool paginated;
@@ -163,7 +166,11 @@ class _TenKeys extends LayoutSource {
   String? typed;
 
   @override
-  Future<void> setMode(String mode, {String? deckId}) async {}
+  Future<void> setMode(String mode, {String? deckId}) async {
+    requestedMode = mode;
+    requestedDeck = deckId;
+  }
+
   @override
   Future<WindowsPage> listWindows(int page) async {
     if (!windowsAvailable) throw StateError('PC unavailable');
@@ -214,6 +221,40 @@ bool _somewhereInTree(WidgetTester tester, SemanticsAction action) {
 }
 
 void main() {
+  testWidgets('Launcher remains available while Manual is hidden', (
+    tester,
+  ) async {
+    final source = _TenKeys();
+    final session =
+        WsLayoutSource(ip: '127.0.0.1', port: 8770, token: 't', deviceId: 'd')
+          ..decks = const [
+            DeckSummary(id: 'launcher', name: 'Launcher', icon: 'apps'),
+            DeckSummary(id: 'work', name: 'Work'),
+          ];
+    addTearDown(source.dispose);
+    addTearDown(session.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: DeckScreen(
+          layoutSource: source,
+          session: session,
+          hostName: 'PC',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Launcher'), findsOneWidget);
+    expect(find.text('Manual'), findsNothing);
+    await tester.tap(find.text('Launcher'));
+    expect(source.requestedMode, 'manual');
+    expect(source.requestedDeck, 'launcher');
+  });
+
   // A stored session is what lets the app skip pairing on every launch, so its round trip is worth
   // pinning: a corrupt entry in particular must send the user to pairing, never crash the launch.
   group('SavedSession', () {

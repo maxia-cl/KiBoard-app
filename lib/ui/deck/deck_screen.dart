@@ -1390,17 +1390,30 @@ class _TopBar extends StatelessWidget {
     if (chosen != null) await live.setMode('manual', deckId: chosen);
   }
 
-  /// The deck picker, when there is a host with decks to pick from.
-  Widget? _deckButton(BuildContext context, AppLocalizations t) =>
-      (layoutSource.manualEnabled &&
-          session != null &&
-          session!.decks.isNotEmpty)
-      ? _StripButton(
-          icon: Icons.dashboard,
-          label: _deckLabel(t),
-          onTap: () => _pickDeck(context),
-        )
-      : null;
+  /// Launcher is generated and ordered by the host, so it remains available when fixed Manual
+  /// decks are hidden. With Manual enabled this becomes the full deck picker as before.
+  Widget? _deckButton(BuildContext context, AppLocalizations t) {
+    final live = session;
+    if (live == null || live.decks.isEmpty) return null;
+    if (layoutSource.manualEnabled) {
+      return _StripButton(
+        icon: Icons.dashboard,
+        label: _deckLabel(t),
+        onTap: () => _pickDeck(context),
+      );
+    }
+    final launcher = live.decks.where((d) => d.id == 'launcher').firstOrNull;
+    if (launcher == null) return null;
+    final active = layout.mode == 'manual' && layout.source.id == 'launcher';
+    return _StripButton(
+      icon: iconForDeck(launcher.icon),
+      label: launcher.name,
+      foreground: active ? const Color(DeckTokens.accent) : null,
+      onTap: () => active
+          ? layoutSource.setMode('auto')
+          : layoutSource.setMode('manual', deckId: launcher.id),
+    );
+  }
 
   /// Mode, then Settings — built ONCE and laid out by whichever orientation is asking.
   ///

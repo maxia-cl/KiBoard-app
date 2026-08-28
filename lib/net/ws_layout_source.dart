@@ -135,7 +135,7 @@ class WsLayoutSource implements LayoutSource {
   void _updateManualEnabled(bool enabled) {
     if (_manualEnabled == enabled) return;
     _manualEnabled = enabled;
-    if (!enabled) _wantManual = false;
+    if (!enabled && _manualDeckId != 'launcher') _wantManual = false;
     if (!_manualFeature.isClosed) _manualFeature.add(enabled);
   }
 
@@ -333,7 +333,7 @@ class WsLayoutSource implements LayoutSource {
         _setStatus(SessionStatus.online);
         // A reconnect is a NEW session on the host, which starts in auto mode. Put the user back
         // where they were rather than silently switching decks under them.
-        if (_wantManual && _manualEnabled) {
+        if (_wantManual && (_manualEnabled || _manualDeckId == 'launcher')) {
           await setMode('manual', deckId: _manualDeckId);
         }
       } on HelloException catch (e) {
@@ -428,8 +428,9 @@ class WsLayoutSource implements LayoutSource {
 
   @override
   Future<void> setMode(String mode, {String? deckId}) async {
-    _wantManual = mode == 'manual' && _manualEnabled;
     _manualDeckId = deckId ?? _manualDeckId;
+    _wantManual =
+        mode == 'manual' && (_manualEnabled || _manualDeckId == 'launcher');
     final replied = _replyTo();
     _send({
       'v': 2,
