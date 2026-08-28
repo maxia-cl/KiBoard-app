@@ -428,6 +428,60 @@ abstract class AppLocalizations {
   /// **'Manual'**
   String get manual;
 
+  /// No description provided for @advancedFeatures.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced features'**
+  String get advancedFeatures;
+
+  /// No description provided for @manualMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual mode'**
+  String get manualMode;
+
+  /// No description provided for @manualModeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Keeps one deck fixed even when you switch apps on the PC.'**
+  String get manualModeHint;
+
+  /// No description provided for @manualEnabledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual mode enabled'**
+  String get manualEnabledTitle;
+
+  /// No description provided for @manualEnabledBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual keeps one deck fixed even when you switch apps on the PC.'**
+  String get manualEnabledBody;
+
+  /// No description provided for @manualEnabledStep1.
+  ///
+  /// In en, this message translates to:
+  /// **'Open KiBoard on the PC.'**
+  String get manualEnabledStep1;
+
+  /// No description provided for @manualEnabledStep2.
+  ///
+  /// In en, this message translates to:
+  /// **'Arrange the actions and keys on your deck.'**
+  String get manualEnabledStep2;
+
+  /// No description provided for @manualEnabledStep3.
+  ///
+  /// In en, this message translates to:
+  /// **'Save, then choose the deck from your phone.'**
+  String get manualEnabledStep3;
+
+  /// No description provided for @gotIt.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get gotIt;
+
   /// No description provided for @settings.
   ///
   /// In en, this message translates to:

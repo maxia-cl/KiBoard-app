@@ -83,6 +83,7 @@ class WsLayoutSource implements LayoutSource {
   /// matches and unsubscribes, which is exactly what happens between two session calls.
   StreamSubscription<dynamic>? _socket;
   final _incoming = StreamController<Map<String, dynamic>>.broadcast();
+  final _manualFeature = StreamController<bool>.broadcast();
 
   Stream<Map<String, dynamic>> get _messages => _incoming.stream;
 
@@ -125,6 +126,24 @@ class WsLayoutSource implements LayoutSource {
   /// The decks this host offers, from the last `hello_ack`. Re-read on every reconnect, so a deck
   /// added in the editor shows up without restarting the app.
   List<DeckSummary> decks = const [];
+
+  bool _manualEnabled = false;
+
+  @override
+  bool get manualEnabled => _manualEnabled;
+
+  void _updateManualEnabled(bool enabled) {
+    if (_manualEnabled == enabled) return;
+    _manualEnabled = enabled;
+    if (!enabled) _wantManual = false;
+    if (!_manualFeature.isClosed) _manualFeature.add(enabled);
+  }
+
+  @override
+  Stream<bool> manualFeature() async* {
+    yield _manualEnabled;
+    yield* _manualFeature.stream;
+  }
 
   /// Mode to restore after a reconnect. A reconnect starts a brand-new session on the host, which
   /// defaults to auto — without this, every dropped connection would silently kick the user out of
@@ -206,6 +225,9 @@ class WsLayoutSource implements LayoutSource {
           _last = layout;
           _page = layout.page;
         }
+        if (msg['type'] == 'manual_feature') {
+          _updateManualEnabled(msg['enabled'] == true);
+        }
         _incoming.add(msg);
       },
       // NOTE: neither of these closes `_incoming`. It outlives individual sockets — the deck
@@ -238,6 +260,7 @@ class WsLayoutSource implements LayoutSource {
     if (ack['ok'] != true) {
       throw HelloException(ack['error'] as String? ?? 'not_paired');
     }
+    _updateManualEnabled(ack['manualEnabled'] == true);
     // The decks the host offers (§2). This has arrived on every `hello_ack` since F1 and was
     // thrown away until F7 — without it the phone can only reach whichever deck happens to be
     // first in config.json, or one that some other deck has a `deck:` key pointing at.
@@ -310,7 +333,9 @@ class WsLayoutSource implements LayoutSource {
         _setStatus(SessionStatus.online);
         // A reconnect is a NEW session on the host, which starts in auto mode. Put the user back
         // where they were rather than silently switching decks under them.
-        if (_wantManual) await setMode('manual', deckId: _manualDeckId);
+        if (_wantManual && _manualEnabled) {
+          await setMode('manual', deckId: _manualDeckId);
+        }
       } on HelloException catch (e) {
         if (e.isFatal) {
           // The token is dead (revoked from the host UI). Retrying forever would be a loop the
@@ -403,11 +428,33 @@ class WsLayoutSource implements LayoutSource {
 
   @override
   Future<void> setMode(String mode, {String? deckId}) async {
-    _wantManual = mode == 'manual';
+    _wantManual = mode == 'manual' && _manualEnabled;
     _manualDeckId = deckId ?? _manualDeckId;
     final replied = _replyTo();
-    _send({'v': 2, 'type': 'set_mode', 'mode': mode, 'deckId': ?deckId});
+    _send({
+      'v': 2,
+      'type': 'set_mode',
+      'mode': _wantManual ? 'manual' : 'auto',
+      'deckId': ?deckId,
+    });
     await _sessionRequest(replied);
+  }
+
+  @override
+  Future<bool> setManualEnabled(bool enabled) async {
+    final replied = _messages.firstWhere(
+      (m) => m['type'] == 'command_result' && m.containsKey('manualEnabled'),
+    );
+    _send({'v': 2, 'type': 'set_manual_enabled', 'enabled': enabled});
+    try {
+      final answer = await replied.timeout(handshakeTimeout);
+      _updateManualEnabled(answer['manualEnabled'] == true);
+      return answer['showIntro'] == true;
+    } on TimeoutException {
+      trace('no answer while changing Manual — the link is down');
+      _onDisconnected();
+      return false;
+    }
   }
 
   @override
@@ -500,6 +547,7 @@ class WsLayoutSource implements LayoutSource {
     await _socket?.cancel();
     _socket = null;
     if (!_incoming.isClosed) await _incoming.close();
+    if (!_manualFeature.isClosed) await _manualFeature.close();
     if (!_status.isClosed) await _status.close();
     await _channel?.sink.close();
     _channel = null;

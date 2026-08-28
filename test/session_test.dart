@@ -31,6 +31,7 @@ class _Host {
 
   /// What `hello_ack` offers (§2). Empty by default; the deck tests set it.
   List<Map<String, dynamic>> decks = const [];
+  bool manualEnabled = true;
 
   /// §4.2: a navigating key (`deck:`, `mode:`) is answered with the layout of wherever the session
   /// landed rather than a `key_result` — the host moving the session's mode with nobody calling
@@ -51,12 +52,32 @@ class _Host {
               'type': 'hello_ack',
               'ok': true,
               'name': 'Test PC',
+              'manualEnabled': manualEnabled,
               'decks': decks,
             }),
           );
         }
         if (msg['type'] == 'set_mode') {
           ws.add(jsonEncode({'v': 2, 'type': 'command_result', 'ok': true}));
+        }
+        if (msg['type'] == 'set_manual_enabled') {
+          manualEnabled = msg['enabled'] == true;
+          ws.add(
+            jsonEncode({
+              'v': 2,
+              'type': 'command_result',
+              'ok': true,
+              'manualEnabled': manualEnabled,
+              'showIntro': manualEnabled,
+            }),
+          );
+          ws.add(
+            jsonEncode({
+              'v': 2,
+              'type': 'manual_feature',
+              'enabled': manualEnabled,
+            }),
+          );
         }
         if (msg['type'] == 'key' && answerPressWith != null) {
           ws.add(jsonEncode(answerPressWith));
@@ -81,6 +102,32 @@ class _Host {
 }
 
 void main() {
+  test('Manual stays hidden until the host enables it', () async {
+    final host = await _Host.start();
+    addTearDown(host.stop);
+    host.manualEnabled = false;
+
+    final session = WsLayoutSource(
+      ip: '127.0.0.1',
+      port: host.server.port,
+      token: 't',
+      deviceId: 'd',
+    );
+    addTearDown(session.dispose);
+    await session.connect();
+
+    expect(session.manualEnabled, isFalse);
+    await session.setMode('manual');
+    expect(
+      host.received.lastWhere((m) => m['type'] == 'set_mode')['mode'],
+      'auto',
+      reason: 'a hidden advanced feature cannot be entered through stale UI',
+    );
+
+    expect(await session.setManualEnabled(true), isTrue);
+    expect(session.manualEnabled, isTrue);
+  });
+
   // F7's deck picker rests entirely on this: the list has been in every `hello_ack` since F1 and
   // the phone discarded it, which is why manual mode could only ever land on `decks[0]`.
   test('the decks offered in hello_ack are kept, and can be asked for by id', () async {

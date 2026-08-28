@@ -166,7 +166,7 @@ class _TrackpadScreenState extends State<TrackpadScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F10),
+      backgroundColor: const Color(DeckTokens.appBackground),
       body: SafeArea(
         child: Column(
           children: [

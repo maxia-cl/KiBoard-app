@@ -198,6 +198,37 @@ class AppLocalizationsEs extends AppLocalizations {
   String get manual => 'Manual';
 
   @override
+  String get advancedFeatures => 'Funciones avanzadas';
+
+  @override
+  String get manualMode => 'Modo Manual';
+
+  @override
+  String get manualModeHint =>
+      'Mantiene un tablero fijo aunque cambies de aplicación en el PC.';
+
+  @override
+  String get manualEnabledTitle => 'Modo Manual activado';
+
+  @override
+  String get manualEnabledBody =>
+      'Manual mantiene un tablero fijo aunque cambies de aplicación en el PC.';
+
+  @override
+  String get manualEnabledStep1 => 'Abre KiBoard en el PC.';
+
+  @override
+  String get manualEnabledStep2 =>
+      'Ordena las acciones y teclas de tu tablero.';
+
+  @override
+  String get manualEnabledStep3 =>
+      'Guarda y elige el tablero desde el teléfono.';
+
+  @override
+  String get gotIt => 'Entendido';
+
+  @override
   String get settings => 'Ajustes';
 
   @override

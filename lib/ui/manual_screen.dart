@@ -17,9 +17,9 @@ class ManualScreen extends StatelessWidget {
     final t = AppLocalizations.of(context)!;
     final spanish = Localizations.localeOf(context).languageCode == 'es';
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F10),
+      backgroundColor: const Color(DeckTokens.appBackground),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F0F10),
+        backgroundColor: const Color(DeckTokens.appBackground),
         foregroundColor: const Color(DeckTokens.textPrimary),
         title: Text(t.manualTitle),
       ),

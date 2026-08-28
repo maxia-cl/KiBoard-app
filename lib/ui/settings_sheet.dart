@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localizations.dart';
+import '../net/layout_source.dart';
 import '../net/saved_session.dart';
 import '../settings.dart';
 import 'manual_screen.dart';
@@ -15,10 +16,11 @@ import 'tokens.g.dart';
 /// A sheet rather than a screen: three switches do not deserve a page, and the deck stays visible
 /// behind them, which is the thing being configured.
 Future<void> showSettingsSheet(
-  BuildContext context,
-) => showModalBottomSheet<void>(
+  BuildContext context, {
+  required LayoutSource layoutSource,
+}) => showModalBottomSheet<void>(
   context: context,
-  backgroundColor: const Color(0xFF1E1E20),
+  backgroundColor: const Color(DeckTokens.surface),
   isScrollControlled: true,
   builder: (sheetContext) => SafeArea(
     child: ValueListenableBuilder<SettingsData>(
@@ -54,7 +56,79 @@ Future<void> showSettingsSheet(
                   mode: LaunchMode.externalApplication,
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFF2C2C2E)),
+              const Divider(height: 1, color: Color(DeckTokens.surfaceBorder)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    t.advancedFeatures.toUpperCase(),
+                    style: const TextStyle(
+                      color: Color(DeckTokens.textSecondary),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ),
+              ),
+              StreamBuilder<bool>(
+                stream: layoutSource.manualFeature(),
+                initialData: layoutSource.manualEnabled,
+                builder: (context, snapshot) => SwitchListTile(
+                  value: snapshot.data ?? false,
+                  activeThumbColor: const Color(DeckTokens.manualActive),
+                  secondary: Icon(
+                    Icons.dashboard_customize,
+                    color: (snapshot.data ?? false)
+                        ? const Color(DeckTokens.manualActive)
+                        : const Color(DeckTokens.textSecondary),
+                  ),
+                  title: Text(t.manualMode, style: _title),
+                  subtitle: Text(
+                    t.manualModeHint,
+                    style: const TextStyle(
+                      color: Color(DeckTokens.textSecondary),
+                      fontSize: 12,
+                    ),
+                  ),
+                  onChanged: (enabled) async {
+                    final showIntro = await layoutSource.setManualEnabled(
+                      enabled,
+                    );
+                    if (!showIntro || !sheetContext.mounted) return;
+                    await showDialog<void>(
+                      context: sheetContext,
+                      builder: (dialogContext) => AlertDialog(
+                        backgroundColor: const Color(DeckTokens.surfaceRaised),
+                        title: Text(t.manualEnabledTitle, style: _title),
+                        content: Text(
+                          '${t.manualEnabledBody}\n\n'
+                          '1. ${t.manualEnabledStep1}\n'
+                          '2. ${t.manualEnabledStep2}\n'
+                          '3. ${t.manualEnabledStep3}',
+                          style: const TextStyle(
+                            color: Color(DeckTokens.textSecondary),
+                            height: 1.45,
+                          ),
+                        ),
+                        actions: [
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(
+                                DeckTokens.manualActive,
+                              ),
+                            ),
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: Text(t.gotIt),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const Divider(height: 1, color: Color(DeckTokens.surfaceBorder)),
               SwitchListTile(
                 value: s.haptics,
                 onChanged: Settings.instance.setHaptics,
@@ -81,7 +155,7 @@ Future<void> showSettingsSheet(
                 title: Text(t.language, style: _title),
                 trailing: DropdownButton<String>(
                   value: s.languageCode,
-                  dropdownColor: const Color(0xFF1E1E20),
+                  dropdownColor: const Color(DeckTokens.surface),
                   underline: const SizedBox.shrink(),
                   style: const TextStyle(
                     color: Color(DeckTokens.textPrimary),
@@ -116,7 +190,7 @@ Future<void> showSettingsSheet(
                 ),
                 trailing: DropdownButton<bool>(
                   value: s.appPanelAtTop,
-                  dropdownColor: const Color(0xFF1E1E20),
+                  dropdownColor: const Color(DeckTokens.surface),
                   underline: const SizedBox.shrink(),
                   style: const TextStyle(
                     color: Color(DeckTokens.textPrimary),
@@ -130,7 +204,7 @@ Future<void> showSettingsSheet(
                       Settings.instance.setAppPanelAtTop(top ?? false),
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFF2C2C2E)),
+              const Divider(height: 1, color: Color(DeckTokens.surfaceBorder)),
               ListTile(
                 leading: const Icon(
                   Icons.menu_book,
@@ -148,7 +222,7 @@ Future<void> showSettingsSheet(
                   ).push(screenRoute<void>(const ManualScreen()));
                 },
               ),
-              const Divider(height: 1, color: Color(0xFF2C2C2E)),
+              const Divider(height: 1, color: Color(DeckTokens.surfaceBorder)),
               // The only way out of a PC the app can no longer reach. Everything else that clears a
               // saved session needs the HOST to act — a revoked token, a rejected hello — so a PC
               // whose IP changed, or that was reinstalled and now serves a certificate the phone
@@ -171,7 +245,7 @@ Future<void> showSettingsSheet(
                   final confirmed = await showDialog<bool>(
                     context: sheetContext,
                     builder: (dialogContext) => AlertDialog(
-                      backgroundColor: const Color(0xFF1E1E20),
+                      backgroundColor: const Color(DeckTokens.surface),
                       title: Text(t.forgetPc, style: _title),
                       content: Text(
                         t.forgetPcAsk,
@@ -192,7 +266,9 @@ Future<void> showSettingsSheet(
                         ),
                         FilledButton(
                           style: FilledButton.styleFrom(
-                            backgroundColor: const Color(DeckTokens.accent),
+                            backgroundColor: const Color(
+                              DeckTokens.keyDangerBackground,
+                            ),
                           ),
                           onPressed: () =>
                               Navigator.of(dialogContext).pop(true),

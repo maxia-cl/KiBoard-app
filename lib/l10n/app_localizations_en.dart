@@ -196,6 +196,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get manual => 'Manual';
 
   @override
+  String get advancedFeatures => 'Advanced features';
+
+  @override
+  String get manualMode => 'Manual mode';
+
+  @override
+  String get manualModeHint =>
+      'Keeps one deck fixed even when you switch apps on the PC.';
+
+  @override
+  String get manualEnabledTitle => 'Manual mode enabled';
+
+  @override
+  String get manualEnabledBody =>
+      'Manual keeps one deck fixed even when you switch apps on the PC.';
+
+  @override
+  String get manualEnabledStep1 => 'Open KiBoard on the PC.';
+
+  @override
+  String get manualEnabledStep2 => 'Arrange the actions and keys on your deck.';
+
+  @override
+  String get manualEnabledStep3 =>
+      'Save, then choose the deck from your phone.';
+
+  @override
+  String get gotIt => 'Got it';
+
+  @override
   String get settings => 'Settings';
 
   @override

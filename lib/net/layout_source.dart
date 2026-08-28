@@ -40,6 +40,15 @@ abstract class LayoutSource {
   /// Protocol §4.4 `set_mode`.
   Future<void> setMode(String mode, {String? deckId});
 
+  /// Host-owned visibility of the advanced Manual feature.
+  bool get manualEnabled => false;
+
+  /// Replayed whenever Manual is enabled or hidden on any paired surface.
+  Stream<bool> manualFeature() => const Stream.empty();
+
+  /// Persists Manual on the host. Returns whether this activation needs the one-time explanation.
+  Future<bool> setManualEnabled(bool enabled) async => false;
+
   /// Protocol §4.3 `list_windows` — already paginated and MRU-ordered by the host.
   Future<WindowsPage> listWindows(int page);
 

@@ -27,7 +27,9 @@ class KiBoardApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         // Null means follow the phone, and it is the default: Android already knows what language
         // the user reads in, so asking again is a setting that exists to be ignored.
-        locale: settings.languageCode.isEmpty ? null : Locale(settings.languageCode),
+        locale: settings.languageCode.isEmpty
+            ? null
+            : Locale(settings.languageCode),
         localizationsDelegates: const [
           AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
@@ -45,7 +47,7 @@ class KiBoardApp extends StatelessWidget {
               TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
             },
           ),
-          scaffoldBackgroundColor: const Color(0xFF0F0F10),
+          scaffoldBackgroundColor: const Color(DeckTokens.appBackground),
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(DeckTokens.accent),
             brightness: Brightness.dark,

@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 /// colours paint everything that is the *product* rather than the device: the splash, and anything
 /// added later that speaks in KiBoard's voice instead of the key pad's.
 ///
-/// The one they share is the red: `accent` here and `DeckTokens.accent` are both `#B22420`, the
-/// tile "d" of the logo. If one ever moves, the other has to move with it.
+/// Studio Graphite deliberately separates brand red from functional blue. This palette owns the
+/// logo; `DeckTokens.brand` carries that red into the drawn device where branding is needed.
 class Brand {
   final Color paper;
   final Color tile;
@@ -53,11 +53,13 @@ class Brand {
   /// follows the system this is the only line that has to be right. The Android launch theme is
   /// pinned dark to match — a system splash that followed the phone showed a cream screen in front
   /// of a dark app.
-  static Brand of(BuildContext c) => Theme.of(c).brightness == Brightness.dark ? dark : light;
+  static Brand of(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark ? dark : light;
 
   /// The logo file that reads on this brightness — the mark is dark ink on paper, so it needs its
   /// own light-on-dark version rather than a tint.
-  static String logoAsset(BuildContext c) => Theme.of(c).brightness == Brightness.dark
+  static String logoAsset(BuildContext c) =>
+      Theme.of(c).brightness == Brightness.dark
       ? 'assets/brand/logo_dark.png'
       : 'assets/brand/logo.png';
 }

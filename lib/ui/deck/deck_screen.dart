@@ -56,6 +56,7 @@ class _DeckScreenState extends State<DeckScreen>
   );
 
   StreamSubscription<String>? _toasts;
+  StreamSubscription<bool>? _manualFeatures;
 
   @override
   void initState() {
@@ -66,6 +67,9 @@ class _DeckScreenState extends State<DeckScreen>
     // out and dropped, which is why "Profile imported" never appeared anywhere.
     _toasts = widget.layoutSource.toasts().listen((text) {
       if (mounted) _showKeyError(text);
+    });
+    _manualFeatures = widget.layoutSource.manualFeature().listen((_) {
+      if (mounted) setState(() {});
     });
     // A key pad you have to wake up first is not a key pad. Android's screen timeout is ~30s, and
     // the deck's whole point is being glanceable and pressable without ceremony while you work on
@@ -85,6 +89,7 @@ class _DeckScreenState extends State<DeckScreen>
     _pageMotion.dispose();
     _preloads?.cancel();
     _toasts?.cancel();
+    _manualFeatures?.cancel();
     _exitArmed?.cancel();
     _lifecycle.dispose();
     WakelockPlus.disable();
@@ -444,7 +449,7 @@ class _DeckScreenState extends State<DeckScreen>
     final answer = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E20),
+        backgroundColor: const Color(DeckTokens.surface),
         title: Text(
           '$label?',
           style: const TextStyle(color: Color(DeckTokens.textPrimary)),
@@ -486,7 +491,7 @@ class _DeckScreenState extends State<DeckScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E20),
+        backgroundColor: const Color(DeckTokens.surface),
         title: Text(
           '${t.closeApp(app)}?',
           style: const TextStyle(color: Color(DeckTokens.textPrimary)),
@@ -647,7 +652,7 @@ class _DeckScreenState extends State<DeckScreen>
     if (options.isEmpty) return null;
     return showModalBottomSheet<int>(
       context: context,
-      backgroundColor: const Color(0xFF1E1E20),
+      backgroundColor: const Color(DeckTokens.surface),
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: ListView(
@@ -703,7 +708,7 @@ class _DeckScreenState extends State<DeckScreen>
     final answer = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E20),
+        backgroundColor: const Color(DeckTokens.surface),
         title: Text(
           label,
           style: const TextStyle(color: Color(DeckTokens.textPrimary)),
@@ -788,7 +793,7 @@ class _DeckScreenState extends State<DeckScreen>
         SnackBar(
           content: Text(t.backAgainToLeave),
           duration: const Duration(seconds: 2),
-          backgroundColor: const Color(0xFF2C2C2E),
+          backgroundColor: const Color(DeckTokens.surfaceRaised),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -813,7 +818,7 @@ class _DeckScreenState extends State<DeckScreen>
 
   Widget _buildDeck(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F10),
+      backgroundColor: const Color(DeckTokens.appBackground),
       body: SafeArea(
         child: StreamBuilder<Layout>(
           stream: _layouts,
@@ -1264,13 +1269,14 @@ class _LinkBanner extends StatelessWidget {
             colour: const Color(DeckTokens.accent),
             text: t.identityChanged,
             action: TextButton(
-              onPressed: () => showSettingsSheet(context),
+              onPressed: () =>
+                  showSettingsSheet(context, layoutSource: session),
               child: Text(t.settings),
             ),
           );
         }
         return _Banner(
-          colour: const Color(0xFF3A3A3C),
+          colour: const Color(DeckTokens.surfaceBorder),
           text: status == SessionStatus.connecting
               ? t.connecting
               : t.offlineRetrying,
@@ -1348,7 +1354,7 @@ class _TopBar extends StatelessWidget {
 
     final chosen = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: const Color(0xFF1E1E20),
+      backgroundColor: const Color(DeckTokens.surface),
       builder: (sheetContext) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -1386,7 +1392,9 @@ class _TopBar extends StatelessWidget {
 
   /// The deck picker, when there is a host with decks to pick from.
   Widget? _deckButton(BuildContext context, AppLocalizations t) =>
-      (session != null && session!.decks.isNotEmpty)
+      (layoutSource.manualEnabled &&
+          session != null &&
+          session!.decks.isNotEmpty)
       ? _StripButton(
           icon: Icons.dashboard,
           label: _deckLabel(t),
@@ -1402,18 +1410,22 @@ class _TopBar extends StatelessWidget {
   /// sheet over the deck instead — on a pad whose whole value is muscle memory. One list means
   /// they cannot drift again.
   List<Widget> _modeAndSettings(BuildContext context, AppLocalizations t) => [
-    _StripButton(
-      icon: layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
-      label: layout.mode == 'auto' ? t.auto : t.manual,
-      onTap: () =>
-          layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
-    ),
+    if (layoutSource.manualEnabled)
+      _StripButton(
+        icon: layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
+        label: layout.mode == 'auto' ? t.auto : t.manual,
+        foreground: layout.mode == 'manual'
+            ? const Color(DeckTokens.manualActive)
+            : null,
+        onTap: () =>
+            layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
+      ),
     // The cog is back, and this time it opens something. It was removed in F7 precisely because it
     // did not: a control that cannot be pressed is worse than no control.
     _StripButton(
       icon: Icons.settings,
       label: t.settings,
-      onTap: () => showSettingsSheet(context),
+      onTap: () => showSettingsSheet(context, layoutSource: layoutSource),
     ),
   ];
 
@@ -1523,11 +1535,13 @@ class _StripButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final Color? foreground;
 
   const _StripButton({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.foreground,
   });
 
   @override
@@ -1548,7 +1562,7 @@ class _StripButton extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  color: const Color(DeckTokens.textPrimary),
+                  color: foreground ?? const Color(DeckTokens.textPrimary),
                   size: 20,
                 ),
                 const SizedBox(height: 2),
@@ -1558,8 +1572,9 @@ class _StripButton extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(DeckTokens.textSecondary),
+                    style: TextStyle(
+                      color:
+                          foreground ?? const Color(DeckTokens.textSecondary),
                       fontSize: 10,
                     ),
                   ),
@@ -1665,7 +1680,7 @@ class _ForegroundApp extends StatelessWidget {
           IconButton(
             onPressed: onClose,
             tooltip: t.closeApp(name),
-            color: const Color(0xFFFF5252),
+            color: const Color(DeckTokens.keyDangerBackground),
             iconSize: keySize * 0.25,
             constraints: BoxConstraints.tightFor(
               width: math.max(48.0, keySize * 0.48),

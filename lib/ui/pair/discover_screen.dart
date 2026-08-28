@@ -46,7 +46,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     final typed = await showModalBottomSheet<({String host, int port})>(
       context: context,
       isScrollControlled: true, // the keyboard is what makes this sheet tight
-      backgroundColor: const Color(0xFF1E1E20),
+      backgroundColor: const Color(DeckTokens.surface),
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) {
           final t = AppLocalizations.of(sheetContext)!;
@@ -101,7 +101,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       color: Color(DeckTokens.textSecondary),
                     ),
                     filled: true,
-                    fillColor: const Color(0xFF2C2C2E),
+                    fillColor: const Color(DeckTokens.surfaceRaised),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -135,7 +135,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F10),
+      backgroundColor: const Color(DeckTokens.appBackground),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -266,7 +266,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       itemBuilder: (context, i) {
                         final host = hosts[i];
                         return Material(
-                          color: const Color(0xFF1E1E20),
+                          color: const Color(DeckTokens.surface),
                           borderRadius: BorderRadius.circular(12),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(12),

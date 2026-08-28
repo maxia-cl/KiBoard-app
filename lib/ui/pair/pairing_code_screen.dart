@@ -23,8 +23,9 @@ String _errorMessage(AppLocalizations t, String code) => switch (code) {
   'dropped' => t.connectionDropped,
   // Paired, and then the session would not open — a different failure from any of the above, and
   // the one where the detail is worth showing, because it is the only clue there is.
-  _ when code.startsWith('session_failed:') =>
-    t.pairFailed(code.substring('session_failed:'.length).trim()),
+  _ when code.startsWith('session_failed:') => t.pairFailed(
+    code.substring('session_failed:'.length).trim(),
+  ),
   _ => code,
 };
 
@@ -105,10 +106,13 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
   /// user is told to look at the PC again instead of retyping digits that can no longer work.
   void _watchForDeadSocket() {
     final client = _client;
-    if (client is! PairingClient) return; // injected fakes have no socket to lose
+    if (client is! PairingClient)
+      return; // injected fakes have no socket to lose
     client.died.then((_) {
       if (!mounted || _paired) return;
-      trace('pairing socket died while waiting for the code — requesting a new one');
+      trace(
+        'pairing socket died while waiting for the code — requesting a new one',
+      );
       setState(() {
         _ready = false;
         _checking = false;
@@ -129,7 +133,8 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
     try {
       trace('pair_confirm sent');
       final result = await _client.confirmCode(_controller.text);
-      _paired = true; // stops the dead-socket watcher from restarting pairing under our feet
+      _paired =
+          true; // stops the dead-socket watcher from restarting pairing under our feet
       trace('pair_ack ok, deviceId=${result.deviceId}');
       final source = await (widget.openSession ?? _openRealSession)(result);
       trace('session ready, opening the deck');
@@ -142,7 +147,13 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
       // the app. Clearing the stack makes the deck the root here, exactly as it is on a relaunch,
       // so back means one thing in both cases.
       Navigator.of(context).pushAndRemoveUntil(
-        fadeRoute(DeckScreen(layoutSource: source, hostName: result.hostName, session: _session)),
+        fadeRoute(
+          DeckScreen(
+            layoutSource: source,
+            hostName: result.hostName,
+            session: _session,
+          ),
+        ),
         (route) => false,
       );
     } on PairingException catch (e) {
@@ -168,9 +179,13 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
     // connections per phone for the rest of the session.
     // §2.2: the certificate seen during pairing is what the session pins. Read BEFORE disposing —
     // the client is about to be thrown away and it is the only thing that saw it.
-    final certificate = _client is PairingClient ? (_client as PairingClient).certificate : null;
+    final certificate = _client is PairingClient
+        ? (_client as PairingClient).certificate
+        : null;
     await _client.dispose();
-    trace('pairing socket closed; opening session -> ${widget.host.ip}:${widget.host.port}');
+    trace(
+      'pairing socket closed; opening session -> ${widget.host.ip}:${widget.host.port}',
+    );
     final source = WsLayoutSource(
       ip: widget.host.ip,
       port: widget.host.port,
@@ -209,7 +224,7 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F10),
+      backgroundColor: const Color(DeckTokens.appBackground),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -238,7 +253,11 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
             ),
             const SizedBox(height: 24),
             if (!_ready && _error == null)
-              const Center(child: CircularProgressIndicator(color: Color(DeckTokens.accent)))
+              const Center(
+                child: CircularProgressIndicator(
+                  color: Color(DeckTokens.accent),
+                ),
+              )
             else ...[
               TextField(
                 controller: _controller,
@@ -256,7 +275,8 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
                 // held sideways the keyboard covers that button anyway.
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) {
-                  if (_ready && !_checking && _controller.text.length == 6) _confirm();
+                  if (_ready && !_checking && _controller.text.length == 6)
+                    _confirm();
                 },
                 textAlign: TextAlign.center,
                 style: const TextStyle(
@@ -267,7 +287,7 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
                 decoration: InputDecoration(
                   counterText: '',
                   filled: true,
-                  fillColor: const Color(0xFF1E1E20),
+                  fillColor: const Color(DeckTokens.surface),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -283,12 +303,18 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
                     backgroundColor: const Color(DeckTokens.accent),
                     padding: const EdgeInsets.all(14),
                   ),
-                  onPressed: !_ready || _checking || _controller.text.length != 6 ? null : _confirm,
+                  onPressed:
+                      !_ready || _checking || _controller.text.length != 6
+                      ? null
+                      : _confirm,
                   child: _checking
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : Text(t.confirm),
                 ),
