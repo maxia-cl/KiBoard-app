@@ -1334,6 +1334,13 @@ class _TopBar extends StatelessWidget {
     this.vertical = false,
   });
 
+  bool get _launcherActive =>
+      layout.mode == 'manual' && layout.source.id == 'launcher';
+
+  /// Launcher is an automatic, host-generated view. It only reuses the manual wire format, so
+  /// it must never make the user-facing mode control look like fixed Manual mode is active.
+  bool get _manualActive => layout.mode == 'manual' && !_launcherActive;
+
   /// What the deck control says: the deck on screen, or an invitation when auto mode means there
   /// is none.
   String _deckLabel(AppLocalizations t) =>
@@ -1425,13 +1432,21 @@ class _TopBar extends StatelessWidget {
   List<Widget> _modeAndSettings(BuildContext context, AppLocalizations t) => [
     if (layoutSource.manualEnabled)
       _StripButton(
-        icon: layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
-        label: layout.mode == 'auto' ? t.auto : t.manual,
-        foreground: layout.mode == 'manual'
-            ? const Color(DeckTokens.manualActive)
-            : null,
-        onTap: () =>
-            layoutSource.setMode(layout.mode == 'auto' ? 'manual' : 'auto'),
+        icon: _manualActive ? Icons.dashboard_customize : Icons.bolt,
+        label: _manualActive ? t.manual : t.auto,
+        foreground: _manualActive ? const Color(DeckTokens.manualActive) : null,
+        onTap: () {
+          if (_manualActive) {
+            layoutSource.setMode('auto');
+            return;
+          }
+          final fixedDeck = session?.decks
+              .where((deck) => deck.id != 'launcher')
+              .firstOrNull;
+          if (fixedDeck != null) {
+            layoutSource.setMode('manual', deckId: fixedDeck.id);
+          }
+        },
       ),
     // The cog is back, and this time it opens something. It was removed in F7 precisely because it
     // did not: a control that cannot be pressed is worse than no control.
@@ -1460,7 +1475,7 @@ class _TopBar extends StatelessWidget {
           // the one that reads at arm's length. Only upright — sideways the height it costs comes
           // straight off the keys, and there the strip has its own sizes.
           Icon(
-            layout.mode == 'auto' ? Icons.bolt : Icons.dashboard_customize,
+            _manualActive ? Icons.dashboard_customize : Icons.bolt,
             color: const Color(DeckTokens.textSecondary),
             size: 20,
           ),

@@ -43,6 +43,7 @@ class _TenKeys extends LayoutSource {
 
   /// A manual deck (not auto), the app the PC has in front, and whether the last slot is used.
   final bool manual;
+  final bool manualFeatureEnabled;
   final String? foreground;
   final bool full;
 
@@ -57,11 +58,15 @@ class _TenKeys extends LayoutSource {
     this.danger = false,
     this.paginated = false,
     this.manual = false,
+    this.manualFeatureEnabled = false,
     this.foreground,
     this.full = false,
     this.keyAction = 'ctrl+c',
     this.windowsAvailable = false,
   });
+
+  @override
+  bool get manualEnabled => manualFeatureEnabled;
 
   int _page = 0;
 
@@ -96,7 +101,7 @@ class _TenKeys extends LayoutSource {
         ? LayoutSourceInfo(
             kind: 'deck',
             id: profile,
-            name: 'Work',
+            name: profile == 'launcher' ? 'Launcher' : 'Work',
             appName: foreground,
           )
         : LayoutSourceInfo(
@@ -253,6 +258,43 @@ void main() {
     await tester.tap(find.text('Launcher'));
     expect(source.requestedMode, 'manual');
     expect(source.requestedDeck, 'launcher');
+  });
+
+  testWidgets('Launcher is presented as Auto when Manual is enabled', (
+    tester,
+  ) async {
+    final source = _TenKeys(manual: true, manualFeatureEnabled: true)
+      ..profile = 'launcher';
+    final session =
+        WsLayoutSource(ip: '127.0.0.1', port: 8770, token: 't', deviceId: 'd')
+          ..decks = const [
+            DeckSummary(id: 'launcher', name: 'Launcher', icon: 'apps'),
+            DeckSummary(id: 'work', name: 'Work'),
+          ];
+    addTearDown(source.dispose);
+    addTearDown(session.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: DeckScreen(
+          layoutSource: source,
+          session: session,
+          hostName: 'PC',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Launcher'), findsNWidgets(2));
+    expect(find.text('Auto'), findsOneWidget);
+    expect(find.text('Manual'), findsNothing);
+
+    await tester.tap(find.text('Auto'));
+    expect(source.requestedMode, 'manual');
+    expect(source.requestedDeck, 'work');
   });
 
   // A stored session is what lets the app skip pairing on every launch, so its round trip is worth
