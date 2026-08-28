@@ -82,7 +82,9 @@ class _Host {
           );
         }
         if (msg['type'] == 'key' && answerPressWith != null) {
-          ws.add(jsonEncode(answerPressWith));
+          final answer = Map<String, dynamic>.from(answerPressWith!);
+          if (answer['type'] == 'key_result') answer['id'] ??= msg['id'];
+          ws.add(jsonEncode(answer));
         }
       });
     });
@@ -274,6 +276,55 @@ void main() {
       host.received.where((m) => m['type'] == 'set_mode'),
       isEmpty,
       reason: 'the session is in auto — putting it back on a deck is what froze it',
+    );
+  }, timeout: const Timeout(Duration(seconds: 20)));
+
+  test('an app layout arriving after Launcher key_result keeps reconnect in Auto', () async {
+    final host = await _Host.start();
+    addTearDown(host.stop);
+
+    final session = WsLayoutSource(
+      ip: '127.0.0.1',
+      port: host.server.port,
+      token: 't',
+      deviceId: 'd',
+      silenceLimit: const Duration(milliseconds: 300),
+    );
+    addTearDown(session.dispose);
+
+    await session.connect();
+    await session.setMode('manual', deckId: 'launcher');
+    host.answerPressWith = {'v': 2, 'type': 'key_result', 'ok': true};
+    await session.pressResult(pos: 1, press: 'short');
+
+    final receivedAuto = session.layouts().firstWhere((layout) => layout.mode == 'auto');
+    host.socket!.add(
+      jsonEncode({
+        'v': 2,
+        'type': 'layout',
+        'mode': 'auto',
+        'source': {'kind': 'profile', 'id': 'notepad', 'appName': 'Notepad'},
+        'grid': {'rows': 5, 'cols': 3},
+        'page': 0,
+        'pages': 1,
+        'keys': <Map<String, dynamic>>[],
+      }),
+    );
+    await receivedAuto;
+
+    host.received.clear();
+    host.answer = false;
+    await session.status.firstWhere((s) => s != SessionStatus.online);
+    host.answer = true;
+    await session.status
+        .firstWhere((s) => s == SessionStatus.online)
+        .timeout(const Duration(seconds: 5));
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(
+      host.received.where((m) => m['type'] == 'set_mode'),
+      isEmpty,
+      reason: 'the selected app layout made Auto the authoritative session state',
     );
   }, timeout: const Timeout(Duration(seconds: 20)));
 

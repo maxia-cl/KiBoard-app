@@ -224,6 +224,11 @@ class WsLayoutSource implements LayoutSource {
           final layout = Layout.fromJson(msg);
           _last = layout;
           _page = layout.page;
+          // Layouts are authoritative session state even when they arrive after a key_result.
+          // Launcher app keys return the host session to Auto, then the foreground watcher sends
+          // the selected app's layout separately; without this, reconnect restored Launcher.
+          _wantManual = layout.mode == 'manual';
+          if (_wantManual) _manualDeckId = layout.source.id;
         }
         if (msg['type'] == 'manual_feature') {
           _updateManualEnabled(msg['enabled'] == true);
