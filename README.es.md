@@ -15,8 +15,8 @@ cabe vive en otra página.
 
 | Repositorio | Qué es | Visibilidad |
 |---|---|---|
-| [`KiBoard-protocol`](https://github.com/maxia-cl/KiBoard-protocol) | Contrato de mensajes, tokens visuales, fixtures, documentación | Privado |
-| [`KiBoard-windows-host`](https://github.com/maxia-cl/KiBoard-windows-host) | Host de Windows | Privado |
+| [`KiBoard-protocol`](https://github.com/maxia-cl/KiBoard-protocol) | Contrato de mensajes, tokens visuales, fixtures, documentación | Público |
+| [`KiBoard-windows-host`](https://github.com/maxia-cl/KiBoard-windows-host) | Host de Windows | Público |
 | [`KiBoard-windows-host-releases`](https://github.com/maxia-cl/KiBoard-windows-host-releases) | Instaladores del host y feed de actualización | Público |
 
 `KiBoard-protocol` es la **fuente de verdad**. Primero se cambia ahí, después aquí.
@@ -55,7 +55,9 @@ compilando pero no puede abrir una sesión.
 Sigue abierto en F7: el onboarding de primer uso, y la mitad QR del respaldo de dirección manual —
 el teléfono no tiene escáner ni dependencia de cámara.
 
-`flutter analyze` limpio, 35 tests pasando.
+`flutter analyze` limpio, 88 tests pasando. El Android App Bundle firmado apunta a API 36. Ver la
+[guía de publicación en Google Play](docs/play-store-release.es.md) y la
+[política de privacidad](PRIVACY.es.md).
 
 ## Stack
 
@@ -67,3 +69,7 @@ Todo el código va en inglés — identificadores, comentarios, commits y logs. 
 usuario viven en archivos `.arb`, nunca en el código. Los documentos van en inglés y español
 (`NOMBRE.md` / `NOMBRE.es.md`). Ver
 [`CONTRIBUTING.es.md`](https://github.com/maxia-cl/KiBoard-protocol/blob/main/CONTRIBUTING.es.md).
+
+## Licencia
+
+KiBoard es código abierto bajo la [licencia MIT](LICENSE).

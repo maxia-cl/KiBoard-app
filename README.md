@@ -15,8 +15,8 @@ does not fit lives on another page.
 
 | Repository | What it is | Visibility |
 |---|---|---|
-| [`KiBoard-protocol`](https://github.com/maxia-cl/KiBoard-protocol) | Message contract, visual tokens, fixtures, project docs | Private |
-| [`KiBoard-windows-host`](https://github.com/maxia-cl/KiBoard-windows-host) | Windows host | Private |
+| [`KiBoard-protocol`](https://github.com/maxia-cl/KiBoard-protocol) | Message contract, visual tokens, fixtures, project docs | Public |
+| [`KiBoard-windows-host`](https://github.com/maxia-cl/KiBoard-windows-host) | Windows host | Public |
 | [`KiBoard-windows-host-releases`](https://github.com/maxia-cl/KiBoard-windows-host-releases) | Host installers and update feed | Public |
 
 `KiBoard-protocol` is the **source of truth**. Change it first, then this repo.
@@ -52,7 +52,8 @@ only, so the web build still compiles but cannot open a session.
 Still open in F7: first-run onboarding, and the QR half of the manual-address fallback — the phone
 has no scanner and no camera dependency at all.
 
-`flutter analyze` clean, 35 tests passing.
+`flutter analyze` clean, 88 tests passing. The signed Android App Bundle targets API 36. See the
+[Google Play release guide](docs/play-store-release.md) and [privacy policy](PRIVACY.md).
 
 ## Stack
 
@@ -63,3 +64,7 @@ Flutter (Dart). Targets **Android → iOS**.
 All code is English — identifiers, comments, commits, log output. User-facing strings live in
 `.arb` files, never in code. Documents ship in English and Spanish (`NAME.md` / `NAME.es.md`).
 See [`CONTRIBUTING.md`](https://github.com/maxia-cl/KiBoard-protocol/blob/main/CONTRIBUTING.md).
+
+## License
+
+KiBoard is open source under the [MIT License](LICENSE).
