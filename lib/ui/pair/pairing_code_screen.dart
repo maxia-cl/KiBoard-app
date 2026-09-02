@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../net/discovered_host.dart';
 import '../../net/layout_source.dart';
+import '../../net/mdns_discovery.dart';
 import '../../net/pairing_client.dart';
 import '../../net/saved_session.dart';
 import '../../net/trace.dart';
@@ -106,8 +107,9 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
   /// user is told to look at the PC again instead of retyping digits that can no longer work.
   void _watchForDeadSocket() {
     final client = _client;
-    if (client is! PairingClient)
+    if (client is! PairingClient) {
       return; // injected fakes have no socket to lose
+    }
     client.died.then((_) {
       if (!mounted || _paired) return;
       trace(
@@ -186,12 +188,33 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
     trace(
       'pairing socket closed; opening session -> ${widget.host.ip}:${widget.host.port}',
     );
-    final source = WsLayoutSource(
+    late final WsLayoutSource source;
+    source = WsLayoutSource(
       ip: widget.host.ip,
       port: widget.host.port,
       token: result.token,
       deviceId: result.deviceId,
       certificate: certificate,
+      endpointResolver: () async {
+        final hosts = await MdnsDiscovery().discover(
+          window: const Duration(seconds: 2),
+        );
+        final host = matchingKnownHost(
+          hosts,
+          hostId: widget.host.id,
+          hostName: result.hostName,
+        );
+        return host == null ? null : (ip: host.ip, port: host.port);
+      },
+      onEndpointConnected: (ip, port, certificate) => SavedSession(
+        ip: ip,
+        port: port,
+        token: result.token,
+        deviceId: result.deviceId,
+        hostName: result.hostName,
+        hostId: widget.host.id,
+        certificate: certificate,
+      ).save(),
     );
     final hostName = await source.connect();
     trace('hello_ack ok');
@@ -205,6 +228,7 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
       token: result.token,
       deviceId: result.deviceId,
       hostName: hostName.isEmpty ? result.hostName : hostName,
+      hostId: widget.host.id,
       // Whatever the session ended up pinning, which is the pairing's certificate unless something
       // went wrong — in which case saving what was actually used is the honest thing anyway.
       certificate: source.certificate,
@@ -275,8 +299,9 @@ class _PairingCodeScreenState extends State<PairingCodeScreen> {
                 // held sideways the keyboard covers that button anyway.
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) {
-                  if (_ready && !_checking && _controller.text.length == 6)
+                  if (_ready && !_checking && _controller.text.length == 6) {
                     _confirm();
+                  }
                 },
                 textAlign: TextAlign.center,
                 style: const TextStyle(

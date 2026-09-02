@@ -9,6 +9,10 @@ import 'layout_source.dart';
 import 'pinned_socket.dart';
 import 'trace.dart';
 
+typedef EndpointResolver = Future<({String ip, int port})?> Function();
+typedef EndpointConnected =
+    Future<void> Function(String ip, int port, String? certificate);
+
 /// Cells at the end of every page the phone keeps for itself (§4.1 `grid.reserve`).
 ///
 /// THREE, and the number is the whole design of the foreground-app panel. Upright the grid is three
@@ -56,15 +60,23 @@ class WsLayoutSource implements LayoutSource {
     Grid grid = const Grid(rows: 3, cols: 5),
     String? locale,
     this.certificate,
+    this.endpointResolver,
+    this.onEndpointConnected,
     this.silenceLimit = const Duration(seconds: 40),
-    // ignore: prefer_initializing_formals -- `grid` is public and mutable behind a getter
+    // ignore: prefer_initializing_formals -- callers configure public `grid`, not private `_grid`
   }) : _grid = grid,
        locale = locale ?? deviceLocale();
 
-  final String ip;
-  final int port;
+  String ip;
+  int port;
   final String token;
   final String deviceId;
+
+  /// Resolves the paired host again after the remembered DHCP address stops answering. The
+  /// certificate pin is still checked by [_openSocket], so discovery can suggest an endpoint but
+  /// cannot silently replace the paired PC.
+  final EndpointResolver? endpointResolver;
+  final EndpointConnected? onEndpointConnected;
 
   /// Declared in `hello` and re-declared with `set_grid` on rotation; the host paginates every
   /// deck to it, so the phone never repaginates.
@@ -153,6 +165,7 @@ class WsLayoutSource implements LayoutSource {
 
   Timer? _retry;
   int _attempt = 0;
+  bool _hasConnected = false;
   bool _closed = false;
 
   /// The host pings every 15 s (§4.4). Silence for longer than this means the link is gone —
@@ -184,8 +197,39 @@ class WsLayoutSource implements LayoutSource {
   /// Throws [HelloException] with a short code on any failure, never hangs.
   Future<String> connect() async {
     final name = await _openSocket();
+    _hasConnected = true;
+    await _rememberEndpoint();
     _setStatus(SessionStatus.online);
     return name;
+  }
+
+  Future<void> _refreshEndpoint() async {
+    final resolver = endpointResolver;
+    if (resolver == null) return;
+    try {
+      final endpoint = await resolver();
+      if (endpoint == null || (endpoint.ip == ip && endpoint.port == port)) {
+        return;
+      }
+      trace(
+        'paired host moved from $ip:$port to ${endpoint.ip}:${endpoint.port}',
+      );
+      ip = endpoint.ip;
+      port = endpoint.port;
+    } catch (e) {
+      trace('host rediscovery failed: $e');
+    }
+  }
+
+  Future<void> _rememberEndpoint() async {
+    final remember = onEndpointConnected;
+    if (remember == null) return;
+    try {
+      await remember(ip, port, certificate);
+    } catch (e) {
+      // A preference write must never turn a live socket into an offline session.
+      trace('could not remember the connected host address: $e');
+    }
   }
 
   Future<String> _openSocket() async {
@@ -333,7 +377,13 @@ class WsLayoutSource implements LayoutSource {
       _retry = null;
       if (_closed) return;
       try {
+        // A boot that failed has never had a useful socket, so rediscover immediately. For an
+        // established session, first retry the known address (fast Wi-Fi blips stay fast) and only
+        // browse after that direct retry fails.
+        if (!_hasConnected || _attempt > 1) await _refreshEndpoint();
         await _openSocket();
+        _hasConnected = true;
+        await _rememberEndpoint();
         _attempt = 0;
         _setStatus(SessionStatus.online);
         // A reconnect is a NEW session on the host, which starts in auto mode. Put the user back

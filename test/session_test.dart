@@ -230,6 +230,41 @@ void main() {
     expect(session.currentStatus, SessionStatus.online);
   });
 
+  test('a saved session rediscovers the paired host after its DHCP address changes', () async {
+    final host = await _Host.start();
+    addTearDown(host.stop);
+
+    // Reserve and release a local port so the first connection is reliably refused. It models the
+    // old DHCP address stored on the phone, while the resolver returns the host's current address.
+    final dead = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final deadPort = dead.port;
+    await dead.close();
+    var resolutions = 0;
+    ({String ip, int port})? remembered;
+    final session = WsLayoutSource(
+      ip: '127.0.0.1',
+      port: deadPort,
+      token: 't',
+      deviceId: 'd',
+      endpointResolver: () async {
+        resolutions++;
+        return (ip: '127.0.0.1', port: host.server.port);
+      },
+      onEndpointConnected: (ip, port, _) async => remembered = (ip: ip, port: port),
+    );
+    addTearDown(session.dispose);
+
+    await expectLater(session.connect(), throwsA(isA<HelloException>()));
+    session.reconnectLater();
+    await session.status
+        .firstWhere((status) => status == SessionStatus.online)
+        .timeout(const Duration(seconds: 5));
+
+    expect(resolutions, 1);
+    expect(session.port, host.server.port);
+    expect(remembered?.port, host.server.port);
+  });
+
   /// The mode the reconnect restores has to be the mode the session is actually IN. A `mode:` or
   /// `deck:` key moves it on the host and never went through `setMode`, so the phone kept replaying
   /// a mode the user had left minutes ago — and a manual session gets no auto pushes at all, so

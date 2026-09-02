@@ -6,6 +6,29 @@ import 'package:nsd/nsd.dart' as nsd;
 import 'discovered_host.dart';
 import 'discovery.dart';
 
+/// Finds the same PC in a fresh mDNS result. [hostId] is authoritative; [hostName] and the
+/// single-host fallback only migrate sessions saved before host IDs were persisted. The pinned
+/// TLS certificate still decides whether the endpoint is really the paired PC.
+DiscoveredHost? matchingKnownHost(
+  Iterable<DiscoveredHost> hosts, {
+  required String hostId,
+  required String hostName,
+}) {
+  final all = hosts.toList(growable: false);
+  if (hostId.isNotEmpty) {
+    for (final host in all) {
+      if (host.id == hostId) return host;
+    }
+    return null;
+  }
+
+  final sameName = all
+      .where((host) => host.name == hostName)
+      .toList(growable: false);
+  if (sameName.length == 1) return sameName.single;
+  return all.length == 1 ? all.single : null;
+}
+
 /// Real `_kiboard._tcp` mDNS browsing (protocol/README.md §1). The `nsd` package choice is
 /// harvested from the `nervous-swirles-1ed28b` worktree, already validated there against the
 /// Rust `mdns-sd` advertiser (see KiBoard-windows-host's net/discovery.rs).
@@ -14,7 +37,9 @@ class MdnsDiscovery implements Discovery {
   /// nature (multicast, no delivery guarantee) — callers should offer QR/manual IP as a fallback
   /// (R1), never rely on this alone.
   @override
-  Future<List<DiscoveredHost>> discover({Duration window = const Duration(seconds: 4)}) async {
+  Future<List<DiscoveredHost>> discover({
+    Duration window = const Duration(seconds: 4),
+  }) async {
     final found = <String, DiscoveredHost>{};
     nsd.Discovery? discovery;
     try {
@@ -54,7 +79,9 @@ class MdnsDiscovery implements Discovery {
     }
 
     final id = field('id');
-    if (id == null || field('v') != '2') return null; // not a v2 host we understand
+    if (id == null || field('v') != '2') {
+      return null; // not a v2 host we understand
+    }
     return DiscoveredHost(
       id: id,
       name: field('name') ?? service.name ?? 'KiBoard',

@@ -16,6 +16,11 @@ class SavedSession {
   final String deviceId;
   final String hostName;
 
+  /// Stable mDNS identity of the paired PC. The IP is only a DHCP lease and can change whenever
+  /// the router or PC restarts; this is what lets the phone find the same host again without
+  /// pairing a second time. Empty for sessions stored before this field existed.
+  final String hostId;
+
   /// The host's certificate, base64 DER — pinned at pairing (§2.2). Null on a session stored
   /// before pinning existed: the next connection adopts what it sees and saves it, which is
   /// first-use trust and is written down as such in the contract.
@@ -27,17 +32,27 @@ class SavedSession {
     required this.token,
     required this.deviceId,
     required this.hostName,
+    this.hostId = '',
     this.certificate,
   });
 
-  SavedSession withCertificate(String cert) => SavedSession(
-    ip: ip,
-    port: port,
+  SavedSession copyWith({
+    String? ip,
+    int? port,
+    String? hostName,
+    String? hostId,
+    String? certificate,
+  }) => SavedSession(
+    ip: ip ?? this.ip,
+    port: port ?? this.port,
     token: token,
     deviceId: deviceId,
-    hostName: hostName,
-    certificate: cert,
+    hostName: hostName ?? this.hostName,
+    hostId: hostId ?? this.hostId,
+    certificate: certificate ?? this.certificate,
   );
+
+  SavedSession withCertificate(String cert) => copyWith(certificate: cert);
 
   static const _key = 'session';
 
@@ -47,6 +62,7 @@ class SavedSession {
     'token': token,
     'deviceId': deviceId,
     'hostName': hostName,
+    'hostId': hostId,
     'certificate': ?certificate,
   };
 
@@ -56,6 +72,7 @@ class SavedSession {
     token: j['token'] as String,
     deviceId: j['deviceId'] as String,
     hostName: j['hostName'] as String? ?? '',
+    hostId: j['hostId'] as String? ?? '',
     certificate: j['certificate'] as String?,
   );
 

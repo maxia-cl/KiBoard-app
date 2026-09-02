@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../net/saved_session.dart';
+import '../net/mdns_discovery.dart';
 import '../net/trace.dart';
 import '../net/ws_layout_source.dart';
 import 'deck/deck_screen.dart';
@@ -30,22 +31,54 @@ class _BootScreenState extends State<BootScreen> {
       trace('no saved session — going to discovery');
       return DiscoverScreen();
     }
-    trace('saved session for ${saved.ip}:${saved.port} — reconnecting');
+    var current = saved;
+    String? rediscoveredHostId;
+    trace('saved session for ${current.ip}:${current.port} — reconnecting');
     final source = WsLayoutSource(
-      ip: saved.ip,
-      port: saved.port,
-      token: saved.token,
-      deviceId: saved.deviceId,
-      certificate: saved.certificate,
+      ip: current.ip,
+      port: current.port,
+      token: current.token,
+      deviceId: current.deviceId,
+      certificate: current.certificate,
+      endpointResolver: () async {
+        final hosts = await MdnsDiscovery().discover(
+          window: const Duration(seconds: 2),
+        );
+        final host = matchingKnownHost(
+          hosts,
+          hostId: current.hostId,
+          hostName: current.hostName,
+        );
+        if (host == null) return null;
+        rediscoveredHostId = host.id;
+        return (ip: host.ip, port: host.port);
+      },
+      onEndpointConnected: (ip, port, certificate) async {
+        final next = current.copyWith(
+          ip: ip,
+          port: port,
+          hostId: rediscoveredHostId,
+          certificate: certificate,
+        );
+        if (next.ip == current.ip &&
+            next.port == current.port &&
+            next.hostId == current.hostId &&
+            next.certificate == current.certificate) {
+          return;
+        }
+        current = next;
+        await current.save();
+      },
     );
     try {
       await source.connect();
-      trace('reconnected to "${saved.hostName}"');
+      trace('reconnected to "${current.hostName}"');
       // §2.2 first use: a session stored before pinning existed has just adopted a certificate.
       // Written back here, once, so every launch after this one compares instead of adopting.
-      if (saved.certificate == null && source.certificate != null) {
+      if (current.certificate == null && source.certificate != null) {
         trace('adopted this host\'s certificate — pinned from now on');
-        await saved.withCertificate(source.certificate!).save();
+        current = current.withCertificate(source.certificate!);
+        await current.save();
       }
     } on HelloException catch (e) {
       // A revoked token is the one case where the saved session is worthless: drop it and pair
@@ -56,10 +89,16 @@ class _BootScreenState extends State<BootScreen> {
         await source.dispose();
         return DiscoverScreen();
       }
-      trace('host unreachable ($e) — opening the deck offline, it will keep retrying');
+      trace(
+        'host unreachable ($e) — opening the deck offline, it will keep retrying',
+      );
       source.reconnectLater();
     }
-    return DeckScreen(layoutSource: source, hostName: saved.hostName, session: source);
+    return DeckScreen(
+      layoutSource: source,
+      hostName: current.hostName,
+      session: source,
+    );
   }
 
   @override

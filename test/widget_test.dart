@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kiboard_app/main.dart';
 import 'package:kiboard_app/net/discovered_host.dart';
 import 'package:kiboard_app/net/layout_source.dart';
+import 'package:kiboard_app/net/mdns_discovery.dart';
 import 'package:kiboard_app/net/ws_layout_source.dart';
 import 'package:kiboard_app/net/saved_session.dart';
 import 'package:kiboard_app/settings.dart';
@@ -345,6 +346,7 @@ void main() {
         token: 'deadbeef',
         deviceId: 'abc123',
         hostName: 'KiBoard Host',
+        hostId: 'host-123',
       );
       await saved.save();
 
@@ -353,6 +355,18 @@ void main() {
       expect(loaded!.ip, '192.168.1.11');
       expect(loaded.token, 'deadbeef');
       expect(loaded.hostName, 'KiBoard Host');
+      expect(loaded.hostId, 'host-123');
+    });
+
+    test('a session saved before host IDs remains readable', () async {
+      SharedPreferences.setMockInitialValues({
+        'session':
+            '{"ip":"192.168.1.4","port":8770,"token":"t","deviceId":"d","hostName":"Old PC"}',
+      });
+
+      final loaded = await SavedSession.load();
+      expect(loaded, isNotNull);
+      expect(loaded!.hostId, isEmpty);
     });
 
     test('a corrupt entry reads as "not paired" instead of throwing', () async {
@@ -376,6 +390,60 @@ void main() {
       expect(await SavedSession.load(), isNotNull);
       await SavedSession.clear();
       expect(await SavedSession.load(), isNull);
+    });
+  });
+
+  group('known host rediscovery', () {
+    const old = DiscoveredHost(
+      id: 'old',
+      name: 'KiBoard Host',
+      os: 'win',
+      mode: 'auto',
+      pairingOpen: false,
+      ip: '192.168.1.4',
+      port: 8770,
+    );
+    const current = DiscoveredHost(
+      id: 'paired',
+      name: 'KiBoard Host',
+      os: 'win',
+      mode: 'auto',
+      pairingOpen: false,
+      ip: '192.168.1.13',
+      port: 8770,
+    );
+
+    test('stable ID wins even when two PCs have the same display name', () {
+      expect(
+        matchingKnownHost(
+          const [old, current],
+          hostId: 'paired',
+          hostName: 'KiBoard Host',
+        ),
+        same(current),
+      );
+    });
+
+    test('a legacy session can migrate when exactly one host is present', () {
+      expect(
+        matchingKnownHost(
+          const [current],
+          hostId: '',
+          hostName: 'old display name',
+        ),
+        same(current),
+      );
+    });
+
+    test('a legacy session never guesses between ambiguous hosts', () {
+      expect(
+        matchingKnownHost(
+          const [old, current],
+          hostId: '',
+          hostName: 'unknown',
+        ),
+        isNull,
+      );
     });
   });
 
