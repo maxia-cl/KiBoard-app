@@ -577,6 +577,11 @@ class WsLayoutSource implements LayoutSource {
 
   @override
   Future<void> focusWindow(int windowId) async {
+    // Choosing an application is an explicit Auto-mode action. In particular, doing it from a
+    // fixed Manual deck must not leave that deck on screen and make it look like an uneditable
+    // per-app customization. Update the reconnect intent before sending so a link drop during the
+    // focus transition cannot resurrect Manual.
+    _wantManual = false;
     _send({'v': 2, 'type': 'focus_window', 'id': windowId});
   }
 

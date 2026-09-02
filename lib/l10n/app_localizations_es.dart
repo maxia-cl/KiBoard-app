@@ -189,7 +189,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'Aparecerá aquí en cuanto el PC esté despierto y en esta red.';
 
   @override
-  String get decks => 'Decks';
+  String get decks => 'Tableros';
 
   @override
   String get auto => 'Auto';

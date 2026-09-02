@@ -37,7 +37,8 @@ const manualEn = <(bool, String)>[
     'Manual shows a deck you arranged yourself in the PC window, and it stays put whatever the PC '
         'is doing. The Decks button lists them and remembers which one you were on.\n\n'
         'The Launcher deck is not arranged by anyone: the PC builds it from the applications '
-        'installed on it, with their real icons.',
+        'installed on it, with their real icons. Launcher and the open-window picker belong to '
+        'Auto: choosing an application leaves Manual and shows that app\'s automatic deck.',
   ),
   (true, 'What the keys do'),
   (
@@ -131,9 +132,10 @@ const manualEs = <(bool, String)>[
   (
     false,
     'Manual muestra un deck que armaste tú en la ventana del PC, y se queda ahí haga lo que haga '
-        'el PC. El botón Decks los lista y recuerda en cuál estabas.\n\n'
+        'el PC. El botón Tableros los lista y recuerda en cuál estabas.\n\n'
         'El deck Launcher no lo arma nadie: el PC lo construye con las aplicaciones instaladas en '
-        'él, con sus iconos de verdad.',
+        'él, con sus iconos de verdad. Launcher y el selector de ventanas pertenecen a Auto: al '
+        'elegir una aplicación, KiBoard sale de Manual y muestra el tablero automático de esa app.',
   ),
   (true, 'Qué hacen las teclas'),
   (

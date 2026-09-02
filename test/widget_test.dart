@@ -336,6 +336,43 @@ void main() {
     expect(source.requestedDeck, 'work');
   });
 
+  testWidgets('Manual deck picker lists only Windows-editable decks', (
+    tester,
+  ) async {
+    final source = _TenKeys(manual: true, manualFeatureEnabled: true)
+      ..profile = 'work';
+    final session =
+        WsLayoutSource(ip: '127.0.0.1', port: 8770, token: 't', deviceId: 'd')
+          ..decks = const [
+            DeckSummary(id: 'launcher', name: 'Launcher', icon: 'apps'),
+            DeckSummary(id: 'work', name: 'Work'),
+            DeckSummary(id: 'studio', name: 'Studio'),
+          ];
+    addTearDown(source.dispose);
+    addTearDown(session.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: DeckScreen(
+          layoutSource: source,
+          session: session,
+          hostName: 'PC',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.dashboard));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Launcher'), findsNothing);
+    expect(find.text('Work'), findsWidgets);
+    expect(find.text('Studio'), findsOneWidget);
+  });
+
   // A stored session is what lets the app skip pairing on every launch, so its round trip is worth
   // pinning: a corrupt entry in particular must send the user to pairing, never crash the launch.
   group('SavedSession', () {
@@ -951,6 +988,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(
+        find.text('Auto'),
+        findsOneWidget,
+        reason: 'choosing a window always makes its automatic app deck authoritative',
+      );
       expect(
         find.text('Could not reach your PC to list its windows.'),
         findsOneWidget,

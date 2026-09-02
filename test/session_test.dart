@@ -363,6 +363,47 @@ void main() {
     );
   }, timeout: const Timeout(Duration(seconds: 20)));
 
+  test('choosing a window keeps reconnect in Auto before its layout arrives', () async {
+    final host = await _Host.start();
+    addTearDown(host.stop);
+
+    final session = WsLayoutSource(
+      ip: '127.0.0.1',
+      port: host.server.port,
+      token: 't',
+      deviceId: 'd',
+      silenceLimit: const Duration(milliseconds: 300),
+    );
+    addTearDown(session.dispose);
+
+    await session.connect();
+    await session.setMode('manual', deckId: 'work');
+    host.received.clear();
+    await session.focusWindow(42);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(
+      host.received.where((m) => m['type'] == 'focus_window').single['id'],
+      42,
+    );
+
+    // Lose the connection before the foreground watcher can publish the selected app. The local
+    // intent must already be Auto, or reconnect would resurrect the fixed Manual deck.
+    host.received.clear();
+    host.answer = false;
+    await session.status.firstWhere((s) => s != SessionStatus.online);
+    host.answer = true;
+    await session.status
+        .firstWhere((s) => s == SessionStatus.online)
+        .timeout(const Duration(seconds: 5));
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(
+      host.received.where((m) => m['type'] == 'set_mode'),
+      isEmpty,
+      reason: 'an explicit app choice belongs to Auto even if its layout was delayed',
+    );
+  }, timeout: const Timeout(Duration(seconds: 20)));
+
   test(
     'a session request that goes unanswered marks the link down instead of throwing',
     () async {

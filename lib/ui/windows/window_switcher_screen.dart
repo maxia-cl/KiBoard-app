@@ -96,6 +96,37 @@ class _WindowSwitcherScreenState extends State<WindowSwitcherScreen> {
                       ),
                     ),
                   ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(
+                        DeckTokens.accent,
+                      ).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.bolt,
+                          color: Color(DeckTokens.accent),
+                          size: 14,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          t.auto,
+                          style: const TextStyle(
+                            color: Color(DeckTokens.accent),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   IconButton(
                     tooltip: t.close,
                     icon: const Icon(
