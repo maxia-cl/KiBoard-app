@@ -21,6 +21,13 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate deck tokens
+        run: node KiBoard-protocol/protocol/generate-tokens.mjs lib/ui/tokens.g.dart build/.tokens.g.css
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.44.4
