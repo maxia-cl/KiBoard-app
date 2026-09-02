@@ -42,5 +42,8 @@ void main() {
     expect(iconFor('model'), Icons.psychology);
     expect(iconFor('effort'), Icons.speed);
     expect(iconFor('bolt'), Icons.bolt);
+    expect(expressiveIconFor('model')?.asset, endsWith('/model.svg'));
+    expect(expressiveIconFor('effort')?.asset, endsWith('/effort.svg'));
+    expect(expressiveIconFor('bolt')?.monochrome, isTrue);
   });
 }

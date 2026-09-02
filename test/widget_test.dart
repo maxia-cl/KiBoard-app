@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:kiboard_app/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1478,10 +1479,9 @@ void main() {
         ),
       );
 
-      expect(
-        tester.widget<Icon>(find.byIcon(Icons.arrow_drop_up)).size,
-        80 * 0.68,
-      );
+      final triangle = tester.widget<SvgPicture>(find.byType(SvgPicture));
+      expect(triangle.width, 80 * 0.68);
+      expect(triangle.height, 80 * 0.68);
       final labelStyle = tester.widget<Text>(find.text('Up')).style!;
       expect(
         labelStyle.fontSize,

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../model/deck.dart';
@@ -36,6 +37,20 @@ MemoryImage? decodedIcon(String? uri) {
   if (comma == -1) return null;
   if (_iconCache.length >= _iconCacheLimit) _iconCache.clear();
   return _iconCache[uri] = MemoryImage(base64Decode(uri.substring(comma + 1)));
+}
+
+String _appInitials(String? label) {
+  final words = (label ?? '')
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((s) => s.isNotEmpty)
+      .toList();
+  if (words.isEmpty) return '?';
+  final first = words.first;
+  return (words.length == 1
+          ? first.substring(0, first.length < 2 ? first.length : 2)
+          : '${words[0][0]}${words[1][0]}')
+      .toUpperCase();
 }
 
 /// A single Stream Deck key (docs/implementation-plan.md §3.0-3.1): 1:1 LCD square, no border or
@@ -143,6 +158,7 @@ class _KeyWidgetState extends State<KeyWidget>
         ? const Color(DeckTokens.keyEmptyBackground)
         : const Color(DeckTokens.keyDefaultBackground);
     final image = decodedIcon(key.image);
+    final expressive = expressiveIconFor(key.icon);
     final hasSub = (key.sub ?? '').isNotEmpty;
     final compact = widget.size < 70;
     final directional = isDirectionalIcon(key.icon);
@@ -178,9 +194,52 @@ class _KeyWidgetState extends State<KeyWidget>
               image: image,
               width: imageSize,
               height: imageSize,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              isAntiAlias: true,
               // Holds the last frame while a new provider decodes, so even a genuine icon change
               // swaps rather than blinks through empty.
               gaplessPlayback: true,
+            )
+          else if (key.icon == 'app')
+            Container(
+              width: imageSize,
+              height: imageSize,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(imageSize * 0.26),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF55C8F4), Color(0xFF7659C8)],
+                ),
+              ),
+              child: Text(
+                _appInitials(key.label),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: imageSize * 0.38,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            )
+          else if (expressive != null)
+            SvgPicture.asset(
+              expressive.asset,
+              width: iconSize,
+              height: iconSize,
+              fit: BoxFit.contain,
+              colorFilter: expressive.monochrome
+                  ? ColorFilter.mode(
+                      key.iconColor != null
+                          ? Color(key.iconColor!)
+                          : key.icon == 'record'
+                          ? const Color(0xFFFF5252)
+                          : const Color(DeckTokens.textPrimary),
+                      BlendMode.srcIn,
+                    )
+                  : null,
             )
           else
             Icon(

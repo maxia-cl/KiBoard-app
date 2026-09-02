@@ -1,5 +1,35 @@
 import 'package:flutter/material.dart';
 
+class ExpressiveIconAsset {
+  final String asset;
+  final bool monochrome;
+
+  const ExpressiveIconAsset(this.asset, {this.monochrome = false});
+}
+
+const _expressiveRoot = 'KiBoard-protocol/protocol/icons/expressive';
+const Map<String, ExpressiveIconAsset> _expressiveIcons = {
+  'model': ExpressiveIconAsset('$_expressiveRoot/model.svg'),
+  'effort': ExpressiveIconAsset('$_expressiveRoot/effort.svg'),
+  'find': ExpressiveIconAsset('$_expressiveRoot/find.svg'),
+  'bolt': ExpressiveIconAsset('$_expressiveRoot/bolt.svg', monochrome: true),
+  'prev': ExpressiveIconAsset('$_expressiveRoot/prev.svg', monochrome: true),
+  'next': ExpressiveIconAsset('$_expressiveRoot/next.svg', monochrome: true),
+  'scrollup': ExpressiveIconAsset(
+    '$_expressiveRoot/scrollup.svg',
+    monochrome: true,
+  ),
+  'scrolldown': ExpressiveIconAsset(
+    '$_expressiveRoot/scrolldown.svg',
+    monochrome: true,
+  ),
+  'undo': ExpressiveIconAsset('$_expressiveRoot/undo.svg', monochrome: true),
+  'accept': ExpressiveIconAsset('$_expressiveRoot/accept.svg'),
+  'close': ExpressiveIconAsset('$_expressiveRoot/close.svg'),
+};
+
+ExpressiveIconAsset? expressiveIconFor(String? name) => _expressiveIcons[name];
+
 /// The glyph vocabulary, mirrored in KiBoard-windows-host/src/lib/icons.js so a key looks the same
 /// on the phone as it does in the editor.
 ///
