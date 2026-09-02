@@ -17,7 +17,6 @@ cabe vive en otra página.
 |---|---|---|
 | [`KiBoard-protocol`](https://github.com/maxia-cl/KiBoard-protocol) | Contrato de mensajes, tokens visuales, fixtures, documentación | Público |
 | [`KiBoard-windows-host`](https://github.com/maxia-cl/KiBoard-windows-host) | Host de Windows | Público |
-| [`KiBoard-windows-host-releases`](https://github.com/maxia-cl/KiBoard-windows-host-releases) | Instaladores del host y feed de actualización | Público |
 
 `KiBoard-protocol` es la **fuente de verdad**. Primero se cambia ahí, después aquí.
 

@@ -17,7 +17,6 @@ does not fit lives on another page.
 |---|---|---|
 | [`KiBoard-protocol`](https://github.com/maxia-cl/KiBoard-protocol) | Message contract, visual tokens, fixtures, project docs | Public |
 | [`KiBoard-windows-host`](https://github.com/maxia-cl/KiBoard-windows-host) | Windows host | Public |
-| [`KiBoard-windows-host-releases`](https://github.com/maxia-cl/KiBoard-windows-host-releases) | Host installers and update feed | Public |
 
 `KiBoard-protocol` is the **source of truth**. Change it first, then this repo.
 
