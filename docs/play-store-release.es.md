@@ -9,7 +9,7 @@ Este repositorio está configurado para generar una versión firmada para Google
 - SDK objetivo y de compilación: Android 16 / API 36
 - Artefacto: `build/app/outputs/bundle/release/app-release.aab`
 - Licencia: MIT
-- Política de privacidad: <https://github.com/maxia-cl/KiBoard-app/blob/main/PRIVACY.es.md>
+- Política de privacidad: <https://kiboard-control-deck.honest-pond-9855.chatgpt.site/privacidad>
 
 El ID de aplicación queda permanente después de la primera publicación. Cada versión posterior
 debe aumentar el `versionCode` en `pubspec.yaml`.
@@ -50,7 +50,7 @@ El workflow de tags necesita estos secretos de GitHub Actions:
 1. Crear KiBoard en Play Console conservando el ID de aplicación actual.
 2. Activar Play App Signing con una clave de firma generada por Google.
 3. Subir `app-release.aab` primero a Prueba interna.
-4. Usar la URL pública de la política de privacidad indicada arriba.
+4. Usar la URL pública de la política de privacidad indicada arriba, después de desplegar el sitio.
 5. Completar Seguridad de los datos de forma coherente con la política. KiBoard no usa cuentas,
    publicidad ni un backend propio. Declarar las interacciones de la app recopiladas para
    analítica: el host Windows envía identificadores fijos y contexto general a Aptabase, nunca
@@ -61,6 +61,9 @@ El workflow de tags necesita estos secretos de GitHub Actions:
 6. Declarar el uso de micrófono para el dictado iniciado por el usuario al mantener pulsado.
 7. Completar clasificación de contenido, público objetivo, acceso a la app, publicidad y ficha.
 8. Probar la compilación generada por Play en teléfono y tablet antes de promoverla a Producción.
+
+La respuesta preparada campo por campo está en
+[`docs/play-data-safety.es.md`](play-data-safety.es.md).
 
 ## Texto de la ficha
 
@@ -78,5 +81,21 @@ Descripción completa:
 > analítica anónima de interacciones se puede desactivar en Configuración. El host open source para
 > Windows es obligatorio y está disponible en el repositorio de KiBoard.
 
-Play Console todavía requiere cargar los recursos visuales: ícono, gráfico de funciones, al menos
-dos capturas de teléfono y capturas de tablet si se distribuye para tablets.
+Notas de la versión `2.0.1`:
+
+> KiBoard 2.0.1 estrena tableros automáticos renovados, Launcher inteligente con aplicaciones
+> recientes, íconos en alta resolución y un modo Manual más simple. Al elegir o abrir una
+> aplicación, vuelves directamente a su tablero. También mejora la estabilidad de conexión y
+> añade analítica anónima opcional desde Configuración. Requiere KiBoard Host 2.0.1 para Windows.
+
+## Recursos visuales listos
+
+- Ícono: `store-assets/icon-512.png` — 512×512 PNG.
+- Gráfico destacado: `store-assets/feature-graphic-1024x500.png` — 1024×500 PNG sin alfa.
+- Teléfono vertical: cuatro capturas 1080×1920 en `store-assets/screenshots/phone-portrait`.
+- Teléfono horizontal: cuatro capturas 1920×1080 en `store-assets/screenshots/phone-landscape`.
+- Tablet vertical: cuatro capturas 1600×2560 en `store-assets/screenshots/tablet-portrait`.
+
+Textos alternativos sugeridos, en el mismo orden: “Tablero automático de ChatGPT y Codex con
+Speed activo”, “Launcher de aplicaciones recientes”, “Tablero Manual personalizado” y
+“Configuración de KiBoard con Modo Manual activado”.

@@ -252,18 +252,20 @@ class _KeyWidgetState extends State<KeyWidget>
               size: iconSize,
             ),
           SizedBox(height: contentGap),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: Text(
-              key.label ?? '',
-              maxLines: compact ? 1 : 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: const Color(DeckTokens.textPrimary),
-                fontSize: labelSize,
-                height: 1.05,
-                fontWeight: FontWeight.normal,
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: Text(
+                key.label ?? '',
+                maxLines: compact ? 1 : 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: const Color(DeckTokens.textPrimary),
+                  fontSize: labelSize,
+                  height: 1.05,
+                  fontWeight: FontWeight.normal,
+                ),
               ),
             ),
           ),

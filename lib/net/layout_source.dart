@@ -3,6 +3,12 @@
 import '../model/deck.dart';
 
 abstract class LayoutSource {
+  /// Decks offered by the host. Empty for sources that do not expose deck navigation.
+  ///
+  /// Keeping this on the source contract lets previews and tests exercise the same navigation
+  /// chrome as a live socket without pretending to be a connected WebSocket session.
+  List<DeckSummary> get decks => const [];
+
   /// Pushed whenever the host would push a fresh `layout` (protocol §4.1): foreground app change,
   /// mode switch, folder navigation, or a config edit.
   Stream<Layout> layouts();

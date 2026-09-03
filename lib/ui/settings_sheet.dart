@@ -153,23 +153,36 @@ Future<void> showSettingsSheet(
                   color: Color(DeckTokens.textSecondary),
                 ),
                 title: Text(t.language, style: _title),
-                trailing: DropdownButton<String>(
-                  value: s.languageCode,
-                  dropdownColor: const Color(DeckTokens.surface),
-                  underline: const SizedBox.shrink(),
-                  style: const TextStyle(
-                    color: Color(DeckTokens.textPrimary),
-                    fontSize: 14,
+                trailing: SizedBox(
+                  width: 112,
+                  child: DropdownButton<String>(
+                    value: s.languageCode,
+                    isExpanded: true,
+                    dropdownColor: const Color(DeckTokens.surface),
+                    underline: const SizedBox.shrink(),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(DeckTokens.textPrimary),
+                      fontSize: 14,
+                    ),
+                    items: [
+                      // Empty means follow the phone, and it is the default: the user already told
+                      // Android what language they read in, and this app is not the place to ask again.
+                      DropdownMenuItem(
+                        value: '',
+                        child: Text(t.languageSystem),
+                      ),
+                      const DropdownMenuItem(
+                        value: 'en',
+                        child: Text('English'),
+                      ),
+                      const DropdownMenuItem(
+                        value: 'es',
+                        child: Text('Español'),
+                      ),
+                    ],
+                    onChanged: (code) =>
+                        Settings.instance.setLanguage(code ?? ''),
                   ),
-                  items: [
-                    // Empty means follow the phone, and it is the default: the user already told
-                    // Android what language they read in, and this app is not the place to ask again.
-                    DropdownMenuItem(value: '', child: Text(t.languageSystem)),
-                    const DropdownMenuItem(value: 'en', child: Text('English')),
-                    const DropdownMenuItem(value: 'es', child: Text('Español')),
-                  ],
-                  onChanged: (code) =>
-                      Settings.instance.setLanguage(code ?? ''),
                 ),
               ),
               // Upright only, and it is the one layout choice worth offering: held one-handed,
@@ -188,20 +201,27 @@ Future<void> showSettingsSheet(
                     fontSize: 12,
                   ),
                 ),
-                trailing: DropdownButton<bool>(
-                  value: s.appPanelAtTop,
-                  dropdownColor: const Color(DeckTokens.surface),
-                  underline: const SizedBox.shrink(),
-                  style: const TextStyle(
-                    color: Color(DeckTokens.textPrimary),
-                    fontSize: 14,
+                trailing: SizedBox(
+                  width: 112,
+                  child: DropdownButton<bool>(
+                    value: s.appPanelAtTop,
+                    isExpanded: true,
+                    dropdownColor: const Color(DeckTokens.surface),
+                    underline: const SizedBox.shrink(),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(DeckTokens.textPrimary),
+                      fontSize: 14,
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: false,
+                        child: Text(t.panelBottom),
+                      ),
+                      DropdownMenuItem(value: true, child: Text(t.panelTop)),
+                    ],
+                    onChanged: (top) =>
+                        Settings.instance.setAppPanelAtTop(top ?? false),
                   ),
-                  items: [
-                    DropdownMenuItem(value: false, child: Text(t.panelBottom)),
-                    DropdownMenuItem(value: true, child: Text(t.panelTop)),
-                  ],
-                  onChanged: (top) =>
-                      Settings.instance.setAppPanelAtTop(top ?? false),
                 ),
               ),
               const Divider(height: 1, color: Color(DeckTokens.surfaceBorder)),

@@ -9,7 +9,7 @@ This repository is configured for a signed Google Play release.
 - Target and compile SDK: Android 16 / API 36
 - Artifact: `build/app/outputs/bundle/release/app-release.aab`
 - License: MIT
-- Privacy policy: <https://github.com/maxia-cl/KiBoard-app/blob/main/PRIVACY.md>
+- Privacy policy: <https://kiboard-control-deck.honest-pond-9855.chatgpt.site/privacy>
 
 The application ID is permanent after the first Play Store publication. Every later release must
 increase `versionCode` in `pubspec.yaml`.
@@ -48,7 +48,7 @@ The tag workflow needs these GitHub Actions secrets:
 1. Create KiBoard in Play Console and keep the existing application ID.
 2. Enrol in Play App Signing with a Google-generated app-signing key.
 3. Upload `app-release.aab` to Internal testing first.
-4. Use the public privacy-policy URL above.
+4. Use the public privacy-policy URL above after deploying the site.
 5. Complete Data safety consistently with the policy. KiBoard has no accounts, ads, or KiBoard
    cloud backend. Declare app interactions collected for analytics: the Windows host sends fixed
    event identifiers and coarse context to Aptabase, never custom labels, actions, entered text,
@@ -58,6 +58,8 @@ The tag workflow needs these GitHub Actions secrets:
 6. Declare microphone access for the user-initiated push-to-talk dictation feature.
 7. Complete content rating, target audience, app access, ads, and the store listing.
 8. Test the Play-generated build on both a phone and a tablet before promoting it to Production.
+
+The prepared field-by-field response is in [`docs/play-data-safety.md`](play-data-safety.md).
 
 ## Store copy
 
@@ -75,5 +77,20 @@ Full description:
 > analytics can be disabled from Settings. The open-source Windows companion is required and is
 > available from the KiBoard GitHub repository.
 
-Required visual assets still have to be uploaded through Play Console: app icon, feature graphic,
-at least two phone screenshots, and tablet screenshots for tablet distribution.
+Release notes for `2.0.1`:
+
+> KiBoard 2.0.1 introduces refreshed automatic decks, a smart Launcher with recent apps,
+> high-resolution icons, and a simpler Manual mode. Selecting or launching an app now takes you
+> straight to its deck. This release also improves connection stability and adds optional
+> anonymous interaction analytics in Settings. Requires KiBoard Host 2.0.1 for Windows.
+
+## Ready-to-upload graphics
+
+- Icon: `store-assets/icon-512.png` — 512×512 PNG.
+- Feature graphic: `store-assets/feature-graphic-1024x500.png` — 1024×500 PNG without alpha.
+- Portrait phone: four 1080×1920 screenshots in `store-assets/screenshots/phone-portrait`.
+- Landscape phone: four 1920×1080 screenshots in `store-assets/screenshots/phone-landscape`.
+- Portrait tablet: four 1600×2560 screenshots in `store-assets/screenshots/tablet-portrait`.
+
+Suggested alt text, in order: “Automatic ChatGPT and Codex deck with Speed active”, “Recent-app
+Launcher”, “Custom Manual deck”, and “KiBoard Settings with Manual mode enabled”.

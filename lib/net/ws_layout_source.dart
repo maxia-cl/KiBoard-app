@@ -137,6 +137,7 @@ class WsLayoutSource implements LayoutSource {
 
   /// The decks this host offers, from the last `hello_ack`. Re-read on every reconnect, so a deck
   /// added in the editor shows up without restarting the app.
+  @override
   List<DeckSummary> decks = const [];
 
   bool _manualEnabled = false;
