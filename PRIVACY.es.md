@@ -1,10 +1,10 @@
 # Política de privacidad de KiBoard
 
-Vigente desde: 1 de septiembre de 2026
+Vigente desde: 3 de septiembre de 2026
 
 KiBoard convierte un teléfono o tablet Android en una superficie de control para un PC Windows en
-la misma red local. KiBoard no opera servicios de analítica, publicidad, cuentas ni datos en la
-nube.
+la misma red local. KiBoard no muestra publicidad, no crea cuentas y no vende datos. El host de
+Windows utiliza Aptabase para analítica anónima de uso, como se explica a continuación.
 
 ## Datos que maneja la aplicación
 
@@ -15,13 +15,29 @@ nube.
   hablar. El servicio de reconocimiento configurado en Android realiza la transcripción. KiBoard
   envía el texto resultante al host Windows emparejado por la red local; no envía audio a servidores
   operados por KiBoard.
-- **Interacciones:** las pulsaciones, movimientos del trackpad y texto ingresado se envían sólo al
-  host Windows emparejado para ejecutar la acción solicitada.
+- **Interacciones:** las pulsaciones y movimientos del trackpad se envían al host Windows
+  emparejado para ejecutar la acción solicitada. El host genera eventos de analítica con el tipo de
+  interacción y contexto funcional como modo, posición, tipo de pulsación, identificador de una
+  superficie incorporada, orientación y resultado. Los perfiles personalizados se agrupan como una
+  sola categoría. El texto ingresado o dictado y el contenido de las acciones no se incluyen en
+  esos eventos.
 
-KiBoard no vende datos, no muestra publicidad, no crea perfiles de usuario ni comparte datos
-personales con el desarrollador. Los datos permanecen en los dispositivos y en la red local del
-usuario, salvo cuando el proveedor de reconocimiento de voz de Android procesa un dictado bajo sus
-propios términos.
+## Analítica anónima
+
+Los eventos se envían desde el host Windows a la región de Estados Unidos de Aptabase. Incluyen la
+versión, idioma, sistema operativo, tipo de interacción y un identificador aleatorio limitado a la
+ejecución actual del host. No incluyen nombres de aplicaciones, ventanas, dispositivos, tableros o
+perfiles; etiquetas o acciones personalizadas; texto escrito o dictado; audio; direcciones locales;
+códigos o tokens de emparejamiento ni certificados.
+
+Aptabase indica que genera un identificador diario en el servidor a partir de la dirección IP, el
+agente de usuario y una sal rotativa, y que conserva eventos hasta por cinco años. Consulte
+<https://aptabase.com/legal/privacy> y la política específica del host en
+<https://github.com/maxia-cl/KiBoard-windows-host/blob/main/PRIVACY.es.md>.
+
+KiBoard no vende datos, no muestra publicidad ni crea perfiles persistentes de usuario. La
+configuración permanece en los dispositivos y la red local. Las excepciones son el procesamiento
+del dictado por el proveedor de reconocimiento de Android y los eventos anónimos descritos arriba.
 
 ## Conservación y eliminación
 
