@@ -971,39 +971,39 @@ void main() {
 
   /// `listWindows` gives up by throwing, and nothing caught it: the screen waited eight seconds
   /// and then span for ever, with an unhandled async error behind it.
-  testWidgets(
-    'the window switcher says it failed instead of spinning for ever',
-    (tester) async {
-      final source =
-          _TenKeys(); // its listWindows throws, like a host that never answers
-      addTearDown(source.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: WindowSwitcherScreen(layoutSource: source),
-        ),
-      );
-      await tester.pump();
-      await tester.pumpAndSettle();
+  testWidgets('the window switcher says it failed instead of spinning for ever', (
+    tester,
+  ) async {
+    final source =
+        _TenKeys(); // its listWindows throws, like a host that never answers
+    addTearDown(source.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: WindowSwitcherScreen(layoutSource: source),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
 
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(
-        find.text('Auto'),
-        findsOneWidget,
-        reason: 'choosing a window always makes its automatic app deck authoritative',
-      );
-      expect(
-        find.text('Could not reach your PC to list its windows.'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('Try again'),
-        findsOneWidget,
-        reason: 'and a way forward, not just a dead end',
-      );
-    },
-  );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(
+      find.text('Auto'),
+      findsOneWidget,
+      reason:
+          'choosing a window always makes its automatic app deck authoritative',
+    );
+    expect(
+      find.text('Could not reach your PC to list its windows.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Try again'),
+      findsOneWidget,
+      reason: 'and a way forward, not just a dead end',
+    );
+  });
 
   /// Back used to do one of two things depending on how you got to the deck, and neither was
   /// intended: on a relaunch it closed the app outright, and in the session where you paired it
@@ -1469,6 +1469,7 @@ void main() {
           )
           .first,
     );
+    final housingFinder = find.byKey(const ValueKey('key-housing'));
     double sink(AnimatedContainer c) =>
         (c.transform ?? Matrix4.identity()).getTranslation().y;
     BoxShadow shadow(AnimatedContainer c) =>
@@ -1476,6 +1477,12 @@ void main() {
 
     final atRest = cap();
     expect(sink(atRest), 0);
+    expect(housingFinder, findsOneWidget);
+    expect(
+      atRest.constraints!.maxHeight,
+      lessThan(80),
+      reason: 'the face leaves room for the dark lower lip at rest',
+    );
 
     final gesture = await tester.startGesture(
       tester.getCenter(find.byType(KeyWidget)),

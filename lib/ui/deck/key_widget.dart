@@ -127,7 +127,7 @@ class _KeyWidgetState extends State<KeyWidget>
 
   /// How far the cap sinks, in logical pixels. Small on purpose: the travel on a real deck is
   /// about a millimetre, and a millimetre at arm's length is about this.
-  static const _travel = 2.0;
+  static const _travel = 3.0;
   late final AnimationController _ringController;
 
   @override
@@ -355,6 +355,13 @@ class _KeyWidgetState extends State<KeyWidget>
     Widget content,
     bool screenReader,
   ) {
+    // The store artwork made the physical hierarchy easier to read than the original 8 px cap:
+    // a dark housing, a visible lower lip, then the lit face. Scale the moulding with the key so
+    // phone and tablet keep the same material instead of sharing one radius that only suits one.
+    final capRadius = (widget.size * 0.14).clamp(8.0, 18.0);
+    final lipDepth = (widget.size * 0.055).clamp(3.0, 6.0);
+    final faceWidth = (widget.width ?? widget.size) - (isEmpty ? 0 : 2);
+    final faceHeight = widget.size - (isEmpty ? 0 : lipDepth);
     return Listener(
       // DOWN on the pointer, not on the tap. With `onDoubleTap` registered the tap recognizer
       // waits for the arena before it says anything — measured at ~100 ms here — and a key pad
@@ -425,8 +432,42 @@ class _KeyWidgetState extends State<KeyWidget>
           duration: Duration(milliseconds: down ? 45 : 130),
           curve: down ? Curves.easeOut : Curves.easeOutBack,
           child: Stack(
-            alignment: Alignment.center,
+            alignment: Alignment.topCenter,
             children: [
+              // The housing remains still while the face travels. Its exposed lower edge is the
+              // depth cue that survives on dark OLED screens, where a soft shadow alone vanishes.
+              if (!isEmpty)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 1,
+                  bottom: 0,
+                  child: DecoratedBox(
+                    key: const ValueKey('key-housing'),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(capRadius),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color.lerp(face, Colors.black, 0.28)!,
+                          Color.lerp(face, Colors.black, 0.58)!,
+                        ],
+                      ),
+                      border: Border.all(
+                        color: Colors.black.withValues(alpha: 0.72),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.72),
+                          blurRadius: 12,
+                          spreadRadius: -2,
+                          offset: Offset(0, lipDepth * 0.85),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               // A key cap, not a coloured square. What reads as "physical" is three things
               // agreeing: the light always comes from ABOVE (a gradient that flips reads as a
               // different material, not as a pressed key), the cap stands on an ambient shadow,
@@ -438,12 +479,10 @@ class _KeyWidgetState extends State<KeyWidget>
                 curve: down ? Curves.easeOut : Curves.easeOutBack,
                 transform: Matrix4.translationValues(0, down ? _travel : 0, 0),
                 transformAlignment: Alignment.center,
-                width: widget.width ?? widget.size,
-                height: widget.size,
+                width: faceWidth,
+                height: faceHeight,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(
-                    DeckTokens.keyCornerRadiusPx,
-                  ),
+                  borderRadius: BorderRadius.circular(capRadius),
                   // Three stops, not two: a moulded cap is brightest just under its top edge, the
                   // way it catches a ceiling light, and falls off towards the base.
                   gradient: LinearGradient(
@@ -460,24 +499,33 @@ class _KeyWidgetState extends State<KeyWidget>
                   // negative spread, so the cap reads as sitting ON something instead of floating.
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: down ? 0.35 : 0.55),
-                      blurRadius: down ? 3 : 10,
-                      spreadRadius: down ? -3 : -2,
-                      offset: Offset(0, down ? 1 : 4),
+                      color: Colors.black.withValues(alpha: down ? 0.30 : 0.62),
+                      blurRadius: down ? 2 : 8,
+                      spreadRadius: down ? -3 : -1,
+                      offset: Offset(0, down ? 1 : lipDepth * 0.72),
+                    ),
+                    BoxShadow(
+                      color: Colors.white.withValues(
+                        alpha: down ? 0.01 : 0.075,
+                      ),
+                      blurRadius: 1,
+                      offset: const Offset(-1, -1),
                     ),
                   ],
                   // The seam where the cap meets its housing. Uniform, because Flutter cannot
                   // round a border whose sides differ — the lit top edge is the overlay below.
                   border: Border.all(
-                    color: Colors.black.withValues(alpha: down ? 0.10 : 0.28),
+                    color: down
+                        ? Colors.black.withValues(alpha: 0.26)
+                        : Colors.white.withValues(alpha: 0.085),
                   ),
                 ),
                 child: content,
               ),
               if (key.stateOn)
                 Positioned(
-                  top: 4,
-                  right: 4,
+                  top: 4 + (down ? _travel : 0),
+                  right: 5,
                   child: Container(
                     width: 6,
                     height: 6,
@@ -489,22 +537,22 @@ class _KeyWidgetState extends State<KeyWidget>
                 ),
               if (key.current)
                 Positioned(
-                  left: 2,
-                  top: 8,
-                  bottom: 8,
+                  left: 3,
+                  top: 8 + (down ? _travel : 0),
                   child: Container(
                     width: 3,
                     color: const Color(DeckTokens.accent),
                   ),
                 ),
               if (key.minimized)
-                Container(
-                  width: widget.width ?? widget.size,
-                  height: widget.size,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(
-                      DeckTokens.keyCornerRadiusPx,
+                Transform.translate(
+                  offset: Offset(0, down ? _travel : 0),
+                  child: Container(
+                    width: faceWidth,
+                    height: faceHeight,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(capRadius),
                     ),
                   ),
                 ),
@@ -515,21 +563,24 @@ class _KeyWidgetState extends State<KeyWidget>
                 child: AnimatedOpacity(
                   opacity: down ? 0.15 : 1,
                   duration: Duration(milliseconds: down ? 45 : 130),
-                  child: Container(
-                    width: widget.size,
-                    height: widget.size,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(
-                        DeckTokens.keyCornerRadiusPx,
-                      ),
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        stops: const [0, 0.06],
-                        colors: [
-                          Colors.white.withValues(alpha: 0.16),
-                          Colors.transparent,
-                        ],
+                  child: Transform.translate(
+                    offset: Offset(0, down ? _travel : 0),
+                    child: Container(
+                      width: faceWidth,
+                      height: faceHeight,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(capRadius),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: const [0, 0.07, 0.74, 1],
+                          colors: [
+                            Colors.white.withValues(alpha: 0.22),
+                            Colors.transparent,
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.16),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -540,13 +591,14 @@ class _KeyWidgetState extends State<KeyWidget>
               // wrong with this key" — red is what a danger key is painted, and this is not that.
               // The face dims so the spinner is the thing being read.
               if (widget.launching) ...[
-                Container(
-                  width: widget.size,
-                  height: widget.size,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(
-                      DeckTokens.keyCornerRadiusPx,
+                Transform.translate(
+                  offset: Offset(0, down ? _travel : 0),
+                  child: Container(
+                    width: faceWidth,
+                    height: faceHeight,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(capRadius),
                     ),
                   ),
                 ),
