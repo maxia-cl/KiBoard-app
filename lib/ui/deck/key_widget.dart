@@ -127,7 +127,7 @@ class _KeyWidgetState extends State<KeyWidget>
 
   /// How far the cap sinks, in logical pixels. Small on purpose: the travel on a real deck is
   /// about a millimetre, and a millimetre at arm's length is about this.
-  static const _travel = 3.0;
+  static const _travel = 2.0;
   late final AnimationController _ringController;
 
   @override
@@ -355,11 +355,12 @@ class _KeyWidgetState extends State<KeyWidget>
     Widget content,
     bool screenReader,
   ) {
-    // The store artwork made the physical hierarchy easier to read than the original 8 px cap:
-    // a dark housing, a visible lower lip, then the lit face. Scale the moulding with the key so
-    // phone and tablet keep the same material instead of sharing one radius that only suits one.
-    final capRadius = (widget.size * 0.14).clamp(8.0, 18.0);
-    final lipDepth = (widget.size * 0.055).clamp(3.0, 6.0);
+    // One socket and one cap. The earlier treatment stacked a housing shadow, a cap shadow and
+    // two dark borders; at phone scale those read as three cards, not physical depth. A shallow
+    // fixed socket plus a restrained bevel is closer to a Stream Deck key and stays legible on
+    // OLED without turning every control into the loudest object on screen.
+    final capRadius = (widget.size * 0.11).clamp(8.0, 16.0);
+    final lipDepth = (widget.size * 0.035).clamp(2.0, 4.0);
     final faceWidth = (widget.width ?? widget.size) - (isEmpty ? 0 : 2);
     final faceHeight = widget.size - (isEmpty ? 0 : lipDepth);
     return Listener(
@@ -424,216 +425,193 @@ class _KeyWidgetState extends State<KeyWidget>
         onLongPress: deaf ? null : () => widget.onPress?.call('long'),
         onLongPressEnd: deaf ? null : (_) => _ringController.reset(),
         onLongPressCancel: deaf ? null : () => _ringController.reset(),
-        child: AnimatedScale(
-          // Barely there: the old 0.96 shrank the whole cap, which reads as a card being tapped.
-          // A key pushed straight down only loses a hair of width to perspective.
-          scale: down ? 0.985 : 1.0,
-          // Asymmetric — a real key gives way at once and springs back.
-          duration: Duration(milliseconds: down ? 45 : 130),
-          curve: down ? Curves.easeOut : Curves.easeOutBack,
-          child: Stack(
-            alignment: Alignment.topCenter,
-            children: [
-              // The housing remains still while the face travels. Its exposed lower edge is the
-              // depth cue that survives on dark OLED screens, where a soft shadow alone vanishes.
-              if (!isEmpty)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 1,
-                  bottom: 0,
-                  child: DecoratedBox(
-                    key: const ValueKey('key-housing'),
+        child: Stack(
+          alignment: Alignment.topCenter,
+          children: [
+            // The socket never moves. Only its narrow lower lip is exposed at rest, then more of
+            // it appears while the face travels down. Scaling this layer with the cap was the
+            // strongest visual tell that the old version was a software card animation.
+            if (!isEmpty)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 1,
+                bottom: 0,
+                child: DecoratedBox(
+                  key: const ValueKey('key-housing'),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(capRadius),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color.lerp(face, Colors.black, 0.48)!,
+                        Color.lerp(face, Colors.black, 0.72)!,
+                      ],
+                    ),
+                    border: Border.all(
+                      color: Colors.black.withValues(alpha: 0.56),
+                    ),
+                  ),
+                ),
+              ),
+            // A key cap, not a coloured square. What reads as "physical" is three things
+            // agreeing: the light always comes from ABOVE (a gradient that flips reads as a
+            // different material, not as a pressed key), the cap stands on an ambient shadow,
+            // and pressing it moves the cap DOWN into that shadow instead of merely darkening.
+            AnimatedContainer(
+              // Asymmetric on purpose: a real key gives way at once and springs back. Equal
+              // timings in both directions are the tell of a software button.
+              duration: Duration(milliseconds: down ? 45 : 130),
+              curve: down ? Curves.easeOut : Curves.easeOutBack,
+              transform: Matrix4.translationValues(0, down ? _travel : 0, 0),
+              transformAlignment: Alignment.center,
+              width: faceWidth,
+              height: faceHeight,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(capRadius),
+                // Three stops, not two: a moulded cap is brightest just under its top edge, the
+                // way it catches a ceiling light, and falls off towards the base.
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0, 0.14, 0.82, 1],
+                  colors: [
+                    Color.lerp(face, Colors.white, down ? 0.015 : 0.07)!,
+                    face,
+                    face,
+                    Color.lerp(face, Colors.black, down ? 0.13 : 0.09)!,
+                  ],
+                ),
+                // Ambient occlusion rather than a drop shadow: wide, soft, pulled in by a
+                // negative spread, so the cap reads as sitting ON something instead of floating.
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: down ? 0.14 : 0.38),
+                    blurRadius: down ? 1 : 4,
+                    spreadRadius: -1,
+                    offset: Offset(0, down ? 0.5 : 2),
+                  ),
+                ],
+                // The seam where the cap meets its housing. Uniform, because Flutter cannot
+                // round a border whose sides differ — the lit top edge is the overlay below.
+                border: Border.all(
+                  color: Colors.black.withValues(alpha: down ? 0.52 : 0.38),
+                ),
+              ),
+              child: content,
+            ),
+            if (key.stateOn)
+              Positioned(
+                top: 4 + (down ? _travel : 0),
+                right: 5,
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(DeckTokens.stateOn),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            if (key.current)
+              Positioned(
+                left: 3,
+                top: 8 + (down ? _travel : 0),
+                child: Container(
+                  width: 3,
+                  color: const Color(DeckTokens.accent),
+                ),
+              ),
+            if (key.minimized)
+              Transform.translate(
+                offset: Offset(0, down ? _travel : 0),
+                child: Container(
+                  width: faceWidth,
+                  height: faceHeight,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(capRadius),
+                  ),
+                ),
+              ),
+            // The moulding: the top edge catches the light, and only the top. It fades as the
+            // cap goes down, because a key level with its housing has no edge left to catch
+            // anything — that fade is half of what sells the travel.
+            IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: down ? 0.15 : 1,
+                duration: Duration(milliseconds: down ? 45 : 130),
+                child: Transform.translate(
+                  offset: Offset(0, down ? _travel : 0),
+                  child: Container(
+                    width: faceWidth,
+                    height: faceHeight,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(capRadius),
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
+                        stops: const [0, 0.07, 0.74, 1],
                         colors: [
-                          Color.lerp(face, Colors.black, 0.28)!,
-                          Color.lerp(face, Colors.black, 0.58)!,
+                          Colors.white.withValues(alpha: 0.13),
+                          Colors.transparent,
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.11),
                         ],
                       ),
-                      border: Border.all(
-                        color: Colors.black.withValues(alpha: 0.72),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.72),
-                          blurRadius: 12,
-                          spreadRadius: -2,
-                          offset: Offset(0, lipDepth * 0.85),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              // A key cap, not a coloured square. What reads as "physical" is three things
-              // agreeing: the light always comes from ABOVE (a gradient that flips reads as a
-              // different material, not as a pressed key), the cap stands on an ambient shadow,
-              // and pressing it moves the cap DOWN into that shadow instead of merely darkening.
-              AnimatedContainer(
-                // Asymmetric on purpose: a real key gives way at once and springs back. Equal
-                // timings in both directions are the tell of a software button.
-                duration: Duration(milliseconds: down ? 45 : 130),
-                curve: down ? Curves.easeOut : Curves.easeOutBack,
-                transform: Matrix4.translationValues(0, down ? _travel : 0, 0),
-                transformAlignment: Alignment.center,
-                width: faceWidth,
-                height: faceHeight,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(capRadius),
-                  // Three stops, not two: a moulded cap is brightest just under its top edge, the
-                  // way it catches a ceiling light, and falls off towards the base.
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: const [0, 0.55, 1],
-                    colors: [
-                      Color.lerp(face, Colors.white, down ? 0.02 : 0.10)!,
-                      face,
-                      Color.lerp(face, Colors.black, down ? 0.14 : 0.07)!,
-                    ],
-                  ),
-                  // Ambient occlusion rather than a drop shadow: wide, soft, pulled in by a
-                  // negative spread, so the cap reads as sitting ON something instead of floating.
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: down ? 0.30 : 0.62),
-                      blurRadius: down ? 2 : 8,
-                      spreadRadius: down ? -3 : -1,
-                      offset: Offset(0, down ? 1 : lipDepth * 0.72),
-                    ),
-                    BoxShadow(
-                      color: Colors.white.withValues(
-                        alpha: down ? 0.01 : 0.075,
-                      ),
-                      blurRadius: 1,
-                      offset: const Offset(-1, -1),
-                    ),
-                  ],
-                  // The seam where the cap meets its housing. Uniform, because Flutter cannot
-                  // round a border whose sides differ — the lit top edge is the overlay below.
-                  border: Border.all(
-                    color: down
-                        ? Colors.black.withValues(alpha: 0.26)
-                        : Colors.white.withValues(alpha: 0.085),
-                  ),
-                ),
-                child: content,
-              ),
-              if (key.stateOn)
-                Positioned(
-                  top: 4 + (down ? _travel : 0),
-                  right: 5,
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Color(DeckTokens.stateOn),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              if (key.current)
-                Positioned(
-                  left: 3,
-                  top: 8 + (down ? _travel : 0),
-                  child: Container(
-                    width: 3,
-                    color: const Color(DeckTokens.accent),
-                  ),
-                ),
-              if (key.minimized)
-                Transform.translate(
-                  offset: Offset(0, down ? _travel : 0),
-                  child: Container(
-                    width: faceWidth,
-                    height: faceHeight,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(capRadius),
-                    ),
-                  ),
-                ),
-              // The moulding: the top edge catches the light, and only the top. It fades as the
-              // cap goes down, because a key level with its housing has no edge left to catch
-              // anything — that fade is half of what sells the travel.
-              IgnorePointer(
-                child: AnimatedOpacity(
-                  opacity: down ? 0.15 : 1,
-                  duration: Duration(milliseconds: down ? 45 : 130),
-                  child: Transform.translate(
-                    offset: Offset(0, down ? _travel : 0),
-                    child: Container(
-                      width: faceWidth,
-                      height: faceHeight,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(capRadius),
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          stops: const [0, 0.07, 0.74, 1],
-                          colors: [
-                            Colors.white.withValues(alpha: 0.22),
-                            Colors.transparent,
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.16),
-                          ],
-                        ),
-                      ),
                     ),
                   ),
                 ),
               ),
-              // Opening an app takes seconds, and the deck has to say so with the vocabulary
-              // everyone already knows: a spinner. Colouring the key instead said "something is
-              // wrong with this key" — red is what a danger key is painted, and this is not that.
-              // The face dims so the spinner is the thing being read.
-              if (widget.launching) ...[
-                Transform.translate(
-                  offset: Offset(0, down ? _travel : 0),
-                  child: Container(
-                    width: faceWidth,
-                    height: faceHeight,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(capRadius),
-                    ),
+            ),
+            // Opening an app takes seconds, and the deck has to say so with the vocabulary
+            // everyone already knows: a spinner. Colouring the key instead said "something is
+            // wrong with this key" — red is what a danger key is painted, and this is not that.
+            // The face dims so the spinner is the thing being read.
+            if (widget.launching) ...[
+              Transform.translate(
+                offset: Offset(0, down ? _travel : 0),
+                child: Container(
+                  width: faceWidth,
+                  height: faceHeight,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(capRadius),
                   ),
                 ),
-                SizedBox(
-                  width: widget.size * 0.34,
-                  height: widget.size * 0.34,
-                  child: const CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: Color(DeckTokens.textPrimary),
-                  ),
+              ),
+              SizedBox(
+                width: widget.size * 0.34,
+                height: widget.size * 0.34,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Color(DeckTokens.textPrimary),
                 ),
-              ],
-              AnimatedBuilder(
-                animation: _ringController,
-                builder: (context, _) {
-                  if (_ringController.value == 0) {
-                    return const SizedBox.shrink();
-                  }
-                  return SizedBox(
-                    width: widget.size,
-                    height: widget.size,
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: CircularProgressIndicator(
-                        value: _ringController.value,
-                        strokeWidth: 3,
-                        color: const Color(DeckTokens.accent),
-                        backgroundColor: Colors.transparent,
-                      ),
-                    ),
-                  );
-                },
               ),
             ],
-          ),
+            AnimatedBuilder(
+              animation: _ringController,
+              builder: (context, _) {
+                if (_ringController.value == 0) {
+                  return const SizedBox.shrink();
+                }
+                return SizedBox(
+                  width: widget.size,
+                  height: widget.size,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: CircularProgressIndicator(
+                      value: _ringController.value,
+                      strokeWidth: 3,
+                      color: const Color(DeckTokens.accent),
+                      backgroundColor: Colors.transparent,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );

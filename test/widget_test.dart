@@ -1478,6 +1478,25 @@ void main() {
     final atRest = cap();
     expect(sink(atRest), 0);
     expect(housingFinder, findsOneWidget);
+    final housing = tester.widget<DecoratedBox>(housingFinder);
+    expect(
+      (housing.decoration as BoxDecoration).boxShadow,
+      isNull,
+      reason: 'one socket plus one cap must not look like stacked cards',
+    );
+    expect(
+      find.descendant(
+        of: find.byType(KeyWidget),
+        matching: find.byType(AnimatedScale),
+      ),
+      findsNothing,
+      reason: 'the fixed socket must not shrink with the moving cap',
+    );
+    expect(
+      (atRest.decoration! as BoxDecoration).boxShadow,
+      hasLength(1),
+      reason: 'a single restrained contact shadow is enough to describe depth',
+    );
     expect(
       atRest.constraints!.maxHeight,
       lessThan(80),
