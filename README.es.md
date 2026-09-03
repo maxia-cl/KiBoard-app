@@ -23,7 +23,7 @@ cabe vive en otra página.
 ## Estado
 
 **FP hasta F6 listas, F7 a medias.** `KiBoard-protocol` está fijado como submódulo de git en
-`KiBoard-protocol/`, tag `v0.3.0-f7`; `lib/ui/tokens.g.dart` se regenera desde ahí con
+`KiBoard-protocol/`, tag `v0.5.0`; `lib/ui/tokens.g.dart` se regenera desde ahí con
 `tool/generate-tokens.ps1` / `.sh` (Flutter no tiene un hook de prebuild como el de npm, así que es
 un paso manual después de mover el pin).
 

@@ -5,7 +5,7 @@ Este repositorio está configurado para generar una versión firmada para Google
 ## Identidad de la versión
 
 - ID de aplicación: `com.kiboard.kiboard_app`
-- Versión: `2.0.0` (`versionCode` 1)
+- Versión: `2.0.1` (`versionCode` 2)
 - SDK objetivo y de compilación: Android 16 / API 36
 - Artefacto: `build/app/outputs/bundle/release/app-release.aab`
 - Licencia: MIT
@@ -51,8 +51,11 @@ El workflow de tags necesita estos secretos de GitHub Actions:
 2. Activar Play App Signing con una clave de firma generada por Google.
 3. Subir `app-release.aab` primero a Prueba interna.
 4. Usar la URL pública de la política de privacidad indicada arriba.
-5. Completar Seguridad de los datos de forma coherente con la política: KiBoard no usa cuentas,
-   publicidad, analítica ni un backend propio. El emparejamiento queda en el dispositivo. El
+5. Completar Seguridad de los datos de forma coherente con la política. KiBoard no usa cuentas,
+   publicidad ni un backend propio. Declarar las interacciones de la app recopiladas para
+   analítica: el host Windows envía identificadores fijos y contexto general a Aptabase, nunca
+   nombres de apps, ventanas, dispositivos o tableros, etiquetas o acciones personalizadas, texto
+   ingresado, audio ni datos de emparejamiento. El emparejamiento queda en el dispositivo. El
    dictado invoca el reconocimiento de voz de Android y sólo envía el texto resultante al PC
    emparejado por la red local.
 6. Declarar el uso de micrófono para el dictado iniciado por el usuario al mantener pulsado.
@@ -71,8 +74,9 @@ Descripción completa:
 > automáticamente la aplicación que estás usando y muestra los controles correctos; el modo Manual
 > opcional permite crear tableros propios. Abre o enfoca aplicaciones, ejecuta atajos y macros,
 > controla OBS, usa un trackpad inalámbrico y dicta texto. El emparejamiento ocurre directamente en
-> la red local mediante una conexión cifrada, sin cuenta KiBoard, publicidad, analítica ni nube. El
-> host open source para Windows es obligatorio y está disponible en el repositorio de KiBoard.
+> la red local mediante una conexión cifrada, sin cuenta KiBoard, publicidad ni nube KiBoard. La
+> analítica anónima de interacciones se puede desactivar en Configuración. El host open source para
+> Windows es obligatorio y está disponible en el repositorio de KiBoard.
 
 Play Console todavía requiere cargar los recursos visuales: ícono, gráfico de funciones, al menos
 dos capturas de teléfono y capturas de tablet si se distribuye para tablets.

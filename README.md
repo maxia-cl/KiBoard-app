@@ -23,7 +23,7 @@ does not fit lives on another page.
 ## Status
 
 **FP through F6 done, F7 part-way.** `KiBoard-protocol` is pinned as a git submodule at
-`KiBoard-protocol/`, tag `v0.3.0-f7`; `lib/ui/tokens.g.dart` is regenerated from it with
+`KiBoard-protocol/`, tag `v0.5.0`; `lib/ui/tokens.g.dart` is regenerated from it with
 `tool/generate-tokens.ps1` / `.sh` (Flutter has no npm-style prebuild hook, so it is a manual step
 after moving the pin).
 
