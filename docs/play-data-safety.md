@@ -1,6 +1,6 @@
-# Google Play Data safety — KiBoard 2.0.1
+# Google Play Data safety — KiBoard 2.0.2
 
-Prepared from the actual KiBoard Host 2.0.1 traffic and the current Google Play definitions. Keep
+Prepared from the actual KiBoard Host 2.0.2 traffic and the current Google Play definitions. Keep
 this document aligned with `PRIVACY.md` and the host privacy policy.
 
 ## Collection and security

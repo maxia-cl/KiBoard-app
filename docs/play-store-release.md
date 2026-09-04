@@ -5,7 +5,7 @@ This repository is configured for a signed Google Play release.
 ## Release identity
 
 - Application ID: `com.kiboard.kiboard_app`
-- Version: `2.0.1` (`versionCode` 2)
+- Version: `2.0.2` (`versionCode` 3)
 - Target and compile SDK: Android 16 / API 36
 - Artifact: `build/app/outputs/bundle/release/app-release.aab`
 - License: MIT
@@ -77,12 +77,11 @@ Full description:
 > analytics can be disabled from Settings. The open-source Windows companion is required and is
 > available from the KiBoard GitHub repository.
 
-Release notes for `2.0.1`:
+Release notes for `2.0.2`:
 
-> KiBoard 2.0.1 introduces refreshed automatic decks, a smart Launcher with recent apps,
-> high-resolution icons, and a simpler Manual mode. Selecting or launching an app now takes you
-> straight to its deck. This release also improves connection stability and adds optional
-> anonymous interaction analytics in Settings. Requires KiBoard Host 2.0.1 for Windows.
+> KiBoard 2.0.2 improves button depth, contrast, and press feedback so the deck is clearer to use.
+> It includes refreshed automatic decks, a recent-app Launcher, high-resolution icons, and a
+> simpler Manual mode. Requires KiBoard Host 2.0.2 for Windows.
 
 ## Ready-to-upload graphics
 

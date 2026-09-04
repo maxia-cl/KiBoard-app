@@ -5,7 +5,7 @@ Este repositorio está configurado para generar una versión firmada para Google
 ## Identidad de la versión
 
 - ID de aplicación: `com.kiboard.kiboard_app`
-- Versión: `2.0.1` (`versionCode` 2)
+- Versión: `2.0.2` (`versionCode` 3)
 - SDK objetivo y de compilación: Android 16 / API 36
 - Artefacto: `build/app/outputs/bundle/release/app-release.aab`
 - Licencia: MIT
@@ -81,12 +81,12 @@ Descripción completa:
 > analítica anónima de interacciones se puede desactivar en Configuración. El host open source para
 > Windows es obligatorio y está disponible en el repositorio de KiBoard.
 
-Notas de la versión `2.0.1`:
+Notas de la versión `2.0.2`:
 
-> KiBoard 2.0.1 estrena tableros automáticos renovados, Launcher inteligente con aplicaciones
-> recientes, íconos en alta resolución y un modo Manual más simple. Al elegir o abrir una
-> aplicación, vuelves directamente a su tablero. También mejora la estabilidad de conexión y
-> añade analítica anónima opcional desde Configuración. Requiere KiBoard Host 2.0.1 para Windows.
+> KiBoard 2.0.2 mejora la profundidad, contraste y respuesta visual de los botones para que el
+> tablero sea más claro al tocarlo. Incluye los tableros automáticos renovados, Launcher de apps
+> recientes, íconos en alta resolución y un modo Manual más simple. Requiere KiBoard Host 2.0.2
+> para Windows.
 
 ## Recursos visuales listos
 

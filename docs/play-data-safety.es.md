@@ -1,6 +1,6 @@
-# Seguridad de datos de Google Play — KiBoard 2.0.1
+# Seguridad de datos de Google Play — KiBoard 2.0.2
 
-Respuesta preparada a partir del tráfico real de KiBoard Host 2.0.1 y de las definiciones vigentes
+Respuesta preparada a partir del tráfico real de KiBoard Host 2.0.2 y de las definiciones vigentes
 de Google Play. Debe mantenerse sincronizada con `PRIVACY.es.md` y con la política del host.
 
 ## Recopilación y seguridad
