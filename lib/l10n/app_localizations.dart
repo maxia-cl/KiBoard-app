@@ -578,6 +578,18 @@ abstract class AppLocalizations {
   /// **'Manual'**
   String get openManual;
 
+  /// No description provided for @privacyPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy policy'**
+  String get privacyPolicy;
+
+  /// No description provided for @privacyPolicyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'See how KiBoard handles your data.'**
+  String get privacyPolicyHint;
+
   /// No description provided for @buyCoffee.
   ///
   /// In en, this message translates to:

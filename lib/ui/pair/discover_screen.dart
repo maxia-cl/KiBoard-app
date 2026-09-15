@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../privacy.dart';
 
 import '../wordmark.dart';
 
@@ -339,6 +341,26 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                     t.dontSeeYourPc,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Color(DeckTokens.textSecondary)),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: () => launchUrl(
+                    Uri.parse(privacyPolicyUrl),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  icon: const Icon(
+                    Icons.privacy_tip_outlined,
+                    color: Color(DeckTokens.textSecondary),
+                    size: 18,
+                  ),
+                  label: Text(
+                    t.privacyPolicy,
+                    style: const TextStyle(
+                      color: Color(DeckTokens.textSecondary),
+                    ),
                   ),
                 ),
               ),

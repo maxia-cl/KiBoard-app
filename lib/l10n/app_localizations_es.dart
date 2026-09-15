@@ -280,6 +280,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get openManual => 'Manual';
 
   @override
+  String get privacyPolicy => 'Política de privacidad';
+
+  @override
+  String get privacyPolicyHint => 'Consulta cómo KiBoard trata tus datos.';
+
+  @override
   String get buyCoffee => 'Regálame un café';
 
   @override

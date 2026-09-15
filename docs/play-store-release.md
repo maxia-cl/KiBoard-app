@@ -5,11 +5,11 @@ This repository is configured for a signed Google Play release.
 ## Release identity
 
 - Application ID: `com.kiboard.kiboard_app`
-- Version: `2.0.2` (`versionCode` 3)
+- Version: `2.0.2` (`versionCode` 4)
 - Target and compile SDK: Android 16 / API 36
 - Artifact: `build/app/outputs/bundle/release/app-release.aab`
 - License: MIT
-- Privacy policy: <https://kiboard-control-deck.honest-pond-9855.chatgpt.site/privacy>
+- Privacy policy: <https://maxia-cl.github.io/legal/kiboard-privacy.html>
 
 The application ID is permanent after the first Play Store publication. Every later release must
 increase `versionCode` in `pubspec.yaml`.
@@ -48,7 +48,7 @@ The tag workflow needs these GitHub Actions secrets:
 1. Create KiBoard in Play Console and keep the existing application ID.
 2. Enrol in Play App Signing with a Google-generated app-signing key.
 3. Upload `app-release.aab` to Internal testing first.
-4. Use the public privacy-policy URL above after deploying the site.
+4. Use the public privacy-policy URL above.
 5. Complete Data safety consistently with the policy. KiBoard has no accounts, ads, or KiBoard
    cloud backend. Declare app interactions collected for analytics: the Windows host sends fixed
    event identifiers and coarse context to Aptabase, never custom labels, actions, entered text,

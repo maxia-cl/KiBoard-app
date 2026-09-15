@@ -5,11 +5,11 @@ Este repositorio está configurado para generar una versión firmada para Google
 ## Identidad de la versión
 
 - ID de aplicación: `com.kiboard.kiboard_app`
-- Versión: `2.0.2` (`versionCode` 3)
+- Versión: `2.0.2` (`versionCode` 4)
 - SDK objetivo y de compilación: Android 16 / API 36
 - Artefacto: `build/app/outputs/bundle/release/app-release.aab`
 - Licencia: MIT
-- Política de privacidad: <https://kiboard-control-deck.honest-pond-9855.chatgpt.site/privacidad>
+- Política de privacidad: <https://maxia-cl.github.io/legal/kiboard-privacy.html>
 
 El ID de aplicación queda permanente después de la primera publicación. Cada versión posterior
 debe aumentar el `versionCode` en `pubspec.yaml`.
@@ -50,7 +50,7 @@ El workflow de tags necesita estos secretos de GitHub Actions:
 1. Crear KiBoard en Play Console conservando el ID de aplicación actual.
 2. Activar Play App Signing con una clave de firma generada por Google.
 3. Subir `app-release.aab` primero a Prueba interna.
-4. Usar la URL pública de la política de privacidad indicada arriba, después de desplegar el sitio.
+4. Usar la URL pública de la política de privacidad indicada arriba.
 5. Completar Seguridad de los datos de forma coherente con la política. KiBoard no usa cuentas,
    publicidad ni un backend propio. Declarar las interacciones de la app recopiladas para
    analítica: el host Windows envía identificadores fijos y contexto general a Aptabase, nunca

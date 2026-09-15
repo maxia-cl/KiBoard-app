@@ -10,10 +10,10 @@
 - **Idiomas de ficha inicial:** español (Latinoamérica) e inglés (Estados Unidos).
 - **Categoría sugerida:** Productividad.
 - **Público objetivo:** 18 años o más; no diseñada para niños.
-- **Correo de soporte:** `PENDIENTE_DEFINIR_CORREO_REAL`.
+- **Correo de soporte:** `contacto@maxia.cl`.
 - **Soporte temporal verificable:** <https://github.com/maxia-cl/KiBoard-app/issues>.
-- **Sitio web:** <https://kiboard-control-deck.honest-pond-9855.chatgpt.site>.
-- **Privacidad:** <https://kiboard-control-deck.honest-pond-9855.chatgpt.site/privacidad>.
+- **Sitio web:** <https://maxia.cl/>.
+- **Privacidad:** <https://maxia-cl.github.io/legal/kiboard-privacy.html>.
 
 El correo no debe sustituirse por una dirección ficticia ni por el correo `noreply` de GitHub:
 Play Console lo muestra públicamente y debe recibir consultas reales.

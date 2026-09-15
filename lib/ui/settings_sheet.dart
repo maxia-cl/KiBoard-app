@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_localizations.dart';
 import '../net/layout_source.dart';
 import '../net/saved_session.dart';
+import '../privacy.dart';
 import '../settings.dart';
 import 'manual_screen.dart';
 import 'nav.dart';
@@ -241,6 +242,25 @@ Future<void> showSettingsSheet(
                     context,
                   ).push(screenRoute<void>(const ManualScreen()));
                 },
+              ),
+              const Divider(height: 1, color: Color(DeckTokens.surfaceBorder)),
+              ListTile(
+                leading: const Icon(
+                  Icons.privacy_tip_outlined,
+                  color: Color(DeckTokens.textSecondary),
+                ),
+                title: Text(t.privacyPolicy, style: _title),
+                subtitle: Text(
+                  t.privacyPolicyHint,
+                  style: const TextStyle(
+                    color: Color(DeckTokens.textSecondary),
+                    fontSize: 12,
+                  ),
+                ),
+                onTap: () => launchUrl(
+                  Uri.parse(privacyPolicyUrl),
+                  mode: LaunchMode.externalApplication,
+                ),
               ),
               const Divider(height: 1, color: Color(DeckTokens.surfaceBorder)),
               // The only way out of a PC the app can no longer reach. Everything else that clears a

@@ -115,6 +115,8 @@
   "languageSystem": "Phone's language",
   "manualTitle": "How KiBoard works",
   "openManual": "Manual",
+  "privacyPolicy": "Privacy policy",
+  "privacyPolicyHint": "See how KiBoard handles your data.",
   "buyCoffee": "Buy me a coffee",
   "coffeeHint": "KiBoard is free. If it saves you time, this keeps it going."
 }
